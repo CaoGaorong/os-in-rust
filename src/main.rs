@@ -11,10 +11,8 @@ pub extern "C" fn main() -> ! {
 
     for (i, &e) in hello.iter().enumerate() {
         unsafe {
-            // Output letter
-            ptr::write_volatile(vga_buffer.offset(i as isize), e);
-            // Set background color for the letter
-            ptr::write_volatile(vga_buffer.offset(i as isize + 1), 0xb);
+            *vga_buffer.offset(i as isize * 2) = e;
+            *vga_buffer.offset(i as isize * 2 + 1) = 0xb;
         }
     }
     loop {}
