@@ -3,5 +3,13 @@
 version = 3
 
 [[package]]
+name = "loader"
+version = "0.1.0"
+
+[[package]]
+name = "mbr"
+version = "0.1.0"
+
+[[package]]
 name = "os-in-rust"
 version = "0.1.0"

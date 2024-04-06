@@ -1,0 +1,33 @@
+###############################################################
+# bochsrc.txt file for DLX Linux disk image.
+###############################################################
+
+# how much memory the emulated machine will have
+megs: 32
+
+# filename of ROM images
+romimage: file=/opt/homebrew/Cellar/bochs/2.7/share/bochs/BIOS-bochs-latest
+vgaromimage: file=/opt/homebrew/Cellar/bochs/2.7/share/bochs/VGABIOS-lgpl-latest
+
+# what disk images will be used 
+floppya: 1_44=a.img, status=inserted
+# floppyb: 1_44=floppyb.img, status=inserted
+
+# choose the boot disk.
+boot: disk
+
+# where do we send log messages?
+log: bochsout.txt
+
+
+# disable the mouse, since DLX is text only
+mouse: enabled=0
+
+display_library: sdl2
+
+# keyboard: keymap=/opt/homebrew/Cellar/bochs/2.7/share/bochs/keymaps/x11-pc-us.map
+
+
+# hard disk
+ata0: enabled=1, ioaddr1=0x1f0, ioaddr2=0x3f0, irq=14
+ata0-master: type=disk, path="hd60M.img", mode=flat, cylinders=121, heads=16, spt=63

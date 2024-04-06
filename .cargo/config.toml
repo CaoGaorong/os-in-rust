@@ -5,8 +5,5 @@ build-std-features = ["compiler-builtins-mem"]
 [build]
 target = "os-in-rust.json"
 
-# [target.i386-unknown-none-code16]
-# rustflags = ["-C", "link-arg=-Tlinker.ld"]
-
 [profile.release]
 opt-level = "s"
