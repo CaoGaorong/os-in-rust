@@ -5,6 +5,10 @@ version = 3
 [[package]]
 name = "loader"
 version = "0.1.0"
+dependencies = [
+ "os_in_rust_common",
+ "volatile",
+]
 
 [[package]]
 name = "mbr"
@@ -13,3 +17,16 @@ version = "0.1.0"
 [[package]]
 name = "os-in-rust"
 version = "0.1.0"
+
+[[package]]
+name = "os_in_rust_common"
+version = "0.1.0"
+dependencies = [
+ "volatile",
+]
+
+[[package]]
+name = "volatile"
+version = "0.2.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f6b06ad3ed06fef1713569d547cdbdb439eafed76341820fb0e0344f29a41945"

@@ -1,0 +1,10 @@
+[package]
+name = "os_in_rust_common"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+volatile = "0.2.6"
+
+[profile.release]
+opt-level = "s"

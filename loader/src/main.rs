@@ -2,19 +2,20 @@
 #![no_main]
 
 use core::panic::PanicInfo;
+use os_in_rust_common::vga:: {Writer, CharAttr, Color, ScreenBuffer};
 
 #[no_mangle]
 #[link_section = ".start"]
 pub extern "C" fn _start() {
-    let hello = b"I'm Loader";
-    let vga_buffer = 0xb8000 as *mut u8;
+    let mut writer = Writer::new(unsafe { &mut *(0xb8000 as *mut ScreenBuffer) }, CharAttr::new(Color::White, Color::Black, false));
 
-    for (i, &e) in hello.iter().enumerate() {
-        unsafe {
-            *vga_buffer.offset(i as isize * 2) = e;
-            *vga_buffer.offset(i as isize * 2 + 1) = 0xb;
-        }
+    for i in 0 .. 2000 {
+        writer.write_byte(b'a');
     }
+    for i in  0 .. 10 {
+        writer.write_string("Hello, world");
+    }
+    
     loop {}
 }
 
