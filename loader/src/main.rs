@@ -3,6 +3,7 @@
 
 use core::panic::PanicInfo;
 use os_in_rust_common::vga:: {Writer, CharAttr, Color, ScreenBuffer};
+mod GDT;
 
 #[no_mangle]
 #[link_section = ".start"]
