@@ -21,10 +21,26 @@ mod tests {
 
     #[test]
     fn segement_decriptor() {
-        let base_addr:u32 = 0xffff0000;
-        let seg_limit = 0xff;
+        let base_addr:u32 = 0x00000000;
+        let seg_limit = 0xfffff;
         let granularity = gdt::Granularity::new(gdt::GranularityEnum::Unit4KB);
-        let dpl = gdt::SegmentDPL::LEVEL0;
-        gdt::SegmentDescritor::new(base_addr, seg_limit, granularity, dpl, present, seg_type, avl, l, db)
+        // 代码段
+        let code_segment = gdt::SegmentDescritor::new(
+            base_addr, 
+            seg_limit, 
+            granularity, 
+            gdt::SegmentDPL::LEVEL0, 
+            true, 
+            gdt::SegmentType::NormalCodeSegment, 
+            false, 
+            false, 
+            true
+        );
+        let code_segment_data = unsafe{(*(&code_segment as *const gdt::SegmentDescritor as *const u64)) as u64};
+        println!("0x{:x}", code_segment_data);
+        // 我期待的代码段
+        let expected_code_seg:u64 = 0b00000000110011111001100000000000<<32 | 0x0000FFFF;
+        println!("0x{:x}", expected_code_seg);
+        assert_eq!(expected_code_seg, code_segment_data);
     }
 }

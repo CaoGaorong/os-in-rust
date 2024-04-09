@@ -39,14 +39,16 @@ impl SegmentDescritor {
      * present：是否在内存中存在
      * seg_type： 段类型
      * avl：是否可用
+     * l: 是否长模式64位
      * db：偏移地址和操作数大小是否为32位
+     * <https://wiki.osdev.org/Global_Descriptor_Table>
      */
     pub fn new(seg_base_addr: u32, seg_limit: u32, granularity: Granularity, dpl: SegmentDPL, present: bool, seg_type: SegmentType, avl: bool, l: bool, db: bool) -> Self{
         let type_s_val = ((seg_type as u8) & 0b11111) as u8;
         let dpl_val = dpl as u8;
         let p_val:u8 = present.into();
 
-        let seg_limit_16_20_val = ((seg_limit << 16) & 0b11111) as u8;
+        let seg_limit_16_20_val = ((seg_limit & 0b111110000000000000000) >> 16) as u8;
         let avl_val:u8 = avl.into();
         let l_val:u8 = l.into();
         let db_val:u8 = db.into();
@@ -103,8 +105,26 @@ pub enum SegmentDPL {
 
 /**
  * 段的类型
+ * <https://wiki.osdev.org/Global_Descriptor_Table>
  */
 pub enum SegmentType {
-
+    /**
+     * 普通代码段
+     * 1: s字段；非系统段
+     * 1: e字段；可执行代码段
+     * 0: dc字段；非一致性代码段
+     * 0: rw字段；不可读写段
+     * 0: a字段；
+     */
+    NormalCodeSegment = 0b11000,
+    /**
+     * 普通数据段
+     * 1: s字段；非系统段 
+     * 0: e字段；不可执行
+     * 0: dc字段；非一致性代码段
+     * 1: rw字段；可读写数据段
+     * 0: a字段
+     */
+    NormalDataSegment = 0b10010,
 }
 
