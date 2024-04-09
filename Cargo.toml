@@ -7,7 +7,7 @@ edition = "2021"
 
 
 [workspace]
-members = ["mbr", "loader", "common"]
+members = ["mbr", "loader", "common", "tests"]
 
 
 [workspace.package]

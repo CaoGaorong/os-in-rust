@@ -168,7 +168,7 @@ impl Writer {
 
     pub fn write_string(&mut self, s: &str) {
         for byte in s.bytes() {
-            if (b'\n' == byte) {
+            if b'\n' == byte {
                 self._new_line();
                 continue;
             }
