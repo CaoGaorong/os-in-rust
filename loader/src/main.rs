@@ -3,7 +3,8 @@
 
 use core::panic::PanicInfo;
 use os_in_rust_common::vga:: {Writer, CharAttr, Color, ScreenBuffer};
-use os_in_rust_common::gdt::SegmentDescritor;
+use os_in_rust_common::sd::SegmentDescritor;
+use os_in_rust_common::gdt::GlobalDecriptorTable;
 
 #[no_mangle]
 #[link_section = ".start"]

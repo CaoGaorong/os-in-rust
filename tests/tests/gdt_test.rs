@@ -1,7 +1,7 @@
 
 #[cfg(test)]
 mod tests {
-    use os_in_rust_common::gdt;
+    use os_in_rust_common::sd;
 
     #[test]
     fn left_shift() {
@@ -23,20 +23,20 @@ mod tests {
     fn segement_decriptor() {
         let base_addr:u32 = 0x00000000;
         let seg_limit = 0xfffff;
-        let granularity = gdt::Granularity::new(gdt::GranularityEnum::Unit4KB);
+        let granularity = sd::Granularity::new(sd::GranularityEnum::Unit4KB);
         // 代码段
-        let code_segment = gdt::SegmentDescritor::new(
+        let code_segment = sd::SegmentDescritor::new(
             base_addr, 
             seg_limit, 
             granularity, 
-            gdt::SegmentDPL::LEVEL0, 
+            sd::SegmentDPL::LEVEL0, 
             true, 
-            gdt::SegmentType::NormalCodeSegment, 
+            sd::SegmentType::NormalCodeSegment, 
             false, 
             false, 
             true
         );
-        let code_segment_data = unsafe{(*(&code_segment as *const gdt::SegmentDescritor as *const u64)) as u64};
+        let code_segment_data = unsafe{(*(&code_segment as *const sd::SegmentDescritor as *const u64)) as u64};
         println!("0x{:x}", code_segment_data);
         // 我期待的代码段
         let expected_code_seg:u64 = 0b00000000110011111001100000000000<<32 | 0x0000FFFF;
