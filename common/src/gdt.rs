@@ -1,4 +1,4 @@
-use alloc::str;
+use core::mem::size_of;
 
 use crate::sd::{Granularity, GranularityEnum, SegmentDPL, SegmentDescritor, SegmentType};
 
@@ -27,16 +27,17 @@ pub struct GlobalDecriptorTable {
 
 /**
  * 加载到GDTR的数据
+ * GDTR的结构
  */
-pub struct GDTPointer {
+pub struct GDTR {
+    /**
+     * 指向全局描述符表的起始地址
+     */
+    gdt_ptr: *const GlobalDecriptorTable,
     /**
      * 全局描述符表的大小。表中元素的个数
      */
     gdt_limit: u16,
-    /**
-     * 指向全局描述符表的指针
-     */
-    gdt_ptr: *const GlobalDecriptorTable,
 }
 
 impl GlobalDecriptorTable {
@@ -78,6 +79,12 @@ impl GlobalDecriptorTable {
             zero: zero_seg,
             code_seg: code_segment,
             data_seg: data_segment,
+        }
+    }
+    pub fn compose_gdtr(&'static self) -> GDTR {
+        GDTR{
+            gdt_ptr: self as *const GlobalDecriptorTable,
+            gdt_limit: (size_of::<GlobalDecriptorTable>() / size_of::<SegmentDescritor>()) as u16
         }
     }
 }

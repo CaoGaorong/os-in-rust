@@ -1,7 +1,12 @@
 
 #[cfg(test)]
 mod tests {
+    use std::slice;
+
+    use os_in_rust_common::gdt::GlobalDecriptorTable;
+    use os_in_rust_common::gdt::GDTR;
     use os_in_rust_common::sd;
+    use os_in_rust_common::gdt;
 
     #[test]
     fn left_shift() {
@@ -42,5 +47,14 @@ mod tests {
         let expected_code_seg:u64 = 0b00000000110011111001100000000000<<32 | 0x0000FFFF;
         println!("0x{:x}", expected_code_seg);
         assert_eq!(expected_code_seg, code_segment_data);
+    }
+
+    static  gdt: GlobalDecriptorTable = gdt::GlobalDecriptorTable::new();
+    #[test]
+    fn gdt_test() {
+
+        println!("gdt address:{:p}", (&gdt as *const GlobalDecriptorTable));
+        let gdtr =  gdt.compose_gdtr();
+        println!("{}", unsafe{*(&gdtr as *const GDTR as *const u64)})
     }
 }
