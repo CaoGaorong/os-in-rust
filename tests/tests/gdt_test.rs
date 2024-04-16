@@ -50,6 +50,12 @@ mod tests {
     }
 
     static  gdt: GlobalDecriptorTable = gdt::GlobalDecriptorTable::new();
+    #[test] 
+    fn video_seg_test() {
+        let segment = gdt.video_seg;
+        let segment_data = unsafe{(*(&segment as *const sd::SegmentDescritor as *const u64)) as u64};
+        println!("0x{:x}", segment_data);
+    }
     #[test]
     fn gdt_test() {
 

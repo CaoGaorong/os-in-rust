@@ -13,16 +13,21 @@ pub struct GlobalDecriptorTable {
     /**
      * 0号描述符
      */
-    zero: SegmentDescritor,
+    pub zero: SegmentDescritor,
 
     /**
      * 代码段描述符
      */
-    code_seg: SegmentDescritor,
+    pub code_seg: SegmentDescritor,
     /**
      * 数据段描述符
      */
-    data_seg: SegmentDescritor,
+    pub data_seg: SegmentDescritor,
+
+    /**
+     * 视频段描述符
+     */
+    pub video_seg: SegmentDescritor,
 }
 
 /**
@@ -71,6 +76,21 @@ impl GlobalDecriptorTable {
             true,
         );
 
+        // 数据段
+        let video_segment = SegmentDescritor::new(
+            0xb8000,
+            0x7,
+            granularity,
+            SegmentDPL::LEVEL0,
+            true,
+            SegmentType::NormalDataSegment,
+            false,
+            false,
+            true,
+        );
+
+        
+
         // 第0个描述符，全部都是0
         let zero_val: u64 = 0;
         let zero_seg = unsafe { *(&zero_val as *const u64 as *const SegmentDescritor) };
@@ -79,6 +99,7 @@ impl GlobalDecriptorTable {
             zero: zero_seg,
             code_seg: code_segment,
             data_seg: data_segment,
+            video_seg: video_segment
         }
     }
     pub fn compose_gdtr(&'static self) -> GDTR {

@@ -1,7 +1,7 @@
 # 在rust里面使用makefile，确实很奇怪，但是makefile写起来很快，比写build.rs快。所以先这么写着吧
 
 hd60M.img:
-	cp empty60M.img build/hd60M.img
+	cp emtpy60M.img build/hd60M.img
 
 mbr.bin:
 	cd mbr && \
@@ -14,7 +14,7 @@ loader.bin:
 	cargo build --release && \
 	cd .. && \
 	x86_64-linux-gnu-objcopy -I elf64-x86-64 -O binary target/loader/release/loader build/loader.bin
-hd: mbr.bin loader.bin
+hd: hd60M.img mbr.bin loader.bin
 	dd if=build/mbr.bin  of=build/hd60M.img bs=512 count=1 conv=notrunc && \
 	dd if=build/loader.bin of=build/hd60M.img bs=512 count=4 seek=2 conv=notrunc
 
