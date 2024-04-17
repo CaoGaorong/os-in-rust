@@ -6,17 +6,14 @@ use os_in_rust_common::vga:: {Writer, CharAttr, Color, ScreenBuffer};
 use os_in_rust_common::sd::SegmentDescritor;
 use os_in_rust_common::gdt::GlobalDecriptorTable;
 
+static GDT: GlobalDecriptorTable = GlobalDecriptorTable::new();
+
 #[no_mangle]
 #[link_section = ".start"]
 pub extern "C" fn _start() {
-    let mut writer = Writer::new(unsafe { &mut *(0xb8000 as *mut ScreenBuffer) }, CharAttr::new(Color::White, Color::Black, false));
-
-    for i in 0 .. 2000 {
-        writer.write_byte(b'a');
-    }
-    for i in  0 .. 10 {
-        writer.write_string("Hello, world");
-    }
+    // 加载GDTR
+    GDT.load_gdtr();
+    
     
     loop {}
 }

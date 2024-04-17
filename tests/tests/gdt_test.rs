@@ -61,6 +61,12 @@ mod tests {
 
         println!("gdt address:{:p}", (&gdt as *const GlobalDecriptorTable));
         let gdtr =  gdt.compose_gdtr();
-        println!("{}", unsafe{*(&gdtr as *const GDTR as *const u64)})
+        let pointer = &gdtr as *const GDTR as *const u8;
+        println!("0x{:x}", unsafe{*(pointer.offset(0))});
+        println!("0x{:x}", unsafe{*(pointer.offset(1))});
+        println!("0x{:x}", unsafe{*(pointer.offset(2))});
+        println!("0x{:x}", unsafe{*(pointer.offset(3))});
+        println!("0x{:x}", unsafe{*(pointer.offset(4))});
+        println!("0x{:x}", unsafe{*(pointer.offset(5))});
     }
 }

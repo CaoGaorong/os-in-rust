@@ -1,8 +1,7 @@
-use core::mem::size_of;
+use core::{arch::asm, mem::size_of};
 
 use crate::sd::{Granularity, GranularityEnum, SegmentDPL, SegmentDescritor, SegmentType};
 
-static GDT: GlobalDecriptorTable = GlobalDecriptorTable::new();
 
 /**
  * 全局描述符表
@@ -34,15 +33,17 @@ pub struct GlobalDecriptorTable {
  * 加载到GDTR的数据
  * GDTR的结构
  */
+#[repr(C, packed)]
 pub struct GDTR {
-    /**
-     * 指向全局描述符表的起始地址
-     */
-    gdt_ptr: *const GlobalDecriptorTable,
     /**
      * 全局描述符表的大小。表中元素的个数
      */
     gdt_limit: u16,
+
+    /**
+     * 指向全局描述符表的起始地址
+     */
+    gdt_ptr: *const GlobalDecriptorTable,
 }
 
 impl GlobalDecriptorTable {
@@ -104,8 +105,17 @@ impl GlobalDecriptorTable {
     }
     pub fn compose_gdtr(&'static self) -> GDTR {
         GDTR{
+            gdt_limit: (size_of::<GlobalDecriptorTable>() / size_of::<SegmentDescritor>()) as u16,
             gdt_ptr: self as *const GlobalDecriptorTable,
-            gdt_limit: (size_of::<GlobalDecriptorTable>() / size_of::<SegmentDescritor>()) as u16
+        }
+    }
+
+    pub fn load_gdtr(&'static self) {
+        // 得到GDTR的内容
+        let gdtr = self.compose_gdtr();
+        // 加载到GDTR寄存器c
+        unsafe {
+            asm!("cli", "lgdt [{}]", in(reg) &gdtr, options(readonly, nostack, preserves_flags));
         }
     }
 }
