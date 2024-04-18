@@ -105,26 +105,24 @@ impl GlobalDecriptorTable {
     }
     pub fn compose_gdtr(&'static self) -> GDTR {
         GDTR{
-            gdt_limit: (size_of::<GlobalDecriptorTable>() / size_of::<SegmentDescritor>()) as u16,
+            gdt_limit: (size_of::<GlobalDecriptorTable>()) as u16,
             gdt_ptr: self as *const GlobalDecriptorTable as u32,
-        }
-    }
-
-    pub fn load_gdtr(&'static self) {
-        // 得到GDTR的内容
-        let gdtr = self.compose_gdtr();
-        // 加载到GDTR寄存器c
-        unsafe {
-            asm!("cli", "lgdt [{}]", in(reg) &gdtr, options(readonly, nostack, preserves_flags));
-        }
-        set_protected_mode_bit();
-        // load GDT
-        unsafe {
-            asm!("mov {0}, 0x20", "mov ds, {0}", "mov ss, {0}", out(reg) _);
         }
     }
 }
 
+pub fn load_gdtr(gdtr_addr: &GDTR) {
+    // 加载到GDTR寄存器c
+    unsafe {
+        asm!("cli", "lgdt [{}]", in(reg) gdtr_addr, options(readonly, nostack, preserves_flags));
+    }
+    set_protected_mode_bit();
+    // load GDT
+    unsafe {
+        asm!("mov {0}, 0x10", "mov ds, {0}", "mov ss, {0}", out(reg) _);
+    }
+
+}
 fn set_protected_mode_bit() -> u32 {
     let mut cr0: u32;
     unsafe {
