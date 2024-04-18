@@ -14,6 +14,11 @@ pub extern "C" fn _start() {
     // 加载GDTR
     GDT.load_gdtr();
     
+    unsafe {
+        let vga_buffer = 0xb8000 as *mut u8;
+        *vga_buffer.offset(0 as isize * 2) = b'I';
+        *vga_buffer.offset(0 as isize * 2 + 1) = 0xb;
+    }
     
     loop {}
 }

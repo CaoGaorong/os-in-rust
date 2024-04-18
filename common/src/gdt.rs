@@ -43,7 +43,7 @@ pub struct GDTR {
     /**
      * 指向全局描述符表的起始地址
      */
-    gdt_ptr: *const GlobalDecriptorTable,
+    gdt_ptr: u32,
 }
 
 impl GlobalDecriptorTable {
@@ -106,7 +106,7 @@ impl GlobalDecriptorTable {
     pub fn compose_gdtr(&'static self) -> GDTR {
         GDTR{
             gdt_limit: (size_of::<GlobalDecriptorTable>() / size_of::<SegmentDescritor>()) as u16,
-            gdt_ptr: self as *const GlobalDecriptorTable,
+            gdt_ptr: self as *const GlobalDecriptorTable as u32,
         }
     }
 
@@ -117,5 +117,24 @@ impl GlobalDecriptorTable {
         unsafe {
             asm!("cli", "lgdt [{}]", in(reg) &gdtr, options(readonly, nostack, preserves_flags));
         }
+        set_protected_mode_bit();
+        // load GDT
+        unsafe {
+            asm!("mov {0}, 0x20", "mov ds, {0}", "mov ss, {0}", out(reg) _);
+        }
     }
+}
+
+fn set_protected_mode_bit() -> u32 {
+    let mut cr0: u32;
+    unsafe {
+        asm!("mov {:e}, cr0", out(reg) cr0, options(nomem, nostack, preserves_flags));
+    }
+    let cr0_protected = cr0 | 1;
+    write_cr0(cr0_protected);
+    cr0
+}
+
+fn write_cr0(val: u32) {
+    unsafe { asm!("mov cr0, {:e}", in(reg) val, options(nostack, preserves_flags)) };
 }
