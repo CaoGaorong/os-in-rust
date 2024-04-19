@@ -4,4 +4,6 @@
 pub mod vga;
 pub mod sd;
 pub mod gdt;
-mod GDT;
+pub mod reg_cr0;
+pub mod selector;
+pub mod interrupt;

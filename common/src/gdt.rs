@@ -1,8 +1,6 @@
 use core::{arch::asm, mem::size_of};
 
 use crate::sd::{Granularity, GranularityEnum, SegmentDPL, SegmentDescritor, SegmentType};
-
-
 /**
  * 全局描述符表
  */
@@ -109,30 +107,16 @@ impl GlobalDecriptorTable {
             gdt_ptr: self as *const GlobalDecriptorTable as u32,
         }
     }
+    /**
+     * 加载全局描述符表到GDTR寄存器
+     */
+    pub fn load_gdtr(&'static self) {
+        let gdtr = self.compose_gdtr();
+        // 加载到GDTR寄存器c
+        unsafe {
+            asm!("cli", "lgdt [{}]", in(reg) &gdtr, options(readonly, nostack, preserves_flags));
+        }
+    }
 }
 
-pub fn load_gdtr(gdtr_addr: &GDTR) {
-    // 加载到GDTR寄存器c
-    unsafe {
-        asm!("cli", "lgdt [{}]", in(reg) gdtr_addr, options(readonly, nostack, preserves_flags));
-    }
-    set_protected_mode_bit();
-    // load GDT
-    unsafe {
-        asm!("mov {0}, 0x10", "mov ds, {0}", "mov ss, {0}", out(reg) _);
-    }
 
-}
-fn set_protected_mode_bit() -> u32 {
-    let mut cr0: u32;
-    unsafe {
-        asm!("mov {:e}, cr0", out(reg) cr0, options(nomem, nostack, preserves_flags));
-    }
-    let cr0_protected = cr0 | 1;
-    write_cr0(cr0_protected);
-    cr0
-}
-
-fn write_cr0(val: u32) {
-    unsafe { asm!("mov cr0, {:e}", in(reg) val, options(nostack, preserves_flags)) };
-}
