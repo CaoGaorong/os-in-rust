@@ -8,4 +8,4 @@ target = "loader.json"
 [profile.release]
 opt-level = "s"
 lto=true
-# debug=true
+debug=true

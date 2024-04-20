@@ -1,3 +1,5 @@
+use core::fmt;
+
 /**
  * 这里实现一个往0x8b000写入数据的writer
  * 关于如何在屏幕中输出字符，可以看文档<https://en.wikipedia.org/wiki/VGA_text_mode>
@@ -13,6 +15,28 @@
  * 15 bits: 是否闪烁
  */
 use volatile::Volatile;
+use spin::Mutex;
+use lazy_static::lazy_static;
+
+// #[macro_export]
+// macro_rules! print {
+//     ($($arg:tt)*) => ($crate::vga::_print(format_args!($($arg)*)));
+// }
+
+// #[macro_export]
+// macro_rules! println {
+//     () => ($crate::print!("\n"));
+//     ($($arg:tt)*) => ($crate::print!("{}\n", format_args!($($arg)*)));
+// }
+
+// #[doc(hidden)]
+// pub fn _print(args: fmt::Arguments) {
+//     use core::fmt::Write;
+//     WRITER.lock().write_fmt(args).unwrap();
+// }
+
+
+
 /**
  * 定义字体颜色枚举
  */
@@ -134,7 +158,7 @@ impl Writer {
         self._clear_row(max_height);
     }
     fn _clear_row(&mut self, row_idx: usize) {
-        let mut buffer = self.buffer.buffer.as_mut();
+        let buffer = self.buffer.buffer.as_mut();
         if buffer.is_empty() {
             return;
         }
@@ -152,7 +176,6 @@ impl Writer {
      */
     fn _cursor_next(&mut self) {
         let max_width = self.buffer.buffer[0].len() - 1;
-        let max_height = self.buffer.buffer.len() - 1;
         // 到最后一列，换行
         if self.col_pos == max_width {
             self._new_line();
@@ -162,7 +185,8 @@ impl Writer {
     }
 
     pub fn write_byte(&mut self, data: u8) {
-        self.buffer.buffer[self.row_pos][self.col_pos].write(SingleChar::new(data, self.default_attr));
+        self.buffer.buffer[self.row_pos][self.col_pos]
+            .write(SingleChar::new(data, self.default_attr));
         self._cursor_next();
     }
 
@@ -174,5 +198,13 @@ impl Writer {
             }
             self.write_byte(byte);
         }
+    }
+}
+
+
+impl fmt::Write for Writer {
+    fn write_str(&mut self, s: &str) -> fmt::Result {
+        self.write_string(s);
+        Ok(())
     }
 }

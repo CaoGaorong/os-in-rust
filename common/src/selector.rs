@@ -35,6 +35,6 @@ pub fn load_data_selector() {
     let data_selector = SegmentSelector::Data0Selector as u16;
     // load GDT
     unsafe {
-        asm!("mov ds, {0:x}", "mov ss, {0:x}", in(reg) data_selector);
+        asm!("mov ds, {0:x}", "mov ss, {0:x}", "mov es, {0:x}", in(reg) data_selector);
     }
 }
