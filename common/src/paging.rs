@@ -15,19 +15,23 @@ use crate::{println, utils};
 const PAGE_ENTRY_COUNT: usize = 1024;
 
 
-lazy_static! {
+// lazy_static! {
 
 /**
  * 页目录表
 */
     #[no_mangle]
     #[link_section = ".page_dir"]
-    pub static ref PAGE_DIRECTORY: RacyCell<PageTable> = RacyCell::new(PageTable::empty());
+    static  PAGE_DIRECTORY: RacyCell<PageTable> = RacyCell::new(PageTable::empty());
 
     #[no_mangle]
     #[link_section = ".page_table_list"]
-    pub static ref PAGE_TABLE_LIST: [PageTable; PAGE_ENTRY_COUNT] = [PageTable::empty(); PAGE_ENTRY_COUNT];
+    static mut PAGE_TABLE_LIST: [PageTable; PAGE_ENTRY_COUNT] = [PageTable::empty(); PAGE_ENTRY_COUNT];
 
+// }
+
+fn get_table_ref(idx: usize) -> &'static mut PageTable {
+    unsafe { &mut PAGE_TABLE_LIST[idx] }
 }
 
 
@@ -38,8 +42,8 @@ lazy_static! {
  * 只填充0和768项。指向0号页表
  */
 #[no_mangle]
-pub fn fill_table_directory() {
-    let page_table0 = PageTableEntry::new_default(&PAGE_TABLE_LIST[0] as *const _ as u32);
+pub fn  fill_table_directory() {
+    let page_table0 = PageTableEntry::new_default(get_table_ref(0) as *const _ as u32);
     
     let dir_table_ref = unsafe { PAGE_DIRECTORY.get_mut() };
 
@@ -55,17 +59,18 @@ pub fn fill_table_directory() {
  * 填充内核页目录项。
  * 填充从769到1022项
  */
+#[no_mangle]
 pub fn fill_kernel_directory() {
     // 2号页表 
     let directory_table_ref = unsafe {
         PAGE_DIRECTORY.get_mut()
     };
-    let mut page_table_idx = 2;
-    for idx in 769 .. 1023 {
-        // 找到2号页表
-        let page_table = PAGE_TABLE_LIST[page_table_idx];
-        // 把2号页表的地址，赋值给第idx页目录项
-        directory_table_ref.set_entry(idx, PageTableEntry::new_default(&page_table as *const PageTable as u32));
+    let mut page_table_idx = 1;
+    for idx in 769 .. PAGE_ENTRY_COUNT - 1 {
+        // 找到page_table_idx号页表
+        let page_idx_addr = get_table_ref(page_table_idx);
+        // 把page_table_idx号页表的地址，赋值给第idx页目录项
+        directory_table_ref.set_entry(idx, PageTableEntry::new_default(page_idx_addr as *const PageTable as u32));
         page_table_idx += 1;
     }
 }
@@ -73,16 +78,18 @@ pub fn fill_kernel_directory() {
 /**
  * 填充0号页表
  */
-pub fn fill_table0() {
+#[inline]
+#[no_mangle]
+pub fn fill_table0(){
     // 一个页表项，指向4KB的物理空间
     const PAGE_SIZE: u32 = 4 * 1024;
+    let page_table_0 = get_table_ref(0);
+
     // 0号页表
-    let page_table0 = PAGE_TABLE_LIST[0];
-    let cell  = RacyCell::new(page_table0);
     for i in 0 .. 1024 {
         // 页表，指向从0开始的低端地址。
         let entry = PageTableEntry::new_default(i * PAGE_SIZE);
-        unsafe { cell.get_mut().set_entry(i as usize, entry) }
+        page_table_0.set_entry(i as usize, entry);
     }
 }
 

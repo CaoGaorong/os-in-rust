@@ -16,7 +16,7 @@ pub extern "C" fn _start() {
     paging::fill_table_directory();
     paging::fill_kernel_directory();
     paging::fill_table0();
-    println!("fill table directory");
+    println!("fill table directory:");
     loop {}
 }
 
