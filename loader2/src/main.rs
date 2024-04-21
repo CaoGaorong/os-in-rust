@@ -14,6 +14,8 @@ mod protect_mode;
 pub extern "C" fn _start() {
     // println!("loader2 entered");
     paging::fill_table_directory();
+    paging::fill_kernel_directory();
+    paging::fill_table0();
     println!("fill table directory");
     loop {}
 }

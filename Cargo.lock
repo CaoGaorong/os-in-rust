@@ -59,6 +59,7 @@ version = "0.1.0"
 name = "os_in_rust_common"
 version = "0.1.0"
 dependencies = [
+ "lazy_static",
  "spin 0.9.8",
  "volatile",
 ]
