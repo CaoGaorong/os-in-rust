@@ -1,39 +1,55 @@
 #![no_std]
 #![no_main]
 
-use core::panic::PanicInfo;
+use core::{arch::asm, panic::PanicInfo};
+mod protect_mode;
+use os_in_rust_common::{dap, selector::{SegmentSelector}, println, vga::{self, CharAttr, Color, ScreenBuffer, Writer}};
+/**
+ * loader的地址，加载到0x900
+ */
+static LOADER_ADDR: u32 = 0x1000;
 
-use os_in_rust_common::vga::{self, CharAttr, Color, ScreenBuffer, Writer};
-// use core::fmt::Write;
-// use os_in_rust_common::{gdt::GlobalDecriptorTable, interrupt, reg_cr0, selector, vga:: {self, CharAttr, Color, ScreenBuffer, Writer, WRITER}};
-// mod protect_mode;
-// mod paging;
+/**
+ * loader占用的扇区数量，4个扇区
+ */
+static LOADER_SECTOR_CNT: u16 = 4;
+
+/**
+ * loader所在硬盘的LBA地址
+ */
+static LOADER_LBA: u64 = 6;
 
 #[no_mangle]
 #[link_section = ".start"]
 pub extern "C" fn _start() {
-    let mut writer = Writer::new(
-        unsafe { &mut *(0xb8000 as *mut ScreenBuffer) },
-        CharAttr::new(Color::White, Color::Black, false));
-    writer.write_string("fuck");
-    // unsafe{WRITER.lock().write_string("FUck");}
-    // WRITER.lock().write_string("FUck");
-    // println!("Hello, World");
-    // write!(writer, "The numbers are {} and {}", 42, 1.0/3.0);
-    // 进入保护模式
-    // protect_mode::enter_protect_mode();
+    // 取Loader加载到内存地址的高16位
+    let loader_seg_addr = (LOADER_ADDR >> 16) as u16;
+    // 取loader加载到的内存地址的第16位
+    let loader_offset_addr = LOADER_ADDR as u16;
 
-    // writer.write_string("start\n");
-    // // 填充页目录表
-    // let r = paging::fill_table_directory();
-    // writer.write_string("end\n");
+    // 构建Disk Packet Address
+    let dap_structre = dap::DiskPacketAddress::new(
+        LOADER_LBA,
+        LOADER_SECTOR_CNT,
+        loader_seg_addr,
+        loader_offset_addr,
+    );
 
+    // 开始执行，把硬盘的数据加载到内存
+    unsafe {
+        dap_structre.do_load();
+    }
 
+    // let loader_entry: extern "C" fn() = unsafe { core::mem::transmute(LOADER_ADDR as *const ()) };
+    protect_mode::enter_protect_mode();
+    let selector = SegmentSelector::Code0Selector as u16;
+    unsafe {
+        asm!(
+            "jmp 0x8, 0x1000"
+        );
+    }
 
-    // writer.write_byte(r as u8);
-    // writer.write_string("Fuck YOU ");
-
-    loop {}
+    // loader_entry();
 }
 
 #[panic_handler]

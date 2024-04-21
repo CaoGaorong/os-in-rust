@@ -14,13 +14,21 @@ loader.bin:
 	cargo build --release && \
 	cd .. && \
 	x86_64-linux-gnu-objcopy -I elf64-x86-64 -O binary target/loader/release/loader build/loader.bin
-hd: hd60M.img mbr.bin loader.bin
+
+loader2.bin:
+	cd loader2 && \
+	cargo build --release && \
+	cd .. && \
+	x86_64-linux-gnu-objcopy -I elf64-x86-64 -O binary target/loader2/release/loader2 build/loader2.bin
+
+hd: hd60M.img mbr.bin loader.bin loader2.bin
 	dd if=build/mbr.bin  of=build/hd60M.img bs=512 count=1 conv=notrunc && \
 	dd if=build/loader.bin of=build/hd60M.img bs=512 count=4 seek=2 conv=notrunc
+	dd if=build/loader2.bin of=build/hd60M.img bs=512 count=4 seek=6 conv=notrunc
 
-build: hd mbr.bin loader.bin
+build: hd mbr.bin loader.bin loader2.bin
 
-run: hd mbr.bin loader.bin
+run: build
 	qemu-system-x86_64 -drive format=raw,file=build/hd60M.img --full-screen
 
 clean: 

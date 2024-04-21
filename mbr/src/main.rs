@@ -2,7 +2,8 @@
 #![no_main]
 
 use core::{arch::global_asm, panic::PanicInfo};
-mod dap;
+
+use os_in_rust_common::dap;
 
 global_asm!(include_str!("boot.s"));
 

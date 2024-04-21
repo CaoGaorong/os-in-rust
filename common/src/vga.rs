@@ -1,4 +1,4 @@
-use core::fmt;
+use core::fmt::{self, Write};
 
 /**
  * 这里实现一个往0x8b000写入数据的writer
@@ -15,27 +15,36 @@ use core::fmt;
  * 15 bits: 是否闪烁
  */
 use volatile::Volatile;
-use spin::Mutex;
-use lazy_static::lazy_static;
 
-// #[macro_export]
-// macro_rules! print {
-//     ($($arg:tt)*) => ($crate::vga::_print(format_args!($($arg)*)));
-// }
+use crate::utils::bool_to_int;
+use crate::racy_cell::RacyCell;
+#[no_mangle]
+pub static WRITER: RacyCell<Writer> = RacyCell::new(Writer::new(0xb8000, CharAttr::new(Color::White, Color::Black, false)));
+// pub static WRITER: Writer = Writer::new(0xb8000, CharAttr::new(Color::White, Color::Black, false));
 
-// #[macro_export]
-// macro_rules! println {
-//     () => ($crate::print!("\n"));
-//     ($($arg:tt)*) => ($crate::print!("{}\n", format_args!($($arg)*)));
-// }
+#[macro_export]
+macro_rules! print {
+    ($($arg:tt)*) => ($crate::vga::_print(format_args!($($arg)*)));
+}
 
-// #[doc(hidden)]
-// pub fn _print(args: fmt::Arguments) {
-//     use core::fmt::Write;
-//     WRITER.lock().write_fmt(args).unwrap();
-// }
+#[macro_export]
+macro_rules! println {
+    () => ($crate::print!("\n"));
+    ($($arg:tt)*) => ($crate::print!("{}\n", format_args!($($arg)*)));
+}
 
+#[no_mangle]
+#[doc(hidden)]
+pub fn _print(args: fmt::Arguments) {
+    unsafe{ WRITER.get_mut().write_fmt(args).unwrap()};
+}
 
+impl Write for Writer {
+    fn write_str(&mut self, s: &str) -> core::fmt::Result {
+        unsafe {WRITER.get_mut().write_string(s)};
+        Ok(())
+    }
+}
 
 /**
  * 定义字体颜色枚举
@@ -69,8 +78,9 @@ pub enum Color {
 #[repr(transparent)]
 pub struct CharAttr(u8);
 impl CharAttr {
-    pub fn new(foreground: Color, background: Color, blink: bool) -> Self {
-        let b: u8 = blink.into();
+    pub const fn new(foreground: Color, background: Color, blink: bool) -> Self {
+        
+        let b: u8 = bool_to_int(blink) as u8;
 
         Self(b << 7 | ((background as u8) << 4) | (foreground as u8))
     }
@@ -120,15 +130,22 @@ pub struct Writer {
     /**
      * 要写入的缓冲区
      */
-    buffer: &'static mut ScreenBuffer,
+    buffer: u32,
 }
 
 impl Writer {
+    #[no_mangle]
+    fn get_buffer(&self) -> &mut ScreenBuffer{
+        unsafe {
+            &mut *(self.buffer as *mut ScreenBuffer)
+        }
+    }
     /**
      * 构建writer
      * 两个参数：要写入的缓冲区地址，该缓冲区每次写入的数据默认属性
      */
-    pub fn new(buffer: &'static mut ScreenBuffer, default_attr: CharAttr) -> Self {
+    #[no_mangle]
+    pub const fn new(buffer: u32, default_attr: CharAttr) -> Self {
         Self {
             row_pos: 0,
             col_pos: 0,
@@ -136,16 +153,17 @@ impl Writer {
             buffer,
         }
     }
+    #[no_mangle]
     fn _new_line(&mut self) {
-        let max_width = self.buffer.buffer[0].len() - 1;
-        let max_height = self.buffer.buffer.len() - 1;
+        let max_width = self.get_buffer().buffer[0].len() - 1;
+        let max_height = self.get_buffer().buffer.len() - 1;
         // 如果没到最后一行，可以直接换行
         if self.row_pos < max_height {
             self.row_pos += 1;
             self.col_pos = 0;
             return;
         }
-        let arry_buf = self.buffer.buffer.as_mut();
+        let arry_buf = self.get_buffer().buffer.as_mut();
         // 如果到最后一行了，需要把第一行移出，并且整体上移1行
         for row_idx in 1..=max_height {
             for col_idx in 0..=max_width {
@@ -157,8 +175,9 @@ impl Writer {
         // 把最后一行清空
         self._clear_row(max_height);
     }
+    #[no_mangle]
     fn _clear_row(&mut self, row_idx: usize) {
-        let buffer = self.buffer.buffer.as_mut();
+        let buffer = self.get_buffer().buffer.as_mut();
         if buffer.is_empty() {
             return;
         }
@@ -174,8 +193,9 @@ impl Writer {
     /**
      * 光标后移
      */
+    #[no_mangle]
     fn _cursor_next(&mut self) {
-        let max_width = self.buffer.buffer[0].len() - 1;
+        let max_width = self.get_buffer().buffer[0].len() - 1;
         // 到最后一列，换行
         if self.col_pos == max_width {
             self._new_line();
@@ -184,12 +204,13 @@ impl Writer {
         self.col_pos += 1;
     }
 
+    #[no_mangle]
     pub fn write_byte(&mut self, data: u8) {
-        self.buffer.buffer[self.row_pos][self.col_pos]
+        self.get_buffer().buffer[self.row_pos][self.col_pos]
             .write(SingleChar::new(data, self.default_attr));
         self._cursor_next();
     }
-
+    #[no_mangle]
     pub fn write_string(&mut self, s: &str) {
         for byte in s.bytes() {
             if b'\n' == byte {
@@ -198,13 +219,5 @@ impl Writer {
             }
             self.write_byte(byte);
         }
-    }
-}
-
-
-impl fmt::Write for Writer {
-    fn write_str(&mut self, s: &str) -> fmt::Result {
-        self.write_string(s);
-        Ok(())
     }
 }

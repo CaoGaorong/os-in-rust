@@ -26,6 +26,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "loader2"
+version = "0.1.0"
+dependencies = [
+ "lazy_static",
+ "os_in_rust_common",
+ "volatile",
+]
+
+[[package]]
 name = "lock_api"
 version = "0.4.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -38,6 +47,9 @@ dependencies = [
 [[package]]
 name = "mbr"
 version = "0.1.0"
+dependencies = [
+ "os_in_rust_common",
+]
 
 [[package]]
 name = "os-in-rust"
@@ -47,7 +59,6 @@ version = "0.1.0"
 name = "os_in_rust_common"
 version = "0.1.0"
 dependencies = [
- "lazy_static",
  "spin 0.9.8",
  "volatile",
 ]

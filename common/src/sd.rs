@@ -66,7 +66,6 @@ impl SegmentDescritor {
 /**
  * 段界限的粒度
  */
-#[warn(dead_code)]
 #[derive(Clone, Copy)]
 pub struct Granularity {
     value: u8,

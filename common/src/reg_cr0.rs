@@ -65,7 +65,7 @@ pub fn set_on(reg: CR0) -> u32{
     cr0_before
 }
 
-fn set_off(reg: CR0) -> u32{
+pub fn set_off(reg: CR0) -> u32{
     let mut cr0_before: u32;
     unsafe {
         asm!("mov {:e}, cr0", out(reg) cr0_before, options(nomem, nostack, preserves_flags));
@@ -77,7 +77,6 @@ fn set_off(reg: CR0) -> u32{
     // 返回已有的寄存器
     cr0_before
 }
-
 
 fn set_cr0(val: u32) {
     unsafe { asm!("mov cr0, {:e}", in(reg) val, options(nostack, preserves_flags)) };
