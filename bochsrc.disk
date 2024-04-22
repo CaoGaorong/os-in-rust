@@ -6,8 +6,8 @@
 megs: 32
 
 # filename of ROM images
-romimage: file=/opt/homebrew/Cellar/bochs/2.7/share/bochs/BIOS-bochs-latest
-vgaromimage: file=/opt/homebrew/Cellar/bochs/2.7/share/bochs/VGABIOS-lgpl-latest
+romimage: file=/opt/homebrew/Cellar/bochs/2.8/share/bochs/BIOS-bochs-latest
+vgaromimage: file=/opt/homebrew/Cellar/bochs/2.8/share/bochs/VGABIOS-lgpl-latest
 
 # what disk images will be used 
 floppya: 1_44=a.img, status=inserted
@@ -25,7 +25,7 @@ mouse: enabled=0
 
 display_library: sdl2
 
-# keyboard: keymap=/opt/homebrew/Cellar/bochs/2.7/share/bochs/keymaps/x11-pc-us.map
+# keyboard: keymap=/opt/homebrew/Cellar/bochs/2.8/share/bochs/keymaps/x11-pc-us.map
 
 
 # hard disk

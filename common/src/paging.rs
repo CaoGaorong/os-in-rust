@@ -1,4 +1,4 @@
-use core::borrow::BorrowMut;
+use core::borrow::{Borrow, BorrowMut};
 use core::mem::size_of;
 
 
@@ -30,6 +30,14 @@ const PAGE_ENTRY_COUNT: usize = 1024;
 
 // }
 
+/**
+ * 获取页目录表的地址
+ */
+pub fn get_dir_ref() -> &'static PageTable {
+    unsafe { PAGE_DIRECTORY.get_mut() }
+}
+
+
 fn get_table_ref(idx: usize) -> &'static mut PageTable {
     unsafe { &mut PAGE_TABLE_LIST[idx] }
 }
@@ -42,7 +50,7 @@ fn get_table_ref(idx: usize) -> &'static mut PageTable {
  * 只填充0和768项。指向0号页表
  */
 #[no_mangle]
-pub fn  fill_table_directory() {
+pub fn  fill_dir_directory() {
     let page_table0 = PageTableEntry::new_default(get_table_ref(0) as *const _ as u32);
     
     let dir_table_ref = unsafe { PAGE_DIRECTORY.get_mut() };
@@ -52,7 +60,7 @@ pub fn  fill_table_directory() {
     dir_table_ref.set_entry(768, page_table0);
     
     // 页目录表的最后一项，指向自己
-    let self_entry = PageTableEntry::new_default(unsafe { PAGE_DIRECTORY.get_mut() } as *const _ as u32);
+    let self_entry = PageTableEntry::new_default(dir_table_ref as *const PageTable as u32);
     dir_table_ref.set_entry(dir_table_ref.size() - 1, self_entry);
 }
 /**
@@ -66,7 +74,7 @@ pub fn fill_kernel_directory() {
         PAGE_DIRECTORY.get_mut()
     };
     let mut page_table_idx = 1;
-    for idx in 769 .. PAGE_ENTRY_COUNT - 1 {
+    for idx in 769 .. (PAGE_ENTRY_COUNT - 1) {
         // 找到page_table_idx号页表
         let page_idx_addr = get_table_ref(page_table_idx);
         // 把page_table_idx号页表的地址，赋值给第idx页目录项
@@ -86,7 +94,7 @@ pub fn fill_table0(){
     let page_table_0 = get_table_ref(0);
 
     // 0号页表
-    for i in 0 .. 1024 {
+    for i in 0 .. 256 {
         // 页表，指向从0开始的低端地址。
         let entry = PageTableEntry::new_default(i * PAGE_SIZE);
         page_table_0.set_entry(i as usize, entry);
@@ -187,7 +195,7 @@ impl PageTableEntry {
 
         Self { 
             data: 
-                ((address >> 12) as u32) << 12 | 
+                (((address >> 12) as u32) << 12) | 
                 (utils::bool_to_int(present)) |
                 (utils::bool_to_int(wr_enable) << 1) | 
                 (utils::bool_to_int(user) << 2) |
