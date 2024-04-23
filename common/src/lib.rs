@@ -2,6 +2,7 @@
 
 
 pub mod dap;
+pub mod disk;
 pub mod vga;
 pub mod sd;
 pub mod gdt;

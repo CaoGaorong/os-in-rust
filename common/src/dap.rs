@@ -20,7 +20,7 @@ pub struct DiskPacketAddress {
      */
     zero: u8,
     /**
-     * 读取删除的数量（一些BISO限制最大127字节）
+     * 读取删除的数量（一些BISO限制最大127个扇区）
      */
     number_of_sec: u16,
     /**
