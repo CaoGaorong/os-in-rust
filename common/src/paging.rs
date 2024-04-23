@@ -1,11 +1,6 @@
-use core::borrow::{Borrow, BorrowMut};
-use core::mem::size_of;
 
-
-use lazy_static::lazy_static;
-use volatile::Volatile;
 use crate::racy_cell::RacyCell;
-use crate::{println, utils};
+use crate::utils;
 /**
  * 页目录表的地址
  * 低端1MB上

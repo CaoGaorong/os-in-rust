@@ -70,3 +70,28 @@ impl DiskPacketAddress {
         }
     }
 }
+
+/**
+ * 加载磁盘
+ * lba: 磁盘的LBA地址
+ * num_sec: 加载的扇区数量
+ * mem_addr: 要加载到的内存地址
+ */
+pub fn load_disk(lba: u64, num_sec: u16, mem_addr: u32) {
+    // 取Loader加载到内存地址的高16位
+    let addr_high16 = (mem_addr >> 16) as u16;
+    // 取loader加载到的内存地址的低16位
+    let addr_low16 = mem_addr as u16;
+    // 构建Disk Packet Address
+    let dap_structre = DiskPacketAddress::new(
+        lba,
+        num_sec,
+        addr_high16,
+        addr_low16,
+    );
+
+    // 开始执行，把硬盘的数据加载到内存
+    unsafe {
+        dap_structre.do_load();
+    }
+}

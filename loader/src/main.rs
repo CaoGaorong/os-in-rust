@@ -3,53 +3,27 @@
 
 use core::{arch::asm, panic::PanicInfo};
 mod protect_mode;
-use os_in_rust_common::{dap, selector::{SegmentSelector}, println, vga::{self, CharAttr, Color, ScreenBuffer, Writer}};
-/**
- * loader的地址，加载到0x900
- */
-static LOADER_ADDR: u32 = 0x1000;
-
-/**
- * loader占用的扇区数量，4个扇区
- */
-static LOADER_SECTOR_CNT: u16 = 4;
-
-/**
- * loader所在硬盘的LBA地址
- */
-static LOADER_LBA: u64 = 6;
+use os_in_rust_common::{dap, selector::SegmentSelector};
 
 #[no_mangle]
 #[link_section = ".start"]
 pub extern "C" fn _start() {
-    // 取Loader加载到内存地址的高16位
-    let loader_seg_addr = (LOADER_ADDR >> 16) as u16;
-    // 取loader加载到的内存地址的第16位
-    let loader_offset_addr = LOADER_ADDR as u16;
 
-    // 构建Disk Packet Address
-    let dap_structre = dap::DiskPacketAddress::new(
-        LOADER_LBA,
-        LOADER_SECTOR_CNT,
-        loader_seg_addr,
-        loader_offset_addr,
-    );
+    // 把loader2从磁盘加载到内存
+    dap::load_disk(3, 4, 0xb00);
 
-    // 开始执行，把硬盘的数据加载到内存
-    unsafe {
-        dap_structre.do_load();
-    }
+    // dap::load_disk(7, 400, 0x1500);
 
-    // let loader_entry: extern "C" fn() = unsafe { core::mem::transmute(LOADER_ADDR as *const ()) };
+    let loader_entry: extern "C" fn() = unsafe { core::mem::transmute(0xb00 as *const ()) };
     protect_mode::enter_protect_mode();
     let selector = SegmentSelector::Code0Selector as u16;
     unsafe {
         asm!(
-            "jmp 0x8, 0x1000"
+            "jmp 0x8, 0xb00"
         );
     }
 
-    // loader_entry();
+    loader_entry();
 }
 
 #[panic_handler]
