@@ -3,7 +3,7 @@
 
 use core::{arch::global_asm, panic::PanicInfo};
 
-use os_in_rust_common::dap;
+use os_in_rust_common::{dap, constants};
 
 global_asm!(include_str!("boot.s"));
 
@@ -12,9 +12,11 @@ global_asm!(include_str!("boot.s"));
 pub extern "C" fn main() {
 
     // 把loader从磁盘加载到内存
-    dap::load_disk(2, 1, 0x900);
+    dap::load_disk(constants::LOADER_LBA as u64, constants::LOADER_SEC_CNT as u16, constants::LOADER_ADDR);
 
-    let loader_entry: extern "C" fn() = unsafe { core::mem::transmute(0x900 as *const ()) };
+    // 找到loader的入口
+    let loader_entry: extern "C" fn() = unsafe { core::mem::transmute(constants::LOADER_ADDR as *const ()) };
+    // 跳转过去执行
     loader_entry();
 }
 
