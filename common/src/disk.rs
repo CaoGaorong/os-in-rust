@@ -1,6 +1,8 @@
 use core::{arch::asm, mem, num};
 
+use crate::port::Port;
 use crate::utils;
+use crate::port;
 
 /**
  * 主通道的命令寄存器的可选枚举
@@ -70,39 +72,39 @@ pub fn read_disk(lba: u32, num_sec: u8, mem_addr: u32) {
 }
 
 fn read_disk_command(lba: u32, num_sec: u8) {
-    let num = num_sec as u16;
-    let lba_low = lba as u16;
-    let lba_mid = (lba >> 8) as u16;
-    let lba_high = (lba >> 16) as u16;
+    let num = num_sec;
+    let lba_low = lba as u8;
+    let lba_mid = (lba >> 8) as u8;
+    let lba_high = (lba >> 16) as u8;
     // LBA的最高4位
     let lba_max  = ((lba >> 24) & 0b1111) as u8;
     // 构建好device寄存器的值
-    let device_val = DeviceRegister::new(lba_max, true, true).get_data() as u16;
-    let command_val = CommandRegister::Read as u16;
+    let device_val = DeviceRegister::new(lba_max, true, true).get_data();
+    let command_val = CommandRegister::Read as u8;
     
     // 第一步，写入sector count；0x1F2是写入selector count的端口号
-    unsafe {asm!("mov dx, 0x1F2", "mov ax, {0:x}", "out dx, al", in(reg) num, options(nomem, nostack, preserves_flags))}
+    Port::<u8>::new(PrimaryCommandRegister::SectorCount as u16).write(num);
     
     // 第二步，写入LBA Low; 
-    unsafe {asm!("mov dx, 0x1F3", "mov ax, {0:x}", "out dx, al", in(reg) lba_low, options(nomem, nostack, preserves_flags))}
+    Port::<u8>::new(PrimaryCommandRegister::LBALow as u16).write(lba_low);
     
     // 第三步，写入LBA Mid
-    unsafe {asm!("mov dx, 0x1F4", "mov ax, {0:x}", "out dx, al", in(reg) lba_mid, options(nomem, nostack, preserves_flags))}
+    Port::<u8>::new(PrimaryCommandRegister::LBAMid as u16).write(lba_mid);
     
     // 第四步，写入LBA High
-    unsafe {asm!("mov dx, 0x1F5", "mov ax, {0:x}", "out dx, al", in(reg) lba_high, options(nomem, nostack, preserves_flags))}
+    Port::<u8>::new(PrimaryCommandRegister::LBAHigh as u16).write(lba_high);
     
     // 第五步，写入device寄存器
-    unsafe {asm!("mov dx, 0x1F6", "mov ax, {0:x}", "out dx, al", in(reg) device_val, options(nomem, nostack, preserves_flags))}
+    Port::<u8>::new(PrimaryCommandRegister::Device as u16).write(device_val);
 
     // 第六步，发起读命令 command寄存器
-    unsafe {asm!("mov dx, 0x1F7", "mov ax, {0:x}", "out dx, al", in(reg) command_val, options(nomem, nostack, preserves_flags))}
+    Port::<u8>::new(PrimaryCommandRegister::StatusCommand as u16).write(command_val);
     
 }
 
 fn disk_ready() -> bool {
-    let mut status:u16 = 0;
-    unsafe { asm!("mov dx, 0x1F7", "in al, dx", "mov ax, {0:x}", out(reg) status, options(nomem, nostack, preserves_flags))}
+    // 读取状态寄存器中硬盘的状态
+    let status: u8 = Port::<u8>::new(PrimaryCommandRegister::StatusCommand as u16).read();
     // status寄存器的结构。当且仅当第4位是1，第8位是0的时候，才可以
     return (status & 0b10001000) == 0b1000;
 }
@@ -117,19 +119,12 @@ fn disk_read(addr_to_save: u32, num_bytes: u32) {
     // let mem_addr = addr_to_save as u16 as *mut u16;
     let mut addr = addr_to_save;
 
-    let mut data:u16 = 0;
-    for i in 0 .. loop_count {
-        unsafe {
-            asm!(
-                "push eax",
-                "mov dx, 0x1F0", // data register port
-                "in ax, dx", // 把dx指定的端口的数据读取出来
-                "mov {0:x}, ax",
-                "pop eax",
-                out(reg) data
-                // options(nomem, nostack, preserves_flags)
-            )
-        }
+    for _ in 0 .. loop_count {
+        
+        // 从数据寄存器端口中读取数据
+        let data = Port::<u16>::new(PrimaryCommandRegister::Data as u16).read();
+        
+        // 把数据填充到内存地址中
         unsafe { *(addr as *mut u16) = data };
         addr += 2;
         // 把从dx读取出来的数据，复制到内存地址中

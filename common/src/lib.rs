@@ -14,3 +14,5 @@ pub mod utils;
 pub mod racy_cell;
 pub mod paging;
 pub mod constants;
+pub mod idt;
+pub mod port;
