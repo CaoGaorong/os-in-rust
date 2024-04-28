@@ -33,8 +33,8 @@ pub fn init_pic() {
     CHAINED_PICS.init();
 }
 
-pub fn send_end_of_interrupt(int_type: InterruptTypeEnum) {
-    CHAINED_PICS.send_end_of_interrupt(int_type);
+pub fn send_end_of_interrupt() {
+    CHAINED_PICS.send_end_of_interrupt();
 }
 
 /**
@@ -126,7 +126,7 @@ impl ChainedPics {
 
     }
 
-    pub fn send_end_of_interrupt(&'static self, int_type: InterruptTypeEnum) {
+    pub fn send_end_of_interrupt(&'static self) {
         self.primary.end_of_int();
         self.secondary.end_of_int();
     }

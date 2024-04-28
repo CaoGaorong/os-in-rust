@@ -20,7 +20,6 @@ pub extern "C" fn _start() {
     instruction::enable_interrupt();
     // println!("waiting....");
     
-    unsafe {asm!("hlt");}
     loop {}
 }
 

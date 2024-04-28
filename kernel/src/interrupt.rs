@@ -1,14 +1,11 @@
-use core::arch::asm;
+use core::{arch::asm, ptr::addr_of};
 
-use os_in_rust_common::{idt::{self, HandlerFunc, InterruptStackFrame, InterruptTypeEnum}, instruction, pic, println};
+use os_in_rust_common::{idt::{self, HandlerFunc, InterruptStackFrame, InterruptTypeEnum}, instruction, pic, print, println};
 
-#[used]
-#[no_mangle]
-static GENERAL_HANDLER:HandlerFunc = handler;
 
 pub fn init() {
-    // 初始化idt
-    unsafe { idt::IDT.get_mut().set_handler(InterruptTypeEnum::Timer, GENERAL_HANDLER) }
+    // 初始化时钟中断
+    unsafe { idt::IDT.get_mut().set_handler(InterruptTypeEnum::Timer, general_handler) }
     
     idt::idt_init();
 
@@ -18,10 +15,12 @@ pub fn init() {
 }
 
 
-#[no_mangle]
-extern "x86-interrupt" fn handler(frame: InterruptStackFrame) {
-    println!(".");
-    // pic::send_end_of_interrupt(InterruptTypeEnum::Timer);
+/**
+ * 通用的中断处理程序
+ */
+extern "x86-interrupt" fn general_handler(frame: InterruptStackFrame) {
+    print!("interrupt occur");
+    pic::send_end_of_interrupt();
 }
 
 

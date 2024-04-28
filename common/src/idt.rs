@@ -1,6 +1,6 @@
 use core::{arch::asm, mem::size_of};
 
-use crate::{gdt::DescriptorType, racy_cell::RacyCell, sd::SegmentDPL, utils};
+use crate::{gdt::DescriptorType, racy_cell::RacyCell, sd::SegmentDPL, selector::SegmentSelector, utils};
 
 
 /**
@@ -109,6 +109,7 @@ pub struct InterruptStackFrame {
 /**
  * 中断描述符的结构
  * 8个字节（64位）
+ * <https://os.phil-opp.com/cpu-exceptions/#the-interrupt-descriptor-table>
  */
 #[derive(Clone, Copy)]
 #[repr(C, packed)]
@@ -145,7 +146,7 @@ impl InterruptDescriptor {
             code_addr_high: 0
         }
     }
-    pub fn new(code_selector: DescriptorType, code_addr: u32, present: bool, dpl: SegmentDPL) -> Self {
+    pub fn new(code_selector: SegmentSelector, code_addr: u32, present: bool, dpl: SegmentDPL) -> Self {
         Self {
             code_selector: code_selector as u16,
             code_addr_low: code_addr as u16,
@@ -197,7 +198,7 @@ impl InterruptDescriptorTable {
      *   handler: 中断处理函数
      */
     pub fn set_handler(&'static mut self, interrupt_type: InterruptTypeEnum, handler: HandlerFunc) {
-        let id = InterruptDescriptor::new(DescriptorType::Code, &handler as *const HandlerFunc as u32, true, SegmentDPL::LEVEL0);
+        let id = InterruptDescriptor::new(SegmentSelector::Code0Selector, handler as *const() as u32, true, SegmentDPL::LEVEL0);
         self.set_interrupt(interrupt_type, id);
     }
 
@@ -207,7 +208,7 @@ impl InterruptDescriptorTable {
      *   handler: 中断处理函数
      */
     pub fn set_error_code_handler(&'static mut self, interrupt_type: InterruptTypeEnum, handler: HandlerFuncWithErrCode) {
-        let id = InterruptDescriptor::new(DescriptorType::Code, &handler as *const HandlerFuncWithErrCode as u32, true, SegmentDPL::LEVEL0);
+        let id = InterruptDescriptor::new(SegmentSelector::Code0Selector, handler as *const () as u32, true, SegmentDPL::LEVEL0);
         self.set_interrupt(interrupt_type, id);
     }
 
