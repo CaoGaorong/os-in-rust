@@ -29,8 +29,6 @@ pub extern "C" fn _start() {
     let cr3 = CR3::new(paging::get_dir_ref() as  *const PageTable);
     cr3.load_cr3();
 
-    // 加载内核
-    disk::read_disk(7, 200, 0x1500);
 
     // 打开CR0寄存器的PG位
     reg_cr0::set_on(CR0::PG);
@@ -38,10 +36,12 @@ pub extern "C" fn _start() {
     // 重新加载gdt
     gdt::load_gdtr_by_addr(new_gdt_addr as *const GlobalDescriptorTable);
 
+    // 加载内核
+    disk::read_disk(7, 200, 0xc0001500);
 
     unsafe {
         asm!(
-            "jmp 0x8, 0x1500"
+            "jmp 0x8, 0xc0001500"
         );
     }
     // loop {}
