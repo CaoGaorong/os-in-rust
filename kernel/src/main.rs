@@ -1,16 +1,26 @@
 #![no_std]
 #![no_main]
+#![feature(abi_x86_interrupt)]
+
+mod interrupt;
 
 use core::panic::PanicInfo;
 
-use os_in_rust_common::println;
+use os_in_rust_common::{instruction, println};
 
 
 
 #[no_mangle]
 #[link_section = ".start"]
 pub extern "C" fn _start() {
-    println!("i'm Kernel!");
+    println!("I'm Kernel!");
+    // 初始化
+    // interrupt::init();
+    
+    // instruction::enable_interrupt();
+    println!("waiting....");
+    
+    
     loop {}
 }
 

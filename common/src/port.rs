@@ -6,7 +6,7 @@ pub struct Port<T> {
 }
 
 impl <T:PortRead + PortWrite> Port<T> {
-    pub fn new(port: u16) -> Port<T> {
+    pub const fn new(port: u16) -> Port<T> {
         Port {
             port,
             phantom: PhantomData,

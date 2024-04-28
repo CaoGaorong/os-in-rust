@@ -4,7 +4,7 @@
   */
 #[repr(C, packed)]
 #[derive(Clone, Copy)]
-pub struct SegmentDescritor {
+pub struct SegmentDescriptor {
     /**
      * 段界限低16位
      */
@@ -30,7 +30,7 @@ pub struct SegmentDescritor {
      */
     seg_base_32: u8
 }
-impl SegmentDescritor {
+impl SegmentDescriptor {
     /**
      * 构建一个段描述符
      * seg_base_addr: 段基址，32位

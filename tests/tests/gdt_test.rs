@@ -3,7 +3,7 @@
 mod tests {
     use std::slice;
 
-    use os_in_rust_common::gdt::GlobalDecriptorTable;
+    use os_in_rust_common::gdt::GlobalDescriptorTable;
     use os_in_rust_common::gdt::GDTR;
     use os_in_rust_common::sd;
     use os_in_rust_common::gdt;
@@ -30,7 +30,7 @@ mod tests {
         let seg_limit = 0xfffff;
         let granularity = sd::Granularity::new(sd::GranularityEnum::Unit4KB);
         // 代码段
-        let code_segment = sd::SegmentDescritor::new(
+        let code_segment = sd::SegmentDescriptor::new(
             base_addr, 
             seg_limit, 
             granularity, 
@@ -41,7 +41,7 @@ mod tests {
             false, 
             true
         );
-        let code_segment_data = unsafe{(*(&code_segment as *const sd::SegmentDescritor as *const u64)) as u64};
+        let code_segment_data = unsafe{(*(&code_segment as *const sd::SegmentDescriptor as *const u64)) as u64};
         println!("0x{:x}", code_segment_data);
         // 我期待的代码段
         let expected_code_seg:u64 = 0b00000000110011111001100000000000<<32 | 0x0000FFFF;
@@ -49,17 +49,17 @@ mod tests {
         assert_eq!(expected_code_seg, code_segment_data);
     }
 
-    static  gdt: GlobalDecriptorTable = gdt::GlobalDecriptorTable::new();
+    static  gdt: GlobalDescriptorTable = gdt::GlobalDescriptorTable::new();
     #[test] 
     fn video_seg_test() {
         let segment = gdt.video_seg;
-        let segment_data = unsafe{(*(&segment as *const sd::SegmentDescritor as *const u64)) as u64};
+        let segment_data = unsafe{(*(&segment as *const sd::SegmentDescriptor as *const u64)) as u64};
         println!("0x{:x}", segment_data);
     }
     #[test]
     fn gdt_test() {
 
-        println!("gdt address:{:p}", (&gdt as *const GlobalDecriptorTable));
+        println!("gdt address:{:p}", (&gdt as *const GlobalDescriptorTable));
         let gdtr =  gdt.compose_gdtr();
         let pointer = &gdtr as *const GDTR as *const u8;
         println!("0x{:x}", unsafe{*(pointer.offset(0))});

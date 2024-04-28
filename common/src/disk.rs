@@ -1,8 +1,5 @@
-use core::{arch::asm, mem, num};
-
 use crate::port::Port;
 use crate::utils;
-use crate::port;
 
 /**
  * 主通道的命令寄存器的可选枚举
