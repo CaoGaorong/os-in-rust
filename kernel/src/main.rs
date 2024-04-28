@@ -4,7 +4,7 @@
 
 mod interrupt;
 
-use core::panic::PanicInfo;
+use core::{arch::asm, panic::PanicInfo};
 
 use os_in_rust_common::{instruction, println};
 
@@ -15,12 +15,12 @@ use os_in_rust_common::{instruction, println};
 pub extern "C" fn _start() {
     println!("I'm Kernel!");
     // 初始化
-    // interrupt::init();
+    interrupt::init();
     
-    // instruction::enable_interrupt();
-    println!("waiting....");
+    instruction::enable_interrupt();
+    // println!("waiting....");
     
-    
+    unsafe {asm!("hlt");}
     loop {}
 }
 

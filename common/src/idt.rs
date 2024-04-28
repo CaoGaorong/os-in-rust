@@ -1,6 +1,6 @@
 use core::{arch::asm, mem::size_of};
 
-use crate::{constants, gdt::{DescriptorType, GDTR}, racy_cell::RacyCell, sd::SegmentDPL, utils};
+use crate::{gdt::DescriptorType, racy_cell::RacyCell, sd::SegmentDPL, utils};
 
 
 /**
@@ -157,7 +157,7 @@ impl InterruptDescriptor {
                 // DPL位
                 (dpl as u8) << 5 | 
                 // S + TYPE位，固定值
-                0b11110 as u8
+                0b01110 as u8
         }
     }
 }

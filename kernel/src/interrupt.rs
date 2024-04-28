@@ -1,10 +1,14 @@
 use core::arch::asm;
 
-use os_in_rust_common::{idt::{self, InterruptStackFrame, InterruptTypeEnum}, instruction, pic, println};
+use os_in_rust_common::{idt::{self, HandlerFunc, InterruptStackFrame, InterruptTypeEnum}, instruction, pic, println};
+
+#[used]
+#[no_mangle]
+static GENERAL_HANDLER:HandlerFunc = handler;
 
 pub fn init() {
     // 初始化idt
-    unsafe { idt::IDT.get_mut().set_handler(InterruptTypeEnum::Timer, handler) }
+    unsafe { idt::IDT.get_mut().set_handler(InterruptTypeEnum::Timer, GENERAL_HANDLER) }
     
     idt::idt_init();
 

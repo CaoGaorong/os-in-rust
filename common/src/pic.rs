@@ -31,7 +31,6 @@ enum PicPort {
 pub fn init_pic() {
     // 初始化所有的配置
     CHAINED_PICS.init();
-    println!("pic init done");
 }
 
 pub fn send_end_of_interrupt(int_type: InterruptTypeEnum) {
@@ -77,7 +76,11 @@ impl ChainedPics {
      */
     fn init(&self) {
         let wait_port = Port::<u8>::new(0x80);
-        let wait = || wait_port.write(0x0);
+        // let wait = || wait_port.write(0x0);
+        let wait = || ();
+
+        let primary_mask = self.primary.data_port.read();
+        let secondary_mask = self.secondary.data_port.read();
         
         // 写入ICW1 0x20 0x11
         let icw1 = ICW1::new(true, false, false);
@@ -112,11 +115,15 @@ impl ChainedPics {
         self.secondary.data_port.write(icw4.data);
 
         // 主片，打开时钟中断、键盘中断、以及从片的中断
-        self.primary.data_port.write(OCW1::new(0b11111000).data);
+        self.primary.data_port.write(OCW1::new(0b11111110).data);
         wait();
         // 打开从片的硬盘中断
-        self.secondary.data_port.write(OCW1::new(0b10111111).data);
+        self.secondary.data_port.write(OCW1::new(0b11111111).data);
         wait();
+
+        // self.primary.data_port.write(primary_mask);
+        // self.secondary.data_port.write(secondary_mask);
+
     }
 
     pub fn send_end_of_interrupt(&'static self, int_type: InterruptTypeEnum) {
