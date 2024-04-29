@@ -18,3 +18,4 @@ pub mod constants;
 pub mod idt;
 pub mod port;
 pub mod pic;
+pub mod assert;

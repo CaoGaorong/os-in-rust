@@ -6,7 +6,7 @@ mod interrupt;
 
 use core::{arch::asm, panic::PanicInfo};
 
-use os_in_rust_common::{instruction, println};
+use os_in_rust_common::{println, ASSERT};
 
 
 
@@ -14,11 +14,16 @@ use os_in_rust_common::{instruction, println};
 #[link_section = ".start"]
 pub extern "C" fn _start() {
     println!("I'm Kernel!");
-    // 初始化
+    
+    // 初始化中断描述符和中断控制器
     interrupt::init();
     
-    instruction::enable_interrupt();
-    // println!("waiting....");
+    // 开启中断
+    // instruction::enable_interrupt();
+    
+    // 抛出断言
+    ASSERT!(1 == 2);
+
     
     loop {}
 }
