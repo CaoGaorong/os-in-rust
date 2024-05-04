@@ -19,3 +19,7 @@ pub mod idt;
 pub mod port;
 pub mod pic;
 pub mod assert;
+pub mod bitmap;
+pub mod pool;
+pub mod mem;
+pub mod context;

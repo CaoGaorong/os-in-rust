@@ -58,7 +58,7 @@ pub fn set_on(reg: CR0) -> u32{
         asm!("mov {:e}, cr0", out(reg) cr0_before, options(nomem, nostack, preserves_flags));
     }
     // 把原本cr0对应这一位设置为1
-    let cr0_after = cr0_before | 1 << (reg as u8);
+    let cr0_after = cr0_before | (1 << (reg as u8));
     // 写入到cr0寄存器
     set_cr0(cr0_after);
     // 返回已有的寄存器
@@ -71,7 +71,7 @@ pub fn set_off(reg: CR0) -> u32{
         asm!("mov {:e}, cr0", out(reg) cr0_before, options(nomem, nostack, preserves_flags));
     }
     // 把原本cr0对应这一位设置为0
-    let cr0_after = cr0_before & 0 << (reg as u8);
+    let cr0_after = cr0_before & !(1 << (reg as u8));
     // 写入到cr0寄存器
     set_cr0(cr0_after);
     // 返回已有的寄存器

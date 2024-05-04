@@ -3,15 +3,35 @@
 
 use core::{arch::asm, panic::PanicInfo};
 
-use os_in_rust_common::{disk, gdt::{self, GlobalDescriptorTable}, paging::{self, PageTable}, println, reg_cr0::{self, CR0}, reg_cr3::CR3, selector};
+use os_in_rust_common::{context::{self, BootContext}, disk, gdt::{self, GlobalDescriptorTable}, mem, paging::{self, PageTable}, println, racy_cell::RacyCell, reg_cr0::{self, CR0}, reg_cr3::CR3, selector};
 // use core::fmt::Write;
 // use os_in_rust_common::{gdt::GlobalDecriptorTable, interrupt, reg_cr0, selector, vga:: {self, CharAttr, Color, ScreenBuffer, Writer, WRITER}};
 
 
+static BOOT_CONTEXT: RacyCell<BootContext> = RacyCell::new(BootContext {
+    memory_map_addr: 0,
+    memory_map_len: 0,
+});
+
+
 #[no_mangle]
 #[link_section = ".start"]
-pub extern "C" fn _start() {
-    
+pub extern "C" fn _start(boot_info: u32) {
+    // reg_cr0::set_off(reg_cr0::CR0::PE);
+    // let result = unsafe {mem::query_memory_map()};
+    // match result {
+    //     Ok(_) => boot_info = 20,
+    //     Err(_) => boot_info = 1,
+    // }
+    // reg_cr0::set_on(reg_cr0::CR0::PE);
+
+    // let context = context::BootContext { 
+    //     memory_map_addr: memeory_map.as_mut_ptr() as u32, 
+    //     memory_map_len: memeory_map.len() as u32, 
+    // };
+    // *unsafe { BOOT_CONTEXT.get_mut() } = context;
+
+
     // 填充页目录表。
     paging::fill_dir_directory();
     // 填充内核页表
@@ -40,8 +60,18 @@ pub extern "C" fn _start() {
     disk::read_disk(7, 200, 0xc0001500);
 
     unsafe {
+        // 跳转，使用ATT风格
+        asm!("jmp $0x8, $2f", "2:", options(att_syntax));
         asm!(
-            "jmp 0x8, 0xc0001500"
+            ".code32",
+            "mov esp, 0xc009f000",
+            "push {0:e}",
+            "push 0xc0001500",
+            "pop {1:e}",
+            "call {1:e}",
+            in(reg) boot_info,
+            out(reg) _,
+           
         );
     }
     // loop {}
