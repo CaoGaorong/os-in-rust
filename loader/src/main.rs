@@ -14,11 +14,7 @@ pub extern "C" fn _start() {
 
     // instruction::disable_interrupt();
     
-    // 调用BIOS，得到内存图
-    let result = bios_mem::get_memeory_map();
     let context = unsafe { BOOT_CONTEXT.get_mut() };
-    context.memory_map_addr = result.0;
-    context.memory_map_len = result.1;
 
     // 进入保护模式
     protect_mode::enter_protect_mode();
@@ -26,9 +22,6 @@ pub extern "C" fn _start() {
     // 把loader2从磁盘加载到内存
     disk::read_disk(constants::LOADER2_LBA, constants::LOADER2_SEC_CNT as u8, constants::LOADER2_ADDR);
 
-    // let loader_entry: extern "C" fn() = unsafe { core::mem::transmute(0xc00 as *const ()) };
-    // let selector = SegmentSelector::Code0Selector as u16;
-    
     unsafe {
         // 跳转，使用ATT风格
         asm!("ljmp $0x8, $2f", "2:", options(att_syntax));
@@ -41,7 +34,6 @@ pub extern "C" fn _start() {
         );
     }
 
-    // loader_entry();
 }
 
 #[panic_handler]
