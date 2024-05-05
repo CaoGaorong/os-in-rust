@@ -20,6 +20,10 @@ SECTIONS {
         *(.data .data.*)
         *(.got .got.*)
     }
+    .bss :
+    {
+         *(.bss .bss.*)
+    }
     . = 0x1300;
     
     /* 指定页目录表的地址 1MB之上。大小4KB(0x1000) */

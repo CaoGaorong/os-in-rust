@@ -20,4 +20,8 @@ SECTIONS {
         *(.data .data.*)
         *(.got .got.*)
     }
+    .bss :
+    {
+         *(.bss .bss.*)
+    }
 }

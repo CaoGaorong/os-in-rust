@@ -20,6 +20,10 @@ SECTIONS {
         *(.data .data.*)
         *(.got .got.*)
     }
+    .bss :
+    {
+         *(.bss .bss.*)
+    }
     /* . = 0xb00; */
     .memeory_map : AT(ADDR(.memeory_map)) { *(.memeory_map) }
 

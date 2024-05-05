@@ -20,6 +20,10 @@ SECTIONS {
         *(.data .data.*)
         *(.got .got.*)
     }
+    .bss :
+    {
+         *(.bss .bss.*)
+    }
 
     . = 0x7c00 + 510;
 
