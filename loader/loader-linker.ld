@@ -20,6 +20,9 @@ SECTIONS {
         *(.data .data.*)
         *(.got .got.*)
     }
+    /* . = 0xb00; */
+    .memeory_map : AT(ADDR(.memeory_map)) { *(.memeory_map) }
+
     . = 0xc00;
     
     /* 指定页目录表的地址 1MB之上。大小4KB(0x1000) */

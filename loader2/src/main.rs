@@ -16,21 +16,7 @@ static BOOT_CONTEXT: RacyCell<BootContext> = RacyCell::new(BootContext {
 
 #[no_mangle]
 #[link_section = ".start"]
-pub extern "C" fn _start(boot_info: u32) {
-    // reg_cr0::set_off(reg_cr0::CR0::PE);
-    // let result = unsafe {mem::query_memory_map()};
-    // match result {
-    //     Ok(_) => boot_info = 20,
-    //     Err(_) => boot_info = 1,
-    // }
-    // reg_cr0::set_on(reg_cr0::CR0::PE);
-
-    // let context = context::BootContext { 
-    //     memory_map_addr: memeory_map.as_mut_ptr() as u32, 
-    //     memory_map_len: memeory_map.len() as u32, 
-    // };
-    // *unsafe { BOOT_CONTEXT.get_mut() } = context;
-
+pub extern "C" fn _start(boot_info: &BootContext) {
 
     // 填充页目录表。
     paging::fill_dir_directory();

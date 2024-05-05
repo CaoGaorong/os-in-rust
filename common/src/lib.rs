@@ -23,3 +23,4 @@ pub mod bitmap;
 pub mod pool;
 pub mod mem;
 pub mod context;
+pub mod bios_mem;

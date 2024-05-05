@@ -3,9 +3,9 @@
 
 use core::{arch::asm, panic::PanicInfo};
 mod protect_mode;
-use os_in_rust_common::{constants, context::{self, BootContext}, dap, disk, instruction, mem, println, racy_cell::RacyCell, selector::SegmentSelector};
+use os_in_rust_common::{bios_mem, constants, context::{self, BootContext}, dap, disk, instruction, println, racy_cell::RacyCell, selector::SegmentSelector};
 
-// #[no_mangle]
+
 static BOOT_CONTEXT: RacyCell<BootContext> = RacyCell::new(BootContext::empty());
 
 #[no_mangle]
@@ -13,30 +13,12 @@ static BOOT_CONTEXT: RacyCell<BootContext> = RacyCell::new(BootContext::empty())
 pub extern "C" fn _start() {
 
     // instruction::disable_interrupt();
+    
+    // 调用BIOS，得到内存图
+    let result = bios_mem::get_memeory_map();
     let context = unsafe { BOOT_CONTEXT.get_mut() };
-    let memeory_map = unsafe {mem::query_memory_map()};
-    context.memory_map_len = memeory_map.0 as u32;
-
-    // match memeory_map {
-    //     Ok(adrs_list) => {
-    //         // let ptr = adrs_list.as_ptr();
-    //         context.memory_map_addr = adrs_list.0 as u32;
-    //         context.memory_map_len = adrs_list.1 as u32;
-    //     },
-    //     Err(_) => {
-    //         context.memory_map_addr = 0x456;
-    //         context.memory_map_len = 0x456;
-    //     },
-    // }
-
-
-    // context.memory_map_addr = memeory_map.as_ptr() as u32;
-    // context.memory_map_len = memeory_map.len() as u32;
-    // match memeory_map {
-    //     Ok(_) => boot_context.memory_map_len = 0x10,
-    //     Err(_) => boot_context.memory_map_len = 0x20,
-    // }
-
+    context.memory_map_addr = result.0;
+    context.memory_map_len = result.1;
 
     // 进入保护模式
     protect_mode::enter_protect_mode();
@@ -46,18 +28,16 @@ pub extern "C" fn _start() {
 
     // let loader_entry: extern "C" fn() = unsafe { core::mem::transmute(0xc00 as *const ()) };
     // let selector = SegmentSelector::Code0Selector as u16;
-
+    
     unsafe {
         // 跳转，使用ATT风格
         asm!("ljmp $0x8, $2f", "2:", options(att_syntax));
         asm!(
-            ".code32",
-            "push {0:e}",
-            "push 0xc00",
-            "pop {1:e}",
-            "call {1:e}",
-            in(reg) context as *const _  as u32,
-            out(reg) _,
+            // ".code32",
+            "push bx",
+            "call cx",
+            in("cx") 0xc00,
+            in("bx") context as *const _  as u16,
         );
     }
 

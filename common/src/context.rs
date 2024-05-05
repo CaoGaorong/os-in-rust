@@ -1,7 +1,7 @@
 /**
  * 系统启动的上下文，在多个stage之间穿梭
  */
-#[repr(C, packed)]
+#[repr(C)]
 #[derive(Clone, Copy)]
 pub struct BootContext {
     /**
