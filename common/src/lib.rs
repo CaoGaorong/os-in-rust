@@ -21,6 +21,7 @@ pub mod pic;
 pub mod assert;
 pub mod bitmap;
 pub mod pool;
-pub mod mem;
+pub mod memory;
 pub mod context;
 pub mod bios_mem;
+pub mod page_util;

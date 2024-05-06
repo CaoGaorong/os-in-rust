@@ -1,37 +1,39 @@
 
 use crate::racy_cell::RacyCell;
-use crate::utils;
-/**
- * 页目录表的地址
- * 低端1MB上
- */
-
-// const PAGE_DIR_ADDR: u32 = 0x100000;
-const PAGE_ENTRY_COUNT: usize = 1024;
-
-
-// lazy_static! {
+use crate::{constants, utils};
 
 /**
  * 页目录表
 */
-    #[no_mangle]
-    #[link_section = ".page_dir"]
-    static  PAGE_DIRECTORY: RacyCell<PageTable> = RacyCell::new(PageTable::empty());
-
-    #[no_mangle]
-    #[link_section = ".page_table_list"]
-    static mut PAGE_TABLE_LIST: [PageTable; PAGE_ENTRY_COUNT] = [PageTable::empty(); PAGE_ENTRY_COUNT];
-
-// }
+#[no_mangle]
+#[link_section = ".page_dir"]
+pub static  PAGE_DIRECTORY: RacyCell<PageTable> = RacyCell::new(PageTable::empty());
 
 /**
- * 获取页目录表的地址
+ * 内核页表：255项
+ *  * dir[0] = table[0]
+ *  * dir[768] = table[0]
+ *  * dir[769] = table[1]
+ *  * ......
+ *  * dir[1022] = table[254]
+ */
+#[no_mangle]
+#[link_section = ".page_table_list"]
+pub static mut PAGE_TABLE_LIST: [PageTable; constants::KERNEL_PAGE_TABLE_CNT] = [PageTable::empty(); constants::KERNEL_PAGE_TABLE_CNT];
+
+/**
+ * 获取页目录表的地址。只有在未开启分页，才能使用
  */
 pub fn get_dir_ref() -> &'static PageTable {
     unsafe { PAGE_DIRECTORY.get_mut() }
 }
 
+/**
+ * 获取页表的地址。只有未开启分页，才能使用
+ */
+pub fn get_table_list_ref() -> &'static [PageTable] {
+    unsafe { &PAGE_TABLE_LIST[..PAGE_TABLE_LIST.len()] }   
+}
 
 fn get_table_ref(idx: usize) -> &'static mut PageTable {
     unsafe { &mut PAGE_TABLE_LIST[idx] }
@@ -52,7 +54,7 @@ pub fn  fill_dir_directory() {
 
     // 页目录表第0项和第768项指向0号页表
     dir_table_ref.set_entry(0, page_table0);
-    dir_table_ref.set_entry(768, page_table0);
+    dir_table_ref.set_entry(constants::KERNEL_DIR_ENTRY_START_IDX, page_table0);
     
     // 页目录表的最后一项，指向自己
     let self_entry = PageTableEntry::new_default(dir_table_ref as *const PageTable as u32);
@@ -69,11 +71,13 @@ pub fn fill_kernel_directory() {
         PAGE_DIRECTORY.get_mut()
     };
     let mut page_table_idx = 1;
-    for idx in 769 .. (PAGE_ENTRY_COUNT - 1) {
+
+    // 遍历页目录项。页目录项下标范围是：[769, 1023)
+    for dir_entry_idx in constants::KERNEL_DIR_ENTRY_START_IDX + 1 .. constants::KERNEL_DIR_ENTRY_END_IDX {
         // 找到page_table_idx号页表
         let page_idx_addr = get_table_ref(page_table_idx);
         // 把page_table_idx号页表的地址，赋值给第idx页目录项
-        directory_table_ref.set_entry(idx, PageTableEntry::new_default(page_idx_addr as *const PageTable as u32));
+        directory_table_ref.set_entry(dir_entry_idx, PageTableEntry::new_default(page_idx_addr as *const PageTable as u32));
         page_table_idx += 1;
     }
 }
@@ -85,7 +89,7 @@ pub fn fill_kernel_directory() {
 #[no_mangle]
 pub fn fill_table0(){
     // 一个页表项，指向4KB的物理空间
-    const PAGE_SIZE: u32 = 4 * 1024;
+    const PAGE_SIZE: u32 = constants::PAGE_SIZE;
     let page_table_0 = get_table_ref(0);
 
     // 0号页表
@@ -203,6 +207,9 @@ impl PageTableEntry {
                 (utils::bool_to_int(global) << 9) | 
                 (0 << 11)
         }
+    }
+    pub fn present(&self) -> bool {
+        self.data & 0x00000001 == 0x1
     }
 }
 

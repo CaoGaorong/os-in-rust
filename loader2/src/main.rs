@@ -3,9 +3,7 @@
 
 use core::{arch::asm, panic::PanicInfo};
 
-use os_in_rust_common::{context::{self, BootContext}, disk, gdt::{self, GlobalDescriptorTable}, mem, paging::{self, PageTable}, println, racy_cell::RacyCell, reg_cr0::{self, CR0}, reg_cr3::CR3, selector};
-// use core::fmt::Write;
-// use os_in_rust_common::{gdt::GlobalDecriptorTable, interrupt, reg_cr0, selector, vga:: {self, CharAttr, Color, ScreenBuffer, Writer, WRITER}};
+use os_in_rust_common::{context::{self, BootContext}, disk, gdt::{self, GlobalDescriptorTable}, memory, paging::{self, PageTable}, println, racy_cell::RacyCell, reg_cr0::{self, CR0}, reg_cr3::CR3, selector};
 
 
 static BOOT_CONTEXT: RacyCell<BootContext> = RacyCell::new(BootContext {

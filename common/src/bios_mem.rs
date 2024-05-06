@@ -5,7 +5,7 @@ use crate::racy_cell::RacyCell;
 
 #[no_mangle]
 #[link_section = ".memeory_map"]
-static MEMORY_MAP: RacyCell<[AddressRangeDescriptorStrure; 10]> = RacyCell::new([AddressRangeDescriptorStrure::empty(); 10]);
+static MEMORY_MAP: RacyCell<[AddressRangeDescriptorStructure; 10]> = RacyCell::new([AddressRangeDescriptorStructure::empty(); 10]);
 
 
 
@@ -16,12 +16,12 @@ static MEMORY_MAP: RacyCell<[AddressRangeDescriptorStrure; 10]> = RacyCell::new(
  */
 #[repr(C, packed)]
 #[derive(Clone, Copy)]
-pub struct AddressRangeDescriptorStrure {
+pub struct AddressRangeDescriptorStructure {
     pub base_addr: u64,
     pub len: u64,
     pub region_type: u32,
 }
-impl AddressRangeDescriptorStrure {
+impl AddressRangeDescriptorStructure {
     const fn empty() -> Self {
         Self {
             base_addr:0,
@@ -77,7 +77,7 @@ pub fn get_memeory_map() -> (u32, u32) {
     // 魔数
     const SMAP: u32 = 0x534D4150;
     // 一个ADRS的大小。单位字节
-    const ADRS_SIZE: usize = size_of::<AddressRangeDescriptorStrure>();
+    const ADRS_SIZE: usize = size_of::<AddressRangeDescriptorStructure>();
 
     // ebx的值，表示下一个ARDS结构的位置，为0表示这是最后一个ARDS结构
     let mut next_ards = 0;
