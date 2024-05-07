@@ -25,3 +25,4 @@ pub mod memory;
 pub mod context;
 pub mod bios_mem;
 pub mod page_util;
+pub mod thread;

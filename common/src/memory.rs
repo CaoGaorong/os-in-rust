@@ -142,4 +142,3 @@ pub fn malloc_kernel_page(page_cnt: usize) -> u32{
     }
     base_virtual_addr
 }
-

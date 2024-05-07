@@ -57,3 +57,5 @@ pub const  KERNEL_DIR_ENTRY_END_IDX: usize = 1024 - 1;
  * dir[1022] = table[254]
  */
 pub const  KERNEL_PAGE_TABLE_CNT: usize = KERNEL_DIR_ENTRY_END_IDX - KERNEL_DIR_ENTRY_START_IDX;
+
+pub const TASK_STRUCT_STACK_MAGIC: u32 = 0x20010217;
