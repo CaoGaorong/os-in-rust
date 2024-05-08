@@ -59,3 +59,5 @@ pub const  KERNEL_DIR_ENTRY_END_IDX: usize = 1024 - 1;
 pub const  KERNEL_PAGE_TABLE_CNT: usize = KERNEL_DIR_ENTRY_END_IDX - KERNEL_DIR_ENTRY_START_IDX;
 
 pub const TASK_STRUCT_STACK_MAGIC: u32 = 0x20010217;
+
+pub const MAIN_THREAD_NAME: &str = "main";

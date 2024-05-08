@@ -1,6 +1,6 @@
 use core::{arch::asm, mem::size_of, ptr};
 
-use crate::{constants, memory, ASSERT};
+use crate::{constants, memory, paging::PageTable, println, ASSERT};
 
 /**
  * 创建一个内核线程，传递的函数
@@ -15,6 +15,21 @@ pub type ThreadArg = &'static str;
 
 fn kernel_thread(function: ThreadFunc, arg: ThreadArg) {
     function(arg)
+}
+
+
+/**
+ * 获取当前运行的线程
+ */
+pub fn current_thread() -> &'static mut PcbPage {
+    let cur_esp: u32;
+    unsafe {
+        asm!(
+            "mov {0:e}, esp",
+            out(reg) cur_esp,
+        );
+    }
+    unsafe { &mut *((cur_esp & 0xfffff000) as *mut PcbPage) }
 }
 
 /**
@@ -32,17 +47,10 @@ pub fn thread_start(thread_name: &'static str, priority: u8, func: ThreadFunc, a
     let pcb_page = unsafe { &mut *(page_addr as *mut PcbPage) };
 
     // 构建PCB页
-    pcb_page
-        .task_struct
-        .clone_from(&TaskStruct::new(thread_name, priority));
+    pcb_page.init_task_struct(thread_name, priority);
 
     // 填充PCB页的中断栈
-    pcb_page
-        .thread_stack
-        .clone_from(&ThreadStack::new(func, arg));
-
-    // 重置该页，PCB的栈指针的位置
-    pcb_page.reset_stack_pointer();
+    pcb_page.init_thread_stack(func, arg);
 
 
     // 加载该PCB。加载到esp，然后使用ret触发
@@ -95,11 +103,21 @@ impl PcbPage {
     }
 
     /**
-     * 重置栈的指针
-     * 把它重置到线程栈的开始位置处
+     * 初始化任务
      */
-    pub fn reset_stack_pointer(&mut self) {
+    pub fn init_task_struct(&mut self, name: &'static str, priority: u8) {
+        // 初始化任务信息
+        self.task_struct.init(name, priority);
+        // 把栈指针放在线程栈地址处
         self.task_struct.kernel_stack_ptr = &mut self.thread_stack as *mut ThreadStack as *mut u8;
+    }
+
+    pub fn init_thread_stack(&mut self, function: ThreadFunc, arg: ThreadArg) {
+        self.thread_stack.init(function, arg);
+    }
+
+    pub fn set_task_status(&mut self, status: TaskStatus) {
+        self.task_struct.set_status(status);
     }
 
     /**
@@ -150,6 +168,19 @@ pub struct TaskStruct {
      * 栈边界的魔数
      */
     stack_magic: u32,
+
+    /**
+     * 当前进程/线程还剩的滴答数量
+     */
+    left_ticks: u8,
+    /**
+     * 该任务一共执行了多久
+     */
+    elapsed_ticks: u8,
+    /**
+     * 该PCB使用的页表地址
+     */
+    pgdir: *mut PageTable,
 }
 
 impl TaskStruct {
@@ -158,14 +189,29 @@ impl TaskStruct {
             kernel_stack_ptr: ptr::null_mut(),
             name,
             priority,
-            task_status: TaskStatus::TaskRunning,
+            task_status: TaskStatus::TaskReady,
             stack_magic: constants::TASK_STRUCT_STACK_MAGIC,
+            left_ticks: priority,
+            elapsed_ticks: 0,
+            pgdir: ptr::null_mut(),
         }
     }
 
-    pub fn init_stack(&mut self, stack_addr: *mut u8) {
-        self.kernel_stack_ptr = stack_addr;
+    fn init(&mut self, name: &'static str, priority: u8) {
+        self.kernel_stack_ptr = ptr::null_mut();
+        self.name = name;
+        self.task_status = TaskStatus::TaskReady;
+        self.priority = priority;
+        self.stack_magic = constants::TASK_STRUCT_STACK_MAGIC;
+        self.left_ticks = priority;
+        self.elapsed_ticks = 0;
+        self.pgdir = ptr::null_mut();
     }
+
+    fn set_status(&mut self , status: TaskStatus) {
+        self.task_status = status;
+    }
+
 }
 
 // #[repr(u32)]
@@ -216,7 +262,7 @@ impl ThreadStack {
      * function: 要执行的函数
      * arg: 该函数的地址
      */
-    pub fn new(function: ThreadFunc, arg: ThreadArg) -> Self {
+    fn new(function: ThreadFunc, arg: ThreadArg) -> Self {
         Self {
             ebp: 0,
             ebx: 0,
@@ -227,6 +273,17 @@ impl ThreadStack {
             function,
             func_arg: arg,
         }
+    }
+    
+    fn init(&mut self, function: ThreadFunc, arg: ThreadArg) {
+        self.ebp = 0;
+        self.ebx = 0;
+        self.edi = 0;
+        self.esi = 0;
+        self.eip = kernel_thread;
+        self.ret_addr = ptr::null();
+        self.function = function;
+        self.func_arg = arg;
     }
 }
 
