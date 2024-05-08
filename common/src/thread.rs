@@ -1,6 +1,6 @@
 use core::{arch::asm, mem::size_of, ptr};
 
-use crate::{constants, memory, paging::PageTable, println, ASSERT};
+use crate::{constants, linked_list::LinkedNode, paging::PageTable};
 
 /**
  * 创建一个内核线程，传递的函数
@@ -32,31 +32,6 @@ pub fn current_thread() -> &'static mut PcbPage {
     unsafe { &mut *((cur_esp & 0xfffff000) as *mut PcbPage) }
 }
 
-/**
- * 启动一个内核线程
- */
-pub fn thread_start(thread_name: &'static str, priority: u8, func: ThreadFunc, arg: ThreadArg) {
-
-    // 先确保，目前的PCB页大小构建正确。如果错误，请及时修复代码
-    ASSERT!(size_of::<PcbPage>() as u32 == constants::PAGE_SIZE);
-
-    // 申请1页内核内存
-    let page_addr = memory::malloc_kernel_page(1);
-
-    // 把内核内存转成PCB页
-    let pcb_page = unsafe { &mut *(page_addr as *mut PcbPage) };
-
-    // 构建PCB页
-    pcb_page.init_task_struct(thread_name, priority);
-
-    // 填充PCB页的中断栈
-    pcb_page.init_thread_stack(func, arg);
-
-
-    // 加载该PCB。加载到esp，然后使用ret触发
-    pcb_page.do_load();
-}
-
 
 
 /**
@@ -69,12 +44,12 @@ const PCB_PAGE_BLANK_SIZE: usize = constants::PAGE_SIZE as usize
 /**
  * 一个PCB页的结构（保证是一个物理页占用4KB）
  */
-#[repr(C, packed)]
+#[repr(C)]
 pub struct PcbPage {
     /**
      * 开始部分是PCB
      */
-    task_struct: TaskStruct,
+    pub task_struct: TaskStruct,
     /**
      * 中间部分填充0
      */
@@ -103,21 +78,20 @@ impl PcbPage {
     }
 
     /**
-     * 初始化任务
+     * 初始化PCB
      */
     pub fn init_task_struct(&mut self, name: &'static str, priority: u8) {
+        // 线程栈的地址
+        let thread_stack_ptr = &mut self.thread_stack as *mut ThreadStack as *mut u8;
         // 初始化任务信息
-        self.task_struct.init(name, priority);
-        // 把栈指针放在线程栈地址处
-        self.task_struct.kernel_stack_ptr = &mut self.thread_stack as *mut ThreadStack as *mut u8;
+        self.task_struct.init(name, priority, thread_stack_ptr);
     }
 
+    /**
+     * 初始化线程栈
+     */
     pub fn init_thread_stack(&mut self, function: ThreadFunc, arg: ThreadArg) {
         self.thread_stack.init(function, arg);
-    }
-
-    pub fn set_task_status(&mut self, status: TaskStatus) {
-        self.task_struct.set_status(status);
     }
 
     /**
@@ -145,42 +119,44 @@ impl PcbPage {
 /**
  * PCB的结构
 */
-#[repr(C, packed)]
-#[derive(Clone, Copy)]
+#[repr(C)]
 pub struct TaskStruct {
     /**
      * PCB内核栈地址
      */
-    kernel_stack_ptr: *mut u8,
+    pub kernel_stack_ptr: *mut u8,
     /**
      * PCB的名称
      */
-    name: &'static str,
+    pub name: &'static str,
     /**
      * PCB状态
      */
-    task_status: TaskStatus,
+    pub task_status: TaskStatus,
     /**
      * PCB优先级
      */
-    priority: u8,
+    pub priority: u8,
     /**
      * 栈边界的魔数
      */
-    stack_magic: u32,
+    pub stack_magic: u32,
 
     /**
      * 当前进程/线程还剩的滴答数量
      */
-    left_ticks: u8,
+    pub left_ticks: u8,
     /**
      * 该任务一共执行了多久
      */
-    elapsed_ticks: u8,
+    pub elapsed_ticks: u8,
     /**
      * 该PCB使用的页表地址
      */
-    pgdir: *mut PageTable,
+    pub pgdir: *mut PageTable,
+
+    pub ready_tag: LinkedNode,
+    pub all_tag: LinkedNode,
 }
 
 impl TaskStruct {
@@ -194,11 +170,13 @@ impl TaskStruct {
             left_ticks: priority,
             elapsed_ticks: 0,
             pgdir: ptr::null_mut(),
+            ready_tag: LinkedNode::new(),
+            all_tag: LinkedNode::new(),
         }
     }
 
-    fn init(&mut self, name: &'static str, priority: u8) {
-        self.kernel_stack_ptr = ptr::null_mut();
+    fn init(&mut self, name: &'static str, priority: u8, kernel_stack: *mut u8) {
+        self.kernel_stack_ptr = kernel_stack;
         self.name = name;
         self.task_status = TaskStatus::TaskReady;
         self.priority = priority;
@@ -206,6 +184,8 @@ impl TaskStruct {
         self.left_ticks = priority;
         self.elapsed_ticks = 0;
         self.pgdir = ptr::null_mut();
+        self.ready_tag = LinkedNode::new();
+        self.all_tag = LinkedNode::new();
     }
 
     fn set_status(&mut self , status: TaskStatus) {
@@ -287,6 +267,7 @@ impl ThreadStack {
     }
 }
 
+#[derive(Clone, Copy)]
 #[repr(C, packed)]
 pub struct InterruptStack {}
 impl InterruptStack {

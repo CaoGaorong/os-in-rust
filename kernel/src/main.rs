@@ -4,7 +4,7 @@
 
 mod interrupt;
 mod init;
-mod main_thread;
+mod thread_management;
 
 use core::{arch::asm, mem, panic::PanicInfo};
 use os_in_rust_common::{context::BootContext, print, println, thread};
@@ -22,11 +22,15 @@ pub extern "C" fn _start(boot_info: &BootContext) {
     println!("I'm Kernel!");
     
     init::init_all(boot_info);
+    thread_management::init_list();
+    
+    // 启动一个子线程。不执行
+    thread_management::thread_start("my-thread", 31, k_thread_fun, "fuck");
+    // 主线程
+    thread_management::make_thread_main();
 
-    let current_thread = thread::current_thread();
-    println!("main thread pcb:0x{:x}", current_thread as *const _ as u32);
-    thread::thread_start("my-thread", 31, k_thread_fun, "fuck");
-
+    // 打印线程信息
+    thread_management::print_thread();
     loop {}
 }
 

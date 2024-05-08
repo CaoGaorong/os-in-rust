@@ -1,6 +1,6 @@
 #![no_std]
 #![feature(abi_x86_interrupt)]
-
+#![feature(const_mut_refs)]
 
 pub mod dap;
 pub mod disk;
@@ -26,4 +26,5 @@ pub mod context;
 pub mod bios_mem;
 pub mod page_util;
 pub mod thread;
+pub mod linked_list_deprecated;
 pub mod linked_list;
