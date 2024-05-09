@@ -1,6 +1,6 @@
 use core::{arch::asm, mem::size_of, ptr};
 
-use crate::{constants, linked_list::LinkedNode, paging::PageTable};
+use crate::{constants, instruction::enable_interrupt, linked_list::LinkedNode, paging::PageTable};
 
 /**
  * 创建一个内核线程，传递的函数
@@ -14,6 +14,8 @@ pub type ThreadArg = &'static str;
 
 
 fn kernel_thread(function: ThreadFunc, arg: ThreadArg) {
+    // 开启中断。线程切换依赖时钟中断
+    enable_interrupt();
     function(arg)
 }
 
