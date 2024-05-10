@@ -29,9 +29,11 @@ pub fn get_ready_thread() -> &'static mut LinkedList{
  * 因为new设置为const函数，没法获取可变引用
  * 并且，会出现悬空指针
  */
-pub fn init_list() {
+pub fn thread_init() {
     unsafe { ALL_THREAD_LIST.get_mut().init() };
     unsafe { READY_THREAD_LIST.get_mut().init() };
+    // 主线程
+    make_thread_main();
 }
 
 /**

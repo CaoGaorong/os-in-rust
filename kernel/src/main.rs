@@ -13,7 +13,7 @@ use os_in_rust_common::{context::BootContext, instruction::{self, enable_interru
 
 fn k_thread_fun(arg: &'static str) {
     loop {
-        print!("{}", arg);
+        // println!("sub thread, intr:{}", instruction::is_intr_on());
     }
 }
 
@@ -23,18 +23,18 @@ pub extern "C" fn _start(boot_info: &BootContext) {
     println!("I'm Kernel!");
     
     init::init_all(boot_info);
-    thread_management::init_list();
     
     // 启动一个子线程。不执行
-    thread_management::thread_start("my-thread", 31, k_thread_fun, "fuck");
-    // 主线程
-    thread_management::make_thread_main();
+    thread_management::thread_start("my-thread", 31, k_thread_fun, ".");
 
     // 打印线程信息
     thread_management::print_thread();
     
     enable_interrupt();
-    loop {}
+    loop {
+        // println!("main thread interrupt on {}", instruction::is_intr_on());
+        // print!("-");
+    }
 }
 
 
