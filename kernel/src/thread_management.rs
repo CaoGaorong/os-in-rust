@@ -14,6 +14,16 @@ static ALL_THREAD_LIST: RacyCell<LinkedList> = RacyCell::new(LinkedList::new());
  */
 static READY_THREAD_LIST: RacyCell<LinkedList> = RacyCell::new(LinkedList::new());
 
+pub fn get_all_thread() -> &'static mut LinkedList{
+    unsafe { ALL_THREAD_LIST.get_mut() }
+}
+
+
+pub fn get_ready_thread() -> &'static mut LinkedList{
+    unsafe { READY_THREAD_LIST.get_mut() }
+}
+
+
 /**
  * 记得一定要初始化。为什么在new的时候不初始化呢？
  * 因为new设置为const函数，没法获取可变引用
@@ -40,6 +50,8 @@ pub fn make_thread_main() {
     // 添加到所有的进程中
     all_thread_list.append(&mut pcb_page.task_struct.all_tag);
 }
+
+
 pub fn print_thread() {
     println!("all thread:");
     unsafe {
@@ -55,6 +67,12 @@ pub fn print_thread() {
             println!("thread name: {}", unsafe { (&*task_struct).name });
         })
     };
+
+    unsafe {
+        let curr = thread::current_thread();
+        let contains = READY_THREAD_LIST.get_mut().contains(&curr.task_struct.all_tag);
+        println!("contains:{}", contains);
+    }
 }
 
 /**

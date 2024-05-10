@@ -1,6 +1,6 @@
 use core::{arch::asm, mem::size_of, ptr};
 
-use crate::{constants, instruction::enable_interrupt, linked_list::LinkedNode, paging::PageTable};
+use crate::{constants, elem2entry, instruction::enable_interrupt, linked_list::LinkedNode, paging::PageTable};
 
 /**
  * 创建一个内核线程，传递的函数
@@ -139,10 +139,6 @@ pub struct TaskStruct {
      * PCB优先级
      */
     pub priority: u8,
-    /**
-     * 栈边界的魔数
-     */
-    pub stack_magic: u32,
 
     /**
      * 当前进程/线程还剩的滴答数量
@@ -157,8 +153,19 @@ pub struct TaskStruct {
      */
     pub pgdir: *mut PageTable,
 
+    /**
+     * 就绪进程的链表tag
+     */
     pub ready_tag: LinkedNode,
+    /**
+     * 全部进程的链表tag
+     */
     pub all_tag: LinkedNode,
+
+    /**
+     * 栈边界的魔数
+     */
+    pub stack_magic: u32,
 }
 
 impl TaskStruct {
@@ -168,12 +175,12 @@ impl TaskStruct {
             name,
             priority,
             task_status: TaskStatus::TaskReady,
-            stack_magic: constants::TASK_STRUCT_STACK_MAGIC,
             left_ticks: priority,
             elapsed_ticks: 0,
             pgdir: ptr::null_mut(),
             ready_tag: LinkedNode::new(),
             all_tag: LinkedNode::new(),
+            stack_magic: constants::TASK_STRUCT_STACK_MAGIC,
         }
     }
 
@@ -190,14 +197,35 @@ impl TaskStruct {
         self.all_tag = LinkedNode::new();
     }
 
-    fn set_status(&mut self , status: TaskStatus) {
+    pub fn set_status(&mut self , status: TaskStatus) {
         self.task_status = status;
+    }
+
+    /**
+     * 重置该任务剩余的ticks
+     */
+    pub fn reset_ticks(&mut self) {
+        self.left_ticks = self.priority;
+    }
+    
+    /**
+     * 根据all_tag的地址，解析出TaskStruct本身
+     */
+    pub fn parse_by_all_tag(all_tag: &LinkedNode) -> *mut Self {
+        elem2entry!(Self, all_tag, all_tag as *const LinkedNode as usize)
+    }
+
+    /** 
+     * 根据ready_tag的地址，解析出TaskStruct本身
+    */
+    pub fn parse_by_ready_tag(ready_tag: &LinkedNode) -> *mut Self {
+        elem2entry!(Self, ready_tag, ready_tag as *const LinkedNode as usize)
     }
 
 }
 
 // #[repr(u32)]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 pub enum TaskStatus {
     TaskRunning,
     TaskReady,

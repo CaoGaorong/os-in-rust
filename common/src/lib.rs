@@ -29,3 +29,4 @@ pub mod thread;
 pub mod linked_list_deprecated;
 pub mod linked_list;
 pub mod pit;
+pub mod reg_eflags;

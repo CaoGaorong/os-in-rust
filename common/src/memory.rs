@@ -84,18 +84,18 @@ pub fn mem_pool_init(all_mem: u32) {
         bit_map_addr
     );
 
-    println!("kernel_mem_pool  addr_start: 0x{:x}", kernel_mem_pool.addr_start);
-    println!("kernel_mem_pool  bitmap addr: 0x{:x}", kernel_mem_pool.bitmap.map_ptr as u32);
-    println!("kernel_mem_pool  bitmap len: 0x{:x}", kernel_mem_pool.bitmap.size as u32);
+    // println!("kernel_mem_pool  addr_start: 0x{:x}", kernel_mem_pool.addr_start);
+    // println!("kernel_mem_pool  bitmap addr: 0x{:x}", kernel_mem_pool.bitmap.map_ptr as u32);
+    // println!("kernel_mem_pool  bitmap len: 0x{:x}", kernel_mem_pool.bitmap.size as u32);
 
 
-    println!("user_mem_pool  addr_start: 0x{:x}", user_mem_pool.addr_start);
-    println!("user_mem_pool  bitmap addr: 0x{:x}", user_mem_pool.bitmap.map_ptr as u32);
-    println!("user_mem_pool  bitmap len: 0x{:x}", user_mem_pool.bitmap.size as u32);
+    // println!("user_mem_pool  addr_start: 0x{:x}", user_mem_pool.addr_start);
+    // println!("user_mem_pool  bitmap addr: 0x{:x}", user_mem_pool.bitmap.map_ptr as u32);
+    // println!("user_mem_pool  bitmap len: 0x{:x}", user_mem_pool.bitmap.size as u32);
 
-    println!("kernel_addr_pool  addr_start: 0x{:x}", kernel_addr_pool.addr_start);
-    println!("kernel_addr_pool  bitmap addr: 0x{:x}", kernel_addr_pool.bitmap.map_ptr as u32);
-    println!("kernel_addr_pool  bitmap len: 0x{:x}", kernel_addr_pool.bitmap.size as u32);
+    // println!("kernel_addr_pool  addr_start: 0x{:x}", kernel_addr_pool.addr_start);
+    // println!("kernel_addr_pool  bitmap addr: 0x{:x}", kernel_addr_pool.bitmap.map_ptr as u32);
+    // println!("kernel_addr_pool  bitmap len: 0x{:x}", kernel_addr_pool.bitmap.size as u32);
 
 
 

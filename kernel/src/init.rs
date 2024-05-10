@@ -32,8 +32,8 @@ pub fn init_all(boot_info: &BootContext) {
     
     memory::mem_pool_init(os_memory_size);
 
-    // 申请一个内核页
-    let addr = memory::malloc_kernel_page(3);
-    println!("malloc addr: 0x{:x}", addr);
+    // // 申请一个内核页
+    // let addr = memory::malloc_kernel_page(3);
+    // println!("malloc addr: 0x{:x}", addr);
 
 }

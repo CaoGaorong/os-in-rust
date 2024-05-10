@@ -92,6 +92,15 @@ impl LinkedList {
         
         unsafe { &mut *target_node }
     }
+
+    /**
+     * 是否包含
+     */
+    pub fn contains(&self, node: &LinkedNode) -> bool {
+        self.iter().any(|e| {
+            (e as u32) == (node as *const _ as u32)
+        })
+    }
     pub fn iter(&self) -> LinkedNodeIterator {
         ASSERT!(self.initialized);
         LinkedNodeIterator {

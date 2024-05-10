@@ -5,9 +5,10 @@
 mod interrupt;
 mod init;
 mod thread_management;
+mod scheduler;
 
 use core::{arch::asm, mem, panic::PanicInfo};
-use os_in_rust_common::{context::BootContext, instruction::enable_interrupt, print, println, thread};
+use os_in_rust_common::{context::BootContext, instruction::{self, enable_interrupt}, print, println, thread::{self, current_thread}};
 
 
 fn k_thread_fun(arg: &'static str) {
@@ -31,6 +32,7 @@ pub extern "C" fn _start(boot_info: &BootContext) {
 
     // 打印线程信息
     thread_management::print_thread();
+    
     enable_interrupt();
     loop {}
 }
