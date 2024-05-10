@@ -1,6 +1,6 @@
 use core::{arch::asm, ptr::addr_of};
 
-use os_in_rust_common::{idt::{self, HandlerFunc, InterruptStackFrame, InterruptTypeEnum}, instruction, pic, print, println};
+use os_in_rust_common::{idt::{self, HandlerFunc, InterruptStackFrame, InterruptTypeEnum}, instruction, pic, pit, print, println};
 
 
 pub fn init() {
@@ -10,7 +10,9 @@ pub fn init() {
     idt::idt_init();
 
     // 初始化中断控制器
-    pic::init_pic();
+    pic::pic_init();
+
+    pit::pit_init();
 
 }
 
@@ -19,7 +21,7 @@ pub fn init() {
  * 通用的中断处理程序
  */
 extern "x86-interrupt" fn general_handler(frame: InterruptStackFrame) {
-    print!("interrupt occur");
+    print!(".");
     pic::send_end_of_interrupt();
 }
 

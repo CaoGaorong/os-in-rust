@@ -28,7 +28,7 @@ enum PicPort {
     SecondaryData = 0xA1,
 }
 
-pub fn init_pic() {
+pub fn pic_init() {
     // 初始化所有的配置
     CHAINED_PICS.init();
 }

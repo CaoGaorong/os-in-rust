@@ -21,6 +21,21 @@ pub const KERNEL_MEM_BITMAP_ADDR: u32 = 0xc009a000;
 pub static INTERRUPT_NO_START: u8 = 0x20;
 
 /**
+ * 计数器的脉冲频率（8253的默认值）
+ */
+pub const PIT_DEFAULT_FREQUENCY: u32 = 1193180;
+
+/**
+ * 计数器最大递减的值（8253的默认值）
+ */
+pub const PIC_MAX_DECREMENT: u32 = 65536;
+
+/**
+ * 本系统设置的时钟中断的频率
+ */
+pub const TIMER_INTR_FREQUENCY: u16 = 100;
+
+/**
  * 页的大小：1024
  */
 pub const PAGE_SIZE: u32 = 4 * 1024;
