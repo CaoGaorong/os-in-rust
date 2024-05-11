@@ -48,6 +48,7 @@ pub extern "x86-interrupt" fn timer_handler(frame: InterruptStackFrame) {
     } else {
         // 否则就切换其他线程
         scheduler::schedule();
+        // println!("schedule finished");
     }
 
     

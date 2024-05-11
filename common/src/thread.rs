@@ -13,7 +13,8 @@ pub type ThreadFunc = fn(ThreadArg);
 pub type ThreadArg = &'static str;
 
 
-fn kernel_thread(function: ThreadFunc, arg: ThreadArg) {
+
+extern "C" fn kernel_thread(function: ThreadFunc, arg: ThreadArg) {
     // 开启中断。线程切换依赖时钟中断
     enable_interrupt();
     function(arg)
@@ -84,7 +85,7 @@ impl PcbPage {
      */
     pub fn init_task_struct(&mut self, name: &'static str, priority: u8) {
         // 线程栈的地址
-        let thread_stack_ptr = &mut self.thread_stack as *mut ThreadStack as *mut u8;
+        let thread_stack_ptr = &mut self.thread_stack as *mut ThreadStack as u32;
         // 初始化任务信息
         self.task_struct.init(name, priority, thread_stack_ptr);
     }
@@ -102,7 +103,7 @@ impl PcbPage {
      */
     pub fn do_load(&self) {
         // 当前PCB的栈指针指向的地址
-        let stack_addr = self.task_struct.kernel_stack_ptr as u32;
+        let stack_addr = self.task_struct.kernel_stack;
 
         // 把这个栈指针，恢复到esp寄存器，那么就开始执行了
         unsafe {
@@ -126,7 +127,7 @@ pub struct TaskStruct {
     /**
      * PCB内核栈地址
      */
-    pub kernel_stack_ptr: *mut u8,
+    pub kernel_stack: u32,
     /**
      * PCB的名称
      */
@@ -171,7 +172,7 @@ pub struct TaskStruct {
 impl TaskStruct {
     pub fn new(name: &'static str, priority: u8) -> Self {
         Self {
-            kernel_stack_ptr: ptr::null_mut(),
+            kernel_stack: 0,
             name,
             priority,
             task_status: TaskStatus::TaskReady,
@@ -184,8 +185,8 @@ impl TaskStruct {
         }
     }
 
-    fn init(&mut self, name: &'static str, priority: u8, kernel_stack: *mut u8) {
-        self.kernel_stack_ptr = kernel_stack;
+    fn init(&mut self, name: &'static str, priority: u8, kernel_stack: u32) {
+        self.kernel_stack = kernel_stack;
         self.name = name;
         self.task_status = TaskStatus::TaskReady;
         self.priority = priority;
@@ -251,7 +252,7 @@ pub struct ThreadStack {
     /**
      * 利用ret指令，把这个要执行的函数地址，赋值给eip，从而实现“跳转执行”
      */
-    eip: fn(ThreadFunc, ThreadArg),
+    eip: extern "C" fn(ThreadFunc, ThreadArg),
     /* --- 以下三个字段，只有第一次构建要用，利用ret指令“欺骗CPU”------ */
     /**
      * 返回地址。因为ret指令，会默认esp指向的地址处，是调用者的返回地址。但是其实我们不需要，单纯占位用

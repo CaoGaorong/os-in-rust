@@ -44,7 +44,7 @@ pub fn make_thread_main() {
     // 根据当前运行的线程，找到PCB
     let pcb_page = thread::current_thread();
     // 初始化PCB数据
-    pcb_page.init_task_struct(constants::MAIN_THREAD_NAME, 31);
+    pcb_page.init_task_struct(constants::MAIN_THREAD_NAME, constants::TASK_DEFAULT_PRIORITY);
 
     // main线程，设置为运行中
     pcb_page.task_struct.task_status = TaskStatus::TaskRunning;
@@ -60,21 +60,11 @@ pub fn print_thread() {
         ALL_THREAD_LIST.get_mut().iter().for_each(|node| {
             let task_struct = elem2entry!(TaskStruct, all_tag, node);
             println!("thread name: {}", unsafe { (&*task_struct).name });
+            println!("task struct addr:0x{:x}", task_struct as u32);
+            println!("task struct stack addr:0x{:x}", (&*task_struct).kernel_stack as u32);
         })
     };
-    println!("ready thread:");
-    unsafe {
-        READY_THREAD_LIST.get_mut().iter().for_each(|node| {
-            let task_struct = elem2entry!(TaskStruct, ready_tag, node);
-            println!("thread name: {}", unsafe { (&*task_struct).name });
-        })
-    };
-
-    unsafe {
-        let curr = thread::current_thread();
-        let contains = READY_THREAD_LIST.get_mut().contains(&curr.task_struct.all_tag);
-        println!("contains:{}", contains);
-    }
+    
 }
 
 /**

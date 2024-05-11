@@ -1,10 +1,16 @@
-use core::{arch::asm, task};
+#![feature(global_asm)]
+use core::{arch::{asm, global_asm}, task};
 
 use os_in_rust_common::{elem2entry, instruction, println, reg_cr0::CR0, reg_eflags, thread::{self, TaskStatus, TaskStruct}, ASSERT};
 
 use crate::{interrupt, thread_management};
 
 
+global_asm!(include_str!("switch.s"));
+
+extern "C" {
+    fn switch_to(cur_task: &mut TaskStruct, task_to_run: &mut TaskStruct);
+}
 
 pub fn schedule() {
     // 确保没有被打断
@@ -34,16 +40,25 @@ pub fn schedule() {
     
 
     // 从当前的任务，切换到要运行的任务
-    switch_to(cur_task, task_to_run);
+    unsafe { switch_to(cur_task, task_to_run) };
 }
 
 /**
- * 切换任务
- * cur_task: 当前任务
- * task_to_run: 待运行的任务
+ * 切换任务（该函数不可用。该方法已经使用纯汇编来实现）
+ * - cur_task: 当前任务
+ * - task_to_run: 待运行的任务
+ *      该方法的效果，本来是：保存当前任务的上下文，恢复下一个任务的上下文。
+ *      但是在实际情况中，却没法正常运行。
+ *      主要是switch_to函数的返回语句，这个rust实现的switch_to，经过反汇编，发现返回语句使用的是 iret指令。但是当前并不希望使用iret指令
  */
+#[no_mangle]
+#[cfg(never)]
 extern "C" fn switch_to(cur_task: &mut TaskStruct, task_to_run: &mut TaskStruct) {
+    println!();
     println!("from:{}, to:{}", cur_task.name, task_to_run.name);
+    println!("from: task addr:0x{:x}, task_stack_addr:0x{:x}", cur_task as *const TaskStruct as u32, cur_task.kernel_stack as u32);
+    println!("to: task addr:0x{:x}, task_stack_addr:0x{:x}", task_to_run as *const TaskStruct as u32, task_to_run.kernel_stack as u32);
+
     unsafe {
         asm!(
             "push esi",
@@ -56,11 +71,13 @@ extern "C" fn switch_to(cur_task: &mut TaskStruct, task_to_run: &mut TaskStruct)
             "mov {0:e}, esp",
             out(reg) esp
         );
+
+        println!("current esp: 0x{:x}", esp);
         // 把目前esp的值，保存到当前任务的PCB中
-        cur_task.kernel_stack_ptr = esp as *mut u8;
+        cur_task.kernel_stack = esp;
 
         // 待运行任务的上下文中的esp
-        let new_esp = task_to_run.kernel_stack_ptr as u32;
+        let new_esp = task_to_run.kernel_stack;
         // 恢复上下文
         asm!(
             "mov esp, {0:e}",
@@ -72,7 +89,6 @@ extern "C" fn switch_to(cur_task: &mut TaskStruct, task_to_run: &mut TaskStruct)
             "pop ebx",
             "pop edi",
             "pop esi",
-            "sti",
             "ret"
         );
 

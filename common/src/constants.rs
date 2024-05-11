@@ -76,3 +76,8 @@ pub const  KERNEL_PAGE_TABLE_CNT: usize = KERNEL_DIR_ENTRY_END_IDX - KERNEL_DIR_
 pub const TASK_STRUCT_STACK_MAGIC: u32 = 0x20010217;
 
 pub const MAIN_THREAD_NAME: &str = "main";
+
+/** 
+ * 任务的默认优先级。也就是可用的ticks
+*/
+pub const TASK_DEFAULT_PRIORITY: u8 = 10;
