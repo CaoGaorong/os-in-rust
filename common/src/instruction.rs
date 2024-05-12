@@ -2,19 +2,39 @@ use core::arch::asm;
 
 use crate::reg_eflags;
 
+#[derive(PartialEq)]
+pub enum InterruptStatus {
+    Off,
+    On
+}
 /**
  * 禁用中断
  */
 #[inline]
-pub fn disable_interrupt() {
-    unsafe { asm!("cli") };
+pub fn disable_interrupt() -> InterruptStatus {
+    if is_intr_on() {
+        unsafe { asm!("cli") };
+        return InterruptStatus::On;
+    }
+    return InterruptStatus::Off;
 }
 /**
  * 启用中断
  */
 #[inline]
-pub fn enable_interrupt() {
+pub fn enable_interrupt() -> InterruptStatus {
+    if is_intr_on() {
+        return InterruptStatus::On;
+    }
     unsafe { asm!("sti");};
+    return InterruptStatus::Off;
+}
+
+pub fn set_interrupt(status: InterruptStatus) {
+    if InterruptStatus::On == status {
+        enable_interrupt();
+    }
+    disable_interrupt();
 }
 
 /**

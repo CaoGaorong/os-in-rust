@@ -7,6 +7,8 @@ use crate::scheduler;
 
 pub fn init() {
     
+    unsafe { idt::IDT.get_mut().set_error_code_handler(InterruptTypeEnum::GeneralProtectionFault, general_protection_handler) }
+
     // 初始化时钟中断
     unsafe { idt::IDT.get_mut().set_handler(InterruptTypeEnum::Timer, timer_handler) }
     
@@ -20,6 +22,7 @@ pub fn init() {
 }
 
 
+
 /**
  * 通用的中断处理程序
  */
@@ -28,6 +31,15 @@ extern "x86-interrupt" fn general_handler(frame: InterruptStackFrame) {
     pic::send_end_of_interrupt();
 }
 
+
+/**
+ * 通用的中断处理程序
+ */
+extern "x86-interrupt" fn general_protection_handler(frame: InterruptStackFrame, error_code: u32) {
+    pic::send_end_of_interrupt();
+    println!("!!!!general protection exception occur!!!");
+    loop {}
+}
 /**
  * 
  */

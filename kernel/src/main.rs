@@ -8,12 +8,14 @@ mod thread_management;
 mod scheduler;
 
 use core::{arch::asm, mem, panic::PanicInfo};
-use os_in_rust_common::{constants, context::BootContext, instruction::{self, enable_interrupt}, print, println, thread::{self, current_thread}};
+use os_in_rust_common::{constants, context::BootContext, instruction::{self, disable_interrupt, enable_interrupt}, print, println, thread::{self, current_thread}};
 
 
 fn k_thread_fun(arg: &'static str) {
     loop {
+        disable_interrupt();
         print!("{}", arg);
+        enable_interrupt();
         // 防止打印得太快了，sleep一下
         dummy_sleep(100000);
     }
@@ -33,14 +35,26 @@ pub extern "C" fn _start(boot_info: &BootContext) {
     thread_management::thread_start("thread_d", constants::TASK_DEFAULT_PRIORITY, k_thread_fun, "$");
     thread_management::thread_start("thread_e", constants::TASK_DEFAULT_PRIORITY, k_thread_fun, "%");
     thread_management::thread_start("thread_f", constants::TASK_DEFAULT_PRIORITY, k_thread_fun, "(");
+    thread_management::thread_start("thread_f", constants::TASK_DEFAULT_PRIORITY, k_thread_fun, "(");
+    thread_management::thread_start("thread_f", constants::TASK_DEFAULT_PRIORITY, k_thread_fun, "(");
+    thread_management::thread_start("thread_f", constants::TASK_DEFAULT_PRIORITY, k_thread_fun, "(");
+    thread_management::thread_start("thread_f", constants::TASK_DEFAULT_PRIORITY, k_thread_fun, "(");
+    thread_management::thread_start("thread_f", constants::TASK_DEFAULT_PRIORITY, k_thread_fun, "(");
+    thread_management::thread_start("thread_f", constants::TASK_DEFAULT_PRIORITY, k_thread_fun, "(");
+    thread_management::thread_start("thread_f", constants::TASK_DEFAULT_PRIORITY, k_thread_fun, "(");
+    thread_management::thread_start("thread_f", constants::TASK_DEFAULT_PRIORITY, k_thread_fun, "(");
+    thread_management::thread_start("thread_f", constants::TASK_DEFAULT_PRIORITY, k_thread_fun, "(");
+    thread_management::thread_start("thread_f", constants::TASK_DEFAULT_PRIORITY, k_thread_fun, "(");
+    thread_management::thread_start("thread_f", constants::TASK_DEFAULT_PRIORITY, k_thread_fun, "(");
 
     // 打印线程信息
     thread_management::print_thread();
     
     enable_interrupt();
     loop {
-        // println!("main thread interrupt on {}", instruction::is_intr_on());
+        disable_interrupt();
         print!("-");
+        enable_interrupt();
         dummy_sleep(100000);
     }
 }

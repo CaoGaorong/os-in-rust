@@ -94,6 +94,9 @@ pub type HandlerFuncWithErrCode = extern "x86-interrupt" fn(InterruptStackFrame,
  *      - 压入当前的IP寄存器
  *      - 如果有错误码，还要压入错误码
  * 栈的地址是从高到低，所以定义一个结构，取出栈的数据，跟压栈顺序反着来
+ * InterruptStackFrame的结构见：<https://os.phil-opp.com/handling-exceptions/#the-exception-stack-frame>
+ *
+ * > 注意，这里不包括「中断处理程序」自身保存的寄存器上下文的值，仅仅是CPU保存上下文的值
  */
 #[derive(Clone, Copy)]
 #[repr(C, packed)]
