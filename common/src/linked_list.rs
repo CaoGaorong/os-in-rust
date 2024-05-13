@@ -1,4 +1,4 @@
-use core::ptr;
+use core::{ptr, sync::atomic::{AtomicBool, Ordering}};
 use crate::ASSERT;
 
 /**
@@ -24,7 +24,7 @@ unsafe impl Sync for LinkedNode {}
 pub struct LinkedList {
     head: LinkedNode,
     tail: LinkedNode,
-    initialized: bool,
+    initialized: AtomicBool,
 }
 impl LinkedList {
 
@@ -32,14 +32,19 @@ impl LinkedList {
         Self {
             head: LinkedNode::new(),
             tail: LinkedNode::new(),
-            initialized: false,
+            initialized: AtomicBool::new(false),
         }
     }
 
-    pub const fn init(&mut self) {
-        self.head.next = &mut self.tail;
-        self.tail.pre = &mut self.head;
-        self.initialized = true;
+    /**
+     * 这个方法没法使用const修饰。
+     * 
+     */
+    pub fn init(&mut self) {
+        if self.initialized.compare_exchange(false, true, Ordering::Acquire, Ordering::Relaxed).is_ok() {
+            self.head.next = &mut self.tail;
+            self.tail.pre = &mut self.head;
+        }
     }
 
     /**
@@ -59,7 +64,8 @@ impl LinkedList {
      * head <-> A <-> B <-> tail。往A的前面插入一个节点
      */
     pub fn push(&mut self, node: &mut LinkedNode) {
-        ASSERT!(self.initialized);
+        // 先初始化
+        self.init();
         node.next = self.head.next;
         node.pre = &mut self.head;
         (unsafe { &mut *self.head.next }).pre = node;
@@ -70,7 +76,8 @@ impl LinkedList {
      * head <-> A <-> B <-> tail。往B的后面插入一个节点
      */
     pub fn append(&mut self, node: &mut LinkedNode) {
-        ASSERT!(self.initialized);
+        // 先初始化
+        self.init();
         node.next = &mut self.tail;
         node.pre = self.tail.pre;
         (unsafe { &mut *self.tail.pre }).next = node;
@@ -82,7 +89,8 @@ impl LinkedList {
      * head <-> A <-> B <-> tail。A节点弹出
      */
     pub fn pop(&mut self) -> &mut LinkedNode {
-        ASSERT!(self.initialized);
+        // 先初始化
+        self.init();
         // 要弹出的节点
         let target_node = self.head.next;
         // 弹出节点右边的接口
@@ -96,20 +104,22 @@ impl LinkedList {
     /**
      * 是否包含
      */
-    pub fn contains(&self, node: &LinkedNode) -> bool {
+    pub fn contains(&mut self, node: &LinkedNode) -> bool {
         self.iter().any(|e| {
             (e as u32) == (node as *const _ as u32)
         })
     }
-    pub fn iter(&self) -> LinkedNodeIterator {
-        ASSERT!(self.initialized);
+    pub fn iter(&mut self) -> LinkedNodeIterator {
+        // 先初始化
+        self.init();
         LinkedNodeIterator {
             current: self.head.next,
             reversed: false,
         }
     }
-    pub fn iter_reversed(&self) -> LinkedNodeIterator {
-        ASSERT!(self.initialized);
+    pub fn iter_reversed(&mut self) -> LinkedNodeIterator {
+        // 先初始化
+        self.init();
         LinkedNodeIterator {
             current: self.tail.pre,
             reversed: true,

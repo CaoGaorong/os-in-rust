@@ -104,7 +104,7 @@ pub fn thread_start(
     unsafe {
         READY_THREAD_LIST
             .get_mut()
-            .append(&mut pcb_page.task_struct.ready_tag)
+            .append(&mut pcb_page.task_struct.general_tag)
     };
 
     pcb_page
@@ -147,10 +147,11 @@ pub fn wake_thread(task: &mut TaskStruct)  {
     let allow_status = [TaskStatus::TaskBlocked, TaskStatus::TaskHanging, TaskStatus::TaskWaiting];
     ASSERT!(allow_status.contains(&task.task_status));
 
+    ASSERT!(task.task_status != TaskStatus::TaskReady);
     // 设置为就绪状态
     task.task_status = TaskStatus::TaskReady;
     // 放入就绪队列
-    get_ready_thread().append(&mut task.ready_tag);
+    get_ready_thread().append(&mut task.general_tag);
 
     // 恢复中断
     instruction::set_interrupt(old_status);

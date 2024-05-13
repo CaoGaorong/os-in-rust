@@ -1,21 +1,25 @@
 #![no_std]
 #![no_main]
 #![feature(abi_x86_interrupt)]
+#![feature(const_mut_refs)]
 
 mod interrupt;
 mod init;
 mod thread_management;
 mod scheduler;
+mod sync;
 
-use core::{arch::asm, mem, panic::PanicInfo};
-use os_in_rust_common::{constants, context::BootContext, instruction::{self, disable_interrupt, enable_interrupt}, print, println, thread::{self, current_thread}};
+use core::{arch::asm, mem, panic::PanicInfo, ptr};
+use os_in_rust_common::{constants, context::BootContext, instruction::{self, disable_interrupt, enable_interrupt}, print, println, racy_cell::RacyCell, thread::{self, current_thread}};
+use sync::Lock;
 
+static GLOBAL_LOCK: RacyCell<Lock> = RacyCell::new(Lock::new());
 
 fn k_thread_fun(arg: &'static str) {
     loop {
-        disable_interrupt();
-        print!("{}", arg);
-        enable_interrupt();
+        // unsafe { GLOBAL_LOCK.get_mut().lock() };
+        println!("{} get lock successfully", thread::current_thread().task_struct.name);
+        // print!("{}", arg);
         // 防止打印得太快了，sleep一下
         dummy_sleep(100000);
     }
@@ -52,9 +56,7 @@ pub extern "C" fn _start(boot_info: &BootContext) {
     
     enable_interrupt();
     loop {
-        disable_interrupt();
         print!("-");
-        enable_interrupt();
         dummy_sleep(100000);
     }
 }

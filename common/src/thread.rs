@@ -155,9 +155,10 @@ pub struct TaskStruct {
     pub pgdir: *mut PageTable,
 
     /**
-     * 就绪进程的链表tag
+     * 该pcb的通用链表tag。
+     * 可以放就绪队列，也可以放阻塞队列，所以是通用的
      */
-    pub ready_tag: LinkedNode,
+    pub general_tag: LinkedNode,
     /**
      * 全部进程的链表tag
      */
@@ -179,7 +180,7 @@ impl TaskStruct {
             left_ticks: priority,
             elapsed_ticks: 0,
             pgdir: ptr::null_mut(),
-            ready_tag: LinkedNode::new(),
+            general_tag: LinkedNode::new(),
             all_tag: LinkedNode::new(),
             stack_magic: constants::TASK_STRUCT_STACK_MAGIC,
         }
@@ -194,7 +195,7 @@ impl TaskStruct {
         self.left_ticks = priority;
         self.elapsed_ticks = 0;
         self.pgdir = ptr::null_mut();
-        self.ready_tag = LinkedNode::new();
+        self.general_tag = LinkedNode::new();
         self.all_tag = LinkedNode::new();
     }
 
@@ -219,8 +220,8 @@ impl TaskStruct {
     /** 
      * 根据ready_tag的地址，解析出TaskStruct本身
     */
-    pub fn parse_by_ready_tag(ready_tag: &LinkedNode) -> *mut Self {
-        elem2entry!(Self, ready_tag, ready_tag as *const LinkedNode as usize)
+    pub fn parse_by_general_tag(general_tag: &LinkedNode) -> *mut Self {
+        elem2entry!(Self, general_tag, general_tag as *const LinkedNode as usize)
     }
 
 }

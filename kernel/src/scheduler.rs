@@ -21,9 +21,9 @@ pub fn schedule() {
     // 原本该线程处于正在运行，那么说明是时间中断，定时切换的
     if cur_task.task_status == TaskStatus::TaskRunning {
         // 确保不在就绪队列中
-        ASSERT!(!thread_management::get_ready_thread().contains(&cur_task.ready_tag));
+        ASSERT!(!thread_management::get_ready_thread().contains(&cur_task.general_tag));
         // 把当前线程加入到就绪队列
-        thread_management::get_ready_thread().append(&mut cur_task.ready_tag);
+        thread_management::get_ready_thread().append(&mut cur_task.general_tag);
         // 重置剩余的ticks
         cur_task.reset_ticks();
         // 设置为就绪
@@ -35,7 +35,7 @@ pub fn schedule() {
     ASSERT!(!thread_management::get_ready_thread().is_empty());
     let pcb_ready_tag = thread_management::get_ready_thread().pop();
     // 找到那个要运行的task
-    let task_to_run = unsafe { &mut *(TaskStruct::parse_by_ready_tag(pcb_ready_tag)) };
+    let task_to_run = unsafe { &mut *(TaskStruct::parse_by_general_tag(pcb_ready_tag)) };
     task_to_run.set_status(TaskStatus::TaskRunning);
     
 
