@@ -48,6 +48,7 @@ pub enum FlagEnum {
 /**
  * 查看某个标志是否开启
  */
+#[inline]
 pub fn is_flag_on(flag: FlagEnum) -> bool {
     let mut eflags: u32;
     unsafe {

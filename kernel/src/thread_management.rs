@@ -4,17 +4,23 @@ use os_in_rust_common::{
     constants, elem2entry, instruction, linked_list::LinkedList, memory, println, racy_cell::RacyCell, thread::{self, PcbPage, TaskStatus, TaskStruct, ThreadArg, ThreadFunc}, utils, ASSERT
 };
 
+use lazy_static::lazy_static;
 use crate::scheduler;
 
-/**
- * 所有的线程list
- */
-static ALL_THREAD_LIST: RacyCell<LinkedList> = RacyCell::new(LinkedList::new());
 
-/**
- * 就绪的进程List
- */
-static READY_THREAD_LIST: RacyCell<LinkedList> = RacyCell::new(LinkedList::new());
+lazy_static! {
+    /**
+     * 所有的线程list
+     */
+    pub static ref ALL_THREAD_LIST: RacyCell<LinkedList> = RacyCell::new(LinkedList::new());
+
+    /**
+     * 就绪的进程List
+     */
+    pub static ref READY_THREAD_LIST: RacyCell<LinkedList> = RacyCell::new(LinkedList::new());
+
+}
+
 
 pub fn get_all_thread() -> &'static mut LinkedList{
     unsafe { ALL_THREAD_LIST.get_mut() }

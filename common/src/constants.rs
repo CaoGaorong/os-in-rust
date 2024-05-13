@@ -80,4 +80,4 @@ pub const MAIN_THREAD_NAME: &str = "main";
 /** 
  * 任务的默认优先级。也就是可用的ticks
 */
-pub const TASK_DEFAULT_PRIORITY: u8 = 10;
+pub const TASK_DEFAULT_PRIORITY: u8 = 1;

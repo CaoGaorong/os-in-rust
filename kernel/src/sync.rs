@@ -1,6 +1,6 @@
 use core::ptr;
 
-use os_in_rust_common::{linked_list::LinkedList, ASSERT};
+use os_in_rust_common::{linked_list::LinkedList, print, println, ASSERT};
 
 use crate::{instruction, thread::{self, TaskStruct}, thread_management};
 
@@ -24,12 +24,18 @@ impl Semaphore {
     /**
      * 创建一个有初始化值的信号量
      */
-    pub const fn new(value: u8) -> Self {
+    pub fn new(value: u8) -> Self {
         let mut linked_list = LinkedList::new();
         Self {
             value,
             waiters: linked_list,
         }
+    }
+    /**
+     * 初始化
+     */
+    pub fn init(&mut self) {
+        self.waiters.init();
     }
     /**
      * 信号量减少操作。**阻塞操作**
@@ -45,6 +51,7 @@ impl Semaphore {
             self.waiters.append(&mut current_thread.general_tag);
             thread_management::block_thread(current_thread, thread::TaskStatus::TaskBlocked);
         }
+        
         // 把信号量减一
         self.value -= 1;
         instruction::set_interrupt(old_status);
@@ -55,6 +62,9 @@ impl Semaphore {
      */
     pub fn up(&mut self) {
         let old_status = instruction::disable_interrupt();
+        // print!("{:?}", old_status);
+        // println!("interrupt on:{}", instruction::is_intr_on());
+        // println!("thread:{}, interrupt status old:{:?}", thread::current_thread().task_struct.name, old_status);
         // 如果没任务等待这个信号量
         if self.waiters.is_empty() {
             self.value += 1;
@@ -103,13 +113,17 @@ impl Lock {
     /**
      * 创建一个持有者为holder的锁
      */
-    pub const fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             holder: ptr::null_mut(),
             // 二元信号量
             semaphore: Semaphore::new(1),
             repeat: 0,
         }
+    }
+
+    pub fn init(&mut self) {
+        self.semaphore.init();
     }
     /**
      * 加锁。阻塞操作

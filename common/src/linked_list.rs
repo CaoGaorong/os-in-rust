@@ -24,27 +24,31 @@ unsafe impl Sync for LinkedNode {}
 pub struct LinkedList {
     head: LinkedNode,
     tail: LinkedNode,
-    initialized: AtomicBool,
+    initialized: bool,
 }
 impl LinkedList {
 
-    pub const fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             head: LinkedNode::new(),
             tail: LinkedNode::new(),
-            initialized: AtomicBool::new(false),
+            initialized: false,
         }
     }
 
     /**
      * 这个方法没法使用const修饰。
+     * 并且这个方法没法放到new()里面，因为：
+     *  - 当前的LinkedList成员head和tail都是结构体，赋值的时候会把栈数据按位拷贝，并且所有权转移
+     *  - 而这里操作head.next和tail.pre指针，当在new()函数里面操作这个指针的话，那么指针指向的是局部变量的地址(栈内地址)
+     *  - 当new()函数返回后，head和tail已经按位拷贝赋值给返回值并且转移所有权了，但是指针指向的地址已经释放了。这就是悬挂指针
      * 
+     * 所以这个方法只能在程序运行期间调用，不能在编译期间调用，因此不能设定为const
      */
     pub fn init(&mut self) {
-        if self.initialized.compare_exchange(false, true, Ordering::Acquire, Ordering::Relaxed).is_ok() {
-            self.head.next = &mut self.tail;
-            self.tail.pre = &mut self.head;
-        }
+        self.head.next = &mut self.tail;
+        self.tail.pre = &mut self.head;
+        self.initialized = true;
     }
 
     /**
@@ -64,8 +68,7 @@ impl LinkedList {
      * head <-> A <-> B <-> tail。往A的前面插入一个节点
      */
     pub fn push(&mut self, node: &mut LinkedNode) {
-        // 先初始化
-        self.init();
+        ASSERT!(self.initialized);
         node.next = self.head.next;
         node.pre = &mut self.head;
         (unsafe { &mut *self.head.next }).pre = node;
@@ -76,8 +79,7 @@ impl LinkedList {
      * head <-> A <-> B <-> tail。往B的后面插入一个节点
      */
     pub fn append(&mut self, node: &mut LinkedNode) {
-        // 先初始化
-        self.init();
+        ASSERT!(self.initialized);
         node.next = &mut self.tail;
         node.pre = self.tail.pre;
         (unsafe { &mut *self.tail.pre }).next = node;
@@ -89,8 +91,7 @@ impl LinkedList {
      * head <-> A <-> B <-> tail。A节点弹出
      */
     pub fn pop(&mut self) -> &mut LinkedNode {
-        // 先初始化
-        self.init();
+        ASSERT!(self.initialized);
         // 要弹出的节点
         let target_node = self.head.next;
         // 弹出节点右边的接口
@@ -110,16 +111,14 @@ impl LinkedList {
         })
     }
     pub fn iter(&mut self) -> LinkedNodeIterator {
-        // 先初始化
-        self.init();
+        ASSERT!(self.initialized);
         LinkedNodeIterator {
             current: self.head.next,
             reversed: false,
         }
     }
     pub fn iter_reversed(&mut self) -> LinkedNodeIterator {
-        // 先初始化
-        self.init();
+        ASSERT!(self.initialized);
         LinkedNodeIterator {
             current: self.tail.pre,
             reversed: true,
