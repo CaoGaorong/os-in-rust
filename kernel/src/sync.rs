@@ -43,6 +43,7 @@ impl Semaphore {
     pub fn down(&mut self) {
         let old_status = instruction::disable_interrupt();
 
+        
         // 信号量的值小于等于0，需要每次都阻塞，然后被唤醒后重新判断信号量的值
         while self.value <= 0 {
             let current_thread = &mut thread::current_thread().task_struct;
@@ -51,7 +52,7 @@ impl Semaphore {
             self.waiters.append(&mut current_thread.general_tag);
             thread_management::block_thread(current_thread, thread::TaskStatus::TaskBlocked);
         }
-        
+        println!("semaphore down. name:{}", thread::current_thread().task_struct.name);
         // 把信号量减一
         self.value -= 1;
         instruction::set_interrupt(old_status);
@@ -131,6 +132,7 @@ impl Lock {
      */
     pub fn lock(&mut self) {
         let current_task = &mut thread::current_thread().task_struct;
+        println!("get lock. current task:{}", current_task.name);
         // 如果是当前任务锁的持有者，说明重入了
         if self.holder as u32 == current_task as *mut _ as u32 {
             self.repeat += 1;
@@ -149,6 +151,7 @@ impl Lock {
     pub fn unlock(&mut self) {
         let current_task = &thread::current_thread().task_struct;
         ASSERT!(current_task as *const _ as u32 == self.holder as u32);
+        println!("unlock. current task:{}", current_task.name);
         if self.repeat > 1 {
             self.repeat -= 1;
             return;

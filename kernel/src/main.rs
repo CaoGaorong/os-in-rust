@@ -8,19 +8,15 @@ mod init;
 mod thread_management;
 mod scheduler;
 mod sync;
+mod mutex;
+mod console;
 
 use core::{arch::asm, mem, panic::PanicInfo, ptr};
 use lazy_static::lazy_static;
 use os_in_rust_common::{constants, context::BootContext, instruction::{self, disable_interrupt, enable_interrupt}, print, println, racy_cell::RacyCell, thread::{self, current_thread}};
 use sync::Lock;
+use mutex::Mutex;
 
-lazy_static!{
-    pub static ref GLOBAL_LOCK: RacyCell<Lock> = RacyCell::new(Lock::new());
-}
-
-fn global_lock_init() {
-    unsafe { GLOBAL_LOCK.get_mut().init() };
-}
 
 fn k_thread_fun(arg: &'static str) {
     loop {
@@ -29,12 +25,9 @@ fn k_thread_fun(arg: &'static str) {
 }
 
 fn my_print(arg: &'static str) {
-    // 加锁
-    unsafe { GLOBAL_LOCK.get_mut().lock() };
     // 打印
-    print!("{}", arg);
-    // 解锁
-    unsafe { GLOBAL_LOCK.get_mut().unlock() };
+    // print!("{}", arg);
+    console_print!("{}", arg);
     // 防止打印得太快了，sleep一下
     dummy_sleep(100000);
 }
@@ -45,7 +38,6 @@ pub extern "C" fn _start(boot_info: &BootContext) {
     println!("I'm Kernel!");
     
     init::init_all(boot_info);
-    global_lock_init();
     
     // 创建线程，假如就绪队列
     thread_management::thread_start("thread_a", constants::TASK_DEFAULT_PRIORITY, k_thread_fun, "!");

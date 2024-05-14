@@ -24,7 +24,7 @@ pub static WRITER: RacyCell<Writer> = RacyCell::new(Writer::new(0xb8000, CharAtt
 
 #[macro_export]
 macro_rules! print {
-    ($($arg:tt)*) => ($crate::vga::_print(format_args!($($arg)*)));
+    ($($arg:tt)*) => ($crate::vga::print(format_args!($($arg)*)));
 }
 
 #[macro_export]
@@ -34,8 +34,7 @@ macro_rules! println {
 }
 
 #[no_mangle]
-#[doc(hidden)]
-pub fn _print(args: fmt::Arguments) {
+pub fn print(args: fmt::Arguments) {
     unsafe{ WRITER.get_mut().write_fmt(args).unwrap()};
 }
 

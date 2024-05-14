@@ -136,6 +136,7 @@ pub fn block_thread(task: &mut TaskStruct, task_status: TaskStatus) {
     let old_status = instruction::disable_interrupt();
     // 设置任务位阻塞状态
     task.set_status(task_status);
+    println!("thread blocked down. name:{}", task.name);
     // 切换线程
     scheduler::schedule();
     // 恢复中断 - 被唤醒之后的操作
