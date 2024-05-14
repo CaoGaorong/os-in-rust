@@ -38,8 +38,8 @@ pub fn get_ready_thread() -> &'static mut LinkedList{
  * 并且，会出现悬空指针
  */
 pub fn thread_init() {
-    unsafe { ALL_THREAD_LIST.get_mut().init() };
-    unsafe { READY_THREAD_LIST.get_mut().init() };
+    // unsafe { ALL_THREAD_LIST.get_mut().init() };
+    // unsafe { READY_THREAD_LIST.get_mut().init() };
     // 主线程
     make_thread_main();
 }
@@ -136,7 +136,6 @@ pub fn block_thread(task: &mut TaskStruct, task_status: TaskStatus) {
     let old_status = instruction::disable_interrupt();
     // 设置任务位阻塞状态
     task.set_status(task_status);
-    println!("thread blocked down. name:{}", task.name);
     // 切换线程
     scheduler::schedule();
     // 恢复中断 - 被唤醒之后的操作

@@ -34,9 +34,9 @@ impl Semaphore {
     /**
      * 初始化
      */
-    pub fn init(&mut self) {
-        self.waiters.init();
-    }
+    // pub fn init(&mut self) {
+    //     self.waiters.init();
+    // }
     /**
      * 信号量减少操作。**阻塞操作**
      */
@@ -52,7 +52,6 @@ impl Semaphore {
             self.waiters.append(&mut current_thread.general_tag);
             thread_management::block_thread(current_thread, thread::TaskStatus::TaskBlocked);
         }
-        println!("semaphore down. name:{}", thread::current_thread().task_struct.name);
         // 把信号量减一
         self.value -= 1;
         instruction::set_interrupt(old_status);
@@ -123,16 +122,15 @@ impl Lock {
         }
     }
 
-    pub fn init(&mut self) {
-        self.semaphore.init();
-    }
+    // pub fn init(&mut self) {
+    //     self.semaphore.init();
+    // }
     /**
      * 加锁。阻塞操作
      * 如果加锁成功（未进入阻塞或者阻塞后退出），那么当前线程变为锁的持有者
      */
     pub fn lock(&mut self) {
         let current_task = &mut thread::current_thread().task_struct;
-        println!("get lock. current task:{}", current_task.name);
         // 如果是当前任务锁的持有者，说明重入了
         if self.holder as u32 == current_task as *mut _ as u32 {
             self.repeat += 1;
@@ -151,7 +149,6 @@ impl Lock {
     pub fn unlock(&mut self) {
         let current_task = &thread::current_thread().task_struct;
         ASSERT!(current_task as *const _ as u32 == self.holder as u32);
-        println!("unlock. current task:{}", current_task.name);
         if self.repeat > 1 {
             self.repeat -= 1;
             return;

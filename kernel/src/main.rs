@@ -25,7 +25,7 @@ fn k_thread_fun(arg: &'static str) {
 }
 
 fn my_print(arg: &'static str) {
-    // 打印
+    // 打印。可以对比一下下面两种打印，一个加了阻塞锁，一个没有加阻塞锁
     // print!("{}", arg);
     console_print!("{}", arg);
     // 防止打印得太快了，sleep一下

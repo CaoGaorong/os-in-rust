@@ -1,5 +1,5 @@
 use core::{ptr, sync::atomic::{AtomicBool, Ordering}};
-use crate::ASSERT;
+use crate::{println, ASSERT};
 
 /**
  * 定义一个链表的节点
@@ -25,6 +25,7 @@ pub struct LinkedList {
     head: LinkedNode,
     tail: LinkedNode,
     initialized: bool,
+    cas: AtomicBool,
 }
 impl LinkedList {
 
@@ -33,6 +34,7 @@ impl LinkedList {
             head: LinkedNode::new(),
             tail: LinkedNode::new(),
             initialized: false,
+            cas: AtomicBool::new(false)
         }
     }
 
@@ -45,10 +47,29 @@ impl LinkedList {
      * 
      * 所以这个方法只能在程序运行期间调用，不能在编译期间调用，因此不能设定为const
      */
-    pub fn init(&mut self) {
-        self.head.next = &mut self.tail;
-        self.tail.pre = &mut self.head;
-        self.initialized = true;
+    fn init(&mut self) {
+        // 如果已经初始化了，那就不用初始化了
+        if self.initialized {
+            return;
+        }
+        loop {
+            // 如果获取锁失败，重试。自旋
+            if !self.cas.compare_exchange(false, true, Ordering::Acquire, Ordering::Relaxed).is_ok() {
+                continue;
+            }
+            // 已经初始化了，不用初始化了 double check
+            if self.initialized {
+                return;
+            }
+            // 开始初始化
+            self.head.next = &mut self.tail;
+            self.tail.pre = &mut self.head;
+            // 设置为已经初始化
+            self.initialized = true;
+            // 释放乐观锁
+            self.cas.store(false, Ordering::Release);
+            return;
+        }
     }
 
     /**
@@ -68,6 +89,7 @@ impl LinkedList {
      * head <-> A <-> B <-> tail。往A的前面插入一个节点
      */
     pub fn push(&mut self, node: &mut LinkedNode) {
+        self.init();
         ASSERT!(self.initialized);
         node.next = self.head.next;
         node.pre = &mut self.head;
@@ -79,6 +101,7 @@ impl LinkedList {
      * head <-> A <-> B <-> tail。往B的后面插入一个节点
      */
     pub fn append(&mut self, node: &mut LinkedNode) {
+        self.init();
         ASSERT!(self.initialized);
         node.next = &mut self.tail;
         node.pre = self.tail.pre;
@@ -91,6 +114,7 @@ impl LinkedList {
      * head <-> A <-> B <-> tail。A节点弹出
      */
     pub fn pop(&mut self) -> &mut LinkedNode {
+        self.init();
         ASSERT!(self.initialized);
         // 要弹出的节点
         let target_node = self.head.next;
@@ -111,6 +135,7 @@ impl LinkedList {
         })
     }
     pub fn iter(&mut self) -> LinkedNodeIterator {
+        self.init();
         ASSERT!(self.initialized);
         LinkedNodeIterator {
             current: self.head.next,
@@ -118,6 +143,7 @@ impl LinkedList {
         }
     }
     pub fn iter_reversed(&mut self) -> LinkedNodeIterator {
+        self.init();
         ASSERT!(self.initialized);
         LinkedNodeIterator {
             current: self.tail.pre,

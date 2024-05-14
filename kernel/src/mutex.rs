@@ -6,6 +6,7 @@ use crate::sync;
 
 /**
  * 实现一个阻塞的锁
+ * 这里使用Mutex和MutexGuard，主要是利用rust的Deref和Drop trait的特性（仿照了spin里面的Mutex）
  */
 
 pub struct Mutex<T: ?Sized> {
@@ -20,9 +21,9 @@ impl <T> Mutex<T> {
         }
     }
 
-    pub fn init(&mut self) {
-        self.lock.init();
-    }
+    // pub fn init(&mut self) {
+    //     self.lock.init();
+    // }
 
     pub fn lock(&mut self) -> MutexGuard<T>{
         // 阻塞的锁
@@ -39,6 +40,9 @@ unsafe impl<T: ?Sized + Send> Send for Mutex<T> {}
 
 
 
+/**
+ * 当Mutex的lock()方法得到MutexGuard，离开作用于就调用Drop trait
+ */
 pub struct MutexGuard<'a, T: ?Sized + 'a> {
     lock: &'a mut sync::Lock,
     data: &'a mut T,
@@ -65,7 +69,6 @@ impl <'a, T:?Sized> DerefMut for MutexGuard<'a, T> {
 
 impl <'a, T: ?Sized> Drop for MutexGuard<'a, T> {
     fn drop(&mut self) {
-        println!("drop trait");
         // drop的时候解锁
         self.lock.unlock();
     }

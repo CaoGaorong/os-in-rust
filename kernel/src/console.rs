@@ -7,7 +7,6 @@ use crate::mutex::Mutex;
 
 lazy_static!{
     pub static ref DEFAULT_CONSOLE: RacyCell<Mutex<Console>> = RacyCell::new(Mutex::new(Console::new()));
-    pub static ref INIT:() = unsafe { DEFAULT_CONSOLE.get_mut().init()};
 }
 
 
@@ -34,7 +33,6 @@ impl Console {
         Self {  }
     }
     pub fn print(&self, args: fmt::Arguments) {
-        let i = INIT;
         vga::print(args);
     }
 }
