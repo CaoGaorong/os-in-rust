@@ -18,20 +18,6 @@ use sync::Lock;
 use mutex::Mutex;
 
 
-fn k_thread_fun(arg: &'static str) {
-    loop {
-        my_print(arg);
-    }
-}
-
-fn my_print(arg: &'static str) {
-    // 打印。可以对比一下下面两种打印，一个加了阻塞锁，一个没有加阻塞锁
-    // print!("{}", arg);
-    console_print!("{}", arg);
-    // 防止打印得太快了，sleep一下
-    dummy_sleep(100000);
-}
-
 #[no_mangle]
 #[link_section = ".start"]
 pub extern "C" fn _start(boot_info: &BootContext) {
@@ -39,32 +25,14 @@ pub extern "C" fn _start(boot_info: &BootContext) {
     
     init::init_all(boot_info);
     
-    // 创建线程，假如就绪队列
-    thread_management::thread_start("thread_a", constants::TASK_DEFAULT_PRIORITY, k_thread_fun, "!");
-    thread_management::thread_start("thread_b", constants::TASK_DEFAULT_PRIORITY, k_thread_fun, "@");
-    thread_management::thread_start("thread_c", constants::TASK_DEFAULT_PRIORITY, k_thread_fun, "#");
-    thread_management::thread_start("thread_d", constants::TASK_DEFAULT_PRIORITY, k_thread_fun, "$");
-    thread_management::thread_start("thread_e", constants::TASK_DEFAULT_PRIORITY, k_thread_fun, "%");
-    thread_management::thread_start("thread_f", constants::TASK_DEFAULT_PRIORITY, k_thread_fun, "(");
-
     // 打印线程信息
     thread_management::print_thread();
     
     enable_interrupt();
     loop {
-        my_print("-");
+        // my_print("-");
     }
 }
-
-/**
- * 做一个假的sleep
- */
-fn dummy_sleep(instruction_cnt: u32) {
-    for _ in 0 .. instruction_cnt {
-        unsafe {asm!("nop");}
-    }
-}
-
 
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {

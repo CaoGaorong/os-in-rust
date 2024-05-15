@@ -1,7 +1,7 @@
 
 use core::{arch::asm, ptr::addr_of};
 
-use os_in_rust_common::{constants, idt::{self, HandlerFunc, InterruptStackFrame, InterruptTypeEnum}, instruction, pic, pit, print, println, thread, ASSERT};
+use os_in_rust_common::{constants, idt::{self, HandlerFunc, InterruptStackFrame, InterruptTypeEnum}, instruction, pic, pit, port::Port, print, println, thread, ASSERT};
 
 use crate::scheduler;
 
@@ -11,6 +11,8 @@ pub fn init() {
 
     // 初始化时钟中断
     unsafe { idt::IDT.get_mut().set_handler(InterruptTypeEnum::Timer, timer_handler) }
+    // 初始化键盘中断
+    unsafe { idt::IDT.get_mut().set_handler(InterruptTypeEnum::Keyboard, keyboard_handler) }
     
     idt::idt_init();
 
@@ -29,6 +31,14 @@ pub fn init() {
 extern "x86-interrupt" fn general_handler(frame: InterruptStackFrame) {
     // print!(".");
     pic::send_end_of_interrupt();
+}
+
+extern "x86-interrupt" fn keyboard_handler(frame: InterruptStackFrame) {
+    pic::send_end_of_interrupt();
+    // 接收键盘扫描码
+    let data = Port::<u8>::new(0x60).read();
+    
+    print!("{:x}", data);
 }
 
 
