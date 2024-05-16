@@ -10,6 +10,8 @@ mod scheduler;
 mod sync;
 mod mutex;
 mod console;
+mod keyboard;
+mod scancode;
 
 use core::{arch::asm, mem, panic::PanicInfo, ptr};
 use lazy_static::lazy_static;
