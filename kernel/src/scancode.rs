@@ -3,194 +3,233 @@ use core::ptr::null;
 use os_in_rust_common::{constants, ASSERT};
 
 /**
- * 构建一个通码码到Ascii码的映射。
+ * 本文件，专门对扫描码进行处理
+ * 把纯数字的扫描码，转换成更加有结构性的键码信息，方便业务处理
  */
-static MAKE_CODE_KEY_SET: [AsciiCodeKey; constants::KEYBOARD_KEY_COUNT] = compose_key_set();
+
+
+
 /**
- * 不可见的Ascii码
+ * 扫描码和通码和字符的映射，关系如下：
+ * index: 通码（按下键产生的码）
+ * value: 三元组(键，该键的字符，该键大写字符)
  */
-pub enum AsciiControlKey {
+static MAKE_CODE_ASCII_MAPPING: [(Key, char, char); constants::KEYBOARD_KEY_COUNT] = [
+    // 0x00
+    (Key::Null, '\0', '\0'),
+    (Key::Esc, 0x1b as char, 0x1b as char),
+    (Key::One, '1', '!'),
+    (Key::Two, '2', '@'),
+    (Key::Three, '3', '#'),
+    (Key::Four,'4', '$'),
+    (Key::Five, '5', '%'),
+    (Key::Six, '6', '^'),
+    (Key::Seven,'7', '&'),
+    (Key::Eight, '8', '*'),
+    (Key::Night,'9', '('),
+    (Key::Zero,'0', ')'),
+    (Key::Dash,'-', '_'),
+    (Key::Equals, '=', '+'),
+
+    // 0x0E
+    (Key::Backspace, 0x8 as char, 0x8 as char,),
+    // 0x0F
+    (Key::Tab, 0x9 as char, 0x9 as char),
+    // 0x10
+    (Key::Q, 'q', 'Q'),
+    // 0x11
+    (Key::W, 'w', 'W'),
+    // 0x12
+    (Key::E, 'e', 'E'),
+    // 0x13
+    (Key::R, 'r', 'R'),
+    // 0x14
+    (Key::T, 't', 'T'),
+    // 0x15
+    (Key::Y, 'y', 'Y'),
+    // 0x16
+    (Key::U, 'u', 'U'),
+    // 0x17
+    (Key::I, 'i', 'I'),
+    // 0x18
+    (Key::O, 'o', 'O'),
+    // 0x19
+    (Key::P, 'p', 'P'),
+    // 0x1A
+    (Key::LeftBracket, '[', '{'),
+    // 0x1B
+    (Key::RightBracket, ']', '}'),
+    // 0x1C
+    (Key::Enter, 0x0d as char, 0x0d as char),
+
+    // 0x1D
+    (Key::LeftCtrl, '\0', '\0'),
+    // 0x1E
+    (Key::A, 'a', 'A'),
+    // 0x1F
+    (Key::S, 's', 'S'),
+    // 0x20
+    (Key::D, 'd', 'D'),
+    // 0x21
+    (Key::F, 'f', 'F'),
+    // 0x22
+    (Key::G, 'g', 'G'),
+    // 0x23
+    (Key::H, 'h', 'H'),
+    // 0x24
+    (Key::J, 'j', 'J'),
+    // 0x25
+    (Key::K, 'k', 'K'),
+    // 0x26
+    (Key::L, 'l', 'L'),
+    // 0x27
+    (Key::Semicolon, ';', ':'),
+    // 0x28
+    (Key::Quote, '\'', '"'),
+
+    // 0x29
+    (Key::Tilde, '`', '~'),
+    
+    // 0x2A
+    (Key::LeftShift, '\0', '\0'),
+
+    // 0x2B
+    (Key::Pipe, '\\', '|'),
+
+    // 0x2C
+    (Key::Z, 'z', 'Z'),
+    // 0x2D
+    (Key::X, 'x', 'X'),
+    // 0x2E
+    (Key::C, 'c', 'C'),
+    // 0x2F
+    (Key::V, 'v', 'V'),
+    // 0x30
+    (Key::B, 'b', 'B'),
+    // 0x31
+    (Key::N, 'n', 'N'),
+    // 0x32
+    (Key::M, 'm', 'M'),
+    // 0x33
+    (Key::LessThan, ',', '<'),
+    // 0x34
+    (Key::GraterThan, '.', '>'),
+    // 0x35
+    (Key::Slash, '/', '?'),
+    // 0x36
+    (Key::RightShift, '\0', '\0'),
+    // 0x37
+    (Key::Asterisk, '*', '*'),
+    // 0x38
+    (Key::LeftAlt, '\0', '\0'),
+    // 0x39
+    (Key::Space, ' ', ' '),
+    // 0x3A
+    (Key::CapsLock, '\0', '\0'),
+];
+
+
+/**
+ * 目前适配的所有的键。value是这个键的通码
+ */
+#[derive(Clone, Copy, Debug)]
+pub enum Key {
     Null = 0x00,
-    Esc = 0x1b,
-    Backspace = 0x8,
-    Tab = 0x9,
-    Enter = 0x0d,
-    Delete = 0x7F,
+    Esc = 0x01, One, Two, Three, Four, Five, Six, Seven, Eight, Night, Zero, Dash, Equals, Backspace,
+    Tab = 0x0f, Q, W, E, R, T, Y, U, I, O, P, LeftBracket, RightBracket, Enter,
+    LeftCtrl = 0x1D,
+    A = 0x1E, S, D, F, G, H, J, K, L, Semicolon, Quote, 
+    Tilde = 0x29, 
+    LeftShift = 0x2A, 
+    Pipe = 0x2B,
+    Z = 0x2C, X, C, V, B, N, M, LessThan, GraterThan, Slash, RightShift,
+    Asterisk = 0x37, 
+    LeftAlt = 0x38,
+    Space = 0x39,
+    CapsLock = 0x3A,
+    RightAlt = 0xE038,
+    RightCtrl = 0xE01D,
 }
 
-
-#[derive(Clone, Copy)]
-pub struct AsciiCodeKey {
+/**
+ * 键码。把扫描码转换成这个，然后做业务处理
+ */
+#[derive(Debug)]
+pub struct KeyCode {
     /**
-     * 单个字符
-     */
-    pub ascii_code: char,
+     * 扫描码（完整的） 
+     */ 
+    scan_code: u16,
     /**
-     * 按住shift后产生的字符
+     * 键的枚举
      */
-    pub ascii_if_shift: char,
-}
-impl AsciiCodeKey {
-    pub fn new(ascii_code: char, ascii_if_shift: char) -> Self {
-        Self {
-            ascii_code, ascii_if_shift
-        }
-    }
+    key: Key,
+    /**
+     * 扫描码类型
+     */
+    code_type: ScanCodeType,
+    /**
+     * 该扫描码对应的字符（ascii）
+     */
+    char: char, 
+    /**
+     * 该键大写字符
+     */
+    char_cap: char,
 }
 
 /**
  * 扫描码的类型
  */
+#[derive(Debug)]
 pub enum ScanCodeType {
     /**
-     * 通码
+     * 通码（键按下去产生）
      */
     MakeCode,
     /**
-     * 断码
+     * 断码（键放开产生）
      */
-    BreakCode
+    BreakCode,
 }
 
-pub enum ControlKey {
-    LeftShift,
-    RightShift,
-    LeftAlt,
-    RightAlt,
-    LeftCtl,
-    RightCtrl,
-    CapsLock,
-}
-
-/**
- * 根据扫描码获取到控制的key
- */
-pub fn get_control_key(scan_code: u8, in_extend: bool) -> Option<ControlKey> {
-    let make_code = get_make_code(scan_code);
-    if 0x2a == make_code {
-        Option::Some(ControlKey::LeftShift)
-    }
-    if 0x36 == make_code {
-        Option::Some(ControlKey::RightShift)
-    }
-    if 0x38 == make_code {
-        if in_extend {
-            Option::Some(ControlKey::RightAlt)
+impl KeyCode {
+    fn new(scan_code: u16, key: Key, code_type: ScanCodeType, char: char, char_cap: char,) -> Self {
+        Self {
+            scan_code,
+            key,
+            code_type,
+            char,
+            char_cap,
         }
-        Option::Some(ControlKey::LeftAlt)
     }
-    if 0x1d == make_code {
-        if in_extend {
-            Option::Some(ControlKey::RightCtrl)
+    /**
+     * 根据扫描码，得到一个完整的键码信息
+     * 注意这里的扫描码是加上了扩展码的，16个字节
+     */
+    pub fn get_from_scan_code(scan_code: u16) -> Option<Self> {
+        
+        // 第8位不是0，说明是断码，否则是通码
+        let code_type = if scan_code & 0x0080 != 0 {ScanCodeType::BreakCode} else {ScanCodeType::MakeCode};
+        
+        // 得到通码
+        let make_code = scan_code & 0xff7f;
+
+        if (make_code as usize) < MAKE_CODE_ASCII_MAPPING.len() {
+            // 根据通码，找到这个键
+            let (key, low_char, high_char) = MAKE_CODE_ASCII_MAPPING[make_code as usize];
+            // 构建键码信息
+            return Option::Some(KeyCode::new(scan_code, key, code_type, low_char, high_char));
+        } else {
+            // 特殊判断
+            if make_code == Key::RightAlt as u16 {
+                return Option::Some(KeyCode::new(scan_code, Key::RightAlt, code_type, '\0', '\0'));
+            // 特殊判断
+            } else if make_code == Key::RightCtrl as u16 {
+                return Option::Some(KeyCode::new(scan_code, Key::RightCtrl, code_type, '\0', '\0'));
+            } 
         }
-        Option::Some(ControlKey::LeftCtl)
-    }
-    if 0x3a == make_code {
-        Option::Some(ControlKey::CapsLock)
-    }
-    Option::None
 
-}
-
-
-/**
- * 根据扫描码，得到这个码的类型
- */
-pub fn get_code_type(scan_code: u8) -> ScanCodeType {
-    // 最高位是不是0，说明是断码
-    if scan_code & 0x80 != 0 {
-        ScanCodeType::BreakCode
-    }
-    ScanCodeType::MakeCode
-}
-
-/**
- * 根据扫描码，得到ascii字符键
- */
-pub fn get_ascii(scan_code: u8) -> Option<AsciiCodeKey> {
-    let make_code = get_make_code(scan_code);
-    if make_code >= MAKE_CODE_KEY_SET.len() {
         Option::None
     }
-    Option::Some(MAKE_CODE_KEY_SET[make_code as usize])
-}
-
-
-fn get_make_code(scan_code: u8) -> u8 {
-    // 保留低7位。去掉最高位（第8位）
-    break_code & 0b7f
-}
-
-
-
-/**
- * 是否扩展类型的扫描码
- */
-pub fn is_ext_code(scan_code: u8) -> bool {
-    scan_code == 0xe0
-}
-
-fn compose_key_set() -> [AsciiCodeKey; constants::KEYBOARD_KEY_COUNT] {
-    let key_set = [AsciiCodeKey::new(AsciiControlKey::Null, constants::KEYBOARD_KEY_COUNT)];
-    key_set[0x00] = AsciiCodeKey::new(AsciiControlKey::Null, AsciiControlKey::Null);
-    key_set[0x01] = AsciiCodeKey::new(AsciiControlKey::Esc, AsciiControlKey::Esc);
-    key_set[0x02] = AsciiCodeKey::new('1', '!');
-    key_set[0x03] = AsciiCodeKey::new('2', '@');
-    key_set[0x04] = AsciiCodeKey::new('3', '#');
-    key_set[0x05] = AsciiCodeKey::new('4', '$');
-    key_set[0x06] = AsciiCodeKey::new('5', '%');
-    key_set[0x07] = AsciiCodeKey::new('6', '^');
-    key_set[0x08] = AsciiCodeKey::new('7', '&');
-    key_set[0x09] = AsciiCodeKey::new('8', '*');
-    key_set[0x0a] = AsciiCodeKey::new('9', '(');
-    key_set[0x0b] = AsciiCodeKey::new('0', ')');
-    key_set[0x0c] = AsciiCodeKey::new('-', '_');
-    key_set[0x0d] = AsciiCodeKey::new('=', '+');
-    key_set[0x0e] = AsciiCodeKey::new(AsciiControlKey::Backspace, AsciiControlKey::Backspace);
-    key_set[0x0f] = AsciiCodeKey::new(AsciiControlKey::Tab, AsciiControlKey::Tab);
-    key_set[0x10] = AsciiCodeKey::new('q', 'Q');
-    key_set[0x11] = AsciiCodeKey::new('w', 'W');
-    key_set[0x12] = AsciiCodeKey::new('e', 'E');
-    key_set[0x13] = AsciiCodeKey::new('r', 'R');
-    key_set[0x14] = AsciiCodeKey::new('t', 'T');
-    key_set[0x15] = AsciiCodeKey::new('y', 'Y');
-    key_set[0x16] = AsciiCodeKey::new('u', 'U');
-    key_set[0x17] = AsciiCodeKey::new('i', 'I');
-    key_set[0x18] = AsciiCodeKey::new('o', 'O');
-    key_set[0x19] = AsciiCodeKey::new('p', 'P');
-    key_set[0x1a] = AsciiCodeKey::new('[', '{');
-    key_set[0x1b] = AsciiCodeKey::new(']', '}');
-    key_set[0x1c] = AsciiCodeKey::new(AsciiControlKey::Enter, AsciiControlKey::Enter);
-    key_set[0x1d] = AsciiCodeKey::new(AsciiControlKey::Null, AsciiControlKey::Null);
-    key_set[0x1e] = AsciiCodeKey::new('a', 'A');
-    key_set[0x1f] = AsciiCodeKey::new('s', 'S');
-    key_set[0x20] = AsciiCodeKey::new('d', 'D');
-    key_set[0x21] = AsciiCodeKey::new('f', 'F');
-    key_set[0x22] = AsciiCodeKey::new('g', 'G');
-    key_set[0x23] = AsciiCodeKey::new('h', 'H');
-    key_set[0x24] = AsciiCodeKey::new('j', 'J');
-    key_set[0x25] = AsciiCodeKey::new('k', 'K');
-    key_set[0x26] = AsciiCodeKey::new('l', 'L');
-    key_set[0x27] = AsciiCodeKey::new(';', ':');
-    key_set[0x28] = AsciiCodeKey::new('\'', '"');
-    key_set[0x29] = AsciiCodeKey::new('`', '~');
-    key_set[0x2a] = AsciiCodeKey::new(AsciiControlKey::Null, AsciiControlKey::Null);
-    key_set[0x2b] = AsciiCodeKey::new('\\', '|');
-    key_set[0x2c] = AsciiCodeKey::new('z', 'Z');
-    key_set[0x2d] = AsciiCodeKey::new('x', 'X');
-    key_set[0x2e] = AsciiCodeKey::new('c', 'C');
-    key_set[0x2f] = AsciiCodeKey::new('v', 'V');
-    key_set[0x30] = AsciiCodeKey::new('b', 'B');
-    key_set[0x31] = AsciiCodeKey::new('n', 'N');
-    key_set[0x32] = AsciiCodeKey::new('m', 'M');
-    key_set[0x33] = AsciiCodeKey::new(',', '<');
-    key_set[0x34] = AsciiCodeKey::new('.', '>');
-    key_set[0x35] = AsciiCodeKey::new('/', '?');
-    key_set[0x36] = AsciiCodeKey::new(AsciiControlKey::Null, AsciiControlKey::Null);
-    key_set[0x37] = AsciiCodeKey::new(AsciiControlKey::Null, AsciiControlKey::Null);
-    key_set[0x38] = AsciiCodeKey::new(AsciiControlKey::Null, AsciiControlKey::Null);
-    key_set[0x39] = AsciiCodeKey::new(' ', ' ');
-    key_set[0x3a] = AsciiCodeKey::new(AsciiControlKey::Null, AsciiControlKey::Null);
-
-    key_set
 }

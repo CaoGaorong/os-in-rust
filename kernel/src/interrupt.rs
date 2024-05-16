@@ -3,7 +3,7 @@ use core::{arch::asm, ptr::addr_of};
 
 use os_in_rust_common::{constants, idt::{self, HandlerFunc, InterruptStackFrame, InterruptTypeEnum}, instruction, pic, pit, port::Port, print, println, thread, ASSERT};
 
-use crate::scheduler;
+use crate::{keyboard::{self, ScanCodeCombinator}, scheduler};
 
 pub fn init() {
     
@@ -36,9 +36,10 @@ extern "x86-interrupt" fn general_handler(frame: InterruptStackFrame) {
 extern "x86-interrupt" fn keyboard_handler(frame: InterruptStackFrame) {
     pic::send_end_of_interrupt();
     // 接收键盘扫描码
-    let data = Port::<u8>::new(0x60).read();
-    
-    print!("{:x}", data);
+    let scan_code = Port::<u8>::new(0x60).read();
+
+    // 对扫描码进行处理
+    keyboard::scan_code_handler(scan_code);
 }
 
 

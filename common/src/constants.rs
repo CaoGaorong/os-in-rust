@@ -83,4 +83,4 @@ pub const MAIN_THREAD_NAME: &str = "main";
 pub const TASK_DEFAULT_PRIORITY: u8 = 1;
 
 
-pub const KEYBOARD_KEY_COUNT: u8 = 0x3B;
+pub const KEYBOARD_KEY_COUNT: usize = 0x3B;
