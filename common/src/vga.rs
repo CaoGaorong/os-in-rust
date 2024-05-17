@@ -38,6 +38,18 @@ pub fn print(args: fmt::Arguments) {
     unsafe{ WRITER.get_mut().write_fmt(args).unwrap()};
 }
 
+pub fn print_char(ch: char) {
+    unsafe { WRITER.get_mut().write_byte(ch as u8) };
+}
+
+pub fn clear_current_row() {
+    unsafe { WRITER.get_mut().clear_current_row() };
+}
+
+pub fn clear_all() {
+    unsafe { WRITER.get_mut().clear_all() };
+}
+
 impl Write for Writer {
     fn write_str(&mut self, s: &str) -> core::fmt::Result {
         unsafe {WRITER.get_mut().write_string(s)};
@@ -152,6 +164,18 @@ impl Writer {
             buffer,
         }
     }
+    fn _backspace(&mut self) {
+        // 如果是第一列，没法后退了
+        if self.col_pos == 0 {
+            let max_width = self.get_buffer().buffer[0].len() - 1;
+            // 往上推一行
+            self.row_pos -= 1;
+            self.col_pos = max_width;
+            return;
+        }
+        // 如果不是第一列，那么直接后退
+        self.col_pos -= 1;
+    }
     #[no_mangle]
     fn _new_line(&mut self) {
         let max_width = self.get_buffer().buffer[0].len() - 1;
@@ -174,7 +198,6 @@ impl Writer {
         // 把最后一行清空
         self._clear_row(max_height);
     }
-    #[no_mangle]
     fn _clear_row(&mut self, row_idx: usize) {
         let buffer = self.get_buffer().buffer.as_mut();
         if buffer.is_empty() {
@@ -186,6 +209,20 @@ impl Writer {
         // 清除某一行
         for col_idx in 0..buffer[0].len() {
             buffer[row_idx][col_idx].write(SingleChar::new(0, self.default_attr));
+        }
+    }
+
+    /**
+     * 清屏
+     */
+    fn _clear_all(&mut self) {
+        let buffer = self.get_buffer().buffer.as_mut();
+        if buffer.is_empty() {
+            return;
+        }
+        // 清除每一行
+        for i  in 0 .. self.row_pos + 1 {
+            self._clear_row(i);
         }
     }
 
@@ -203,20 +240,52 @@ impl Writer {
         self.col_pos += 1;
     }
 
-    #[no_mangle]
-    pub fn write_byte(&mut self, data: u8) {
+    /**
+     * 把字节数据（不解析），写入到缓冲区
+     */
+    fn do_write_byte(&mut self, data: u8) {
         self.get_buffer().buffer[self.row_pos][self.col_pos]
             .write(SingleChar::new(data, self.default_attr));
         self._cursor_next();
     }
-    #[no_mangle]
+    /**
+     * 输出字节数据，解析
+     */
+    pub fn write_byte(&mut self, byte: u8) {
+        if b'\n' == byte {
+            self._new_line();
+            return;
+        }
+        // 如果是backspace字符
+        if 0x8 == byte {
+            // 把光标后退
+            self._backspace();
+            // 打印一个空的，把原本那个字符覆盖
+            self.do_write_byte(0);
+            // 把光标后退
+            self._backspace();
+            return;
+        }
+        self.do_write_byte(byte);
+    }
+    
+    /**
+     * 输出字符串
+     */
     pub fn write_string(&mut self, s: &str) {
         for byte in s.bytes() {
-            if b'\n' == byte {
-                self._new_line();
-                continue;
-            }
             self.write_byte(byte);
         }
+    }
+
+    pub fn clear_current_row(&mut self) {
+        self._clear_row(self.row_pos);
+        self.col_pos = 0;
+    }
+
+    pub fn clear_all(&mut self) {
+        self._clear_all();
+        self.col_pos = 0;
+        self.row_pos = 0;
     }
 }

@@ -132,7 +132,7 @@ static MAKE_CODE_ASCII_MAPPING: [(Key, char, char); constants::KEYBOARD_KEY_COUN
 /**
  * 目前适配的所有的键。value是这个键的通码
  */
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Key {
     Null = 0x00,
     Esc = 0x01, One, Two, Three, Four, Five, Six, Seven, Eight, Night, Zero, Dash, Equals, Backspace,
@@ -159,29 +159,29 @@ pub struct KeyCode {
     /**
      * 扫描码（完整的） 
      */ 
-    scan_code: u16,
+    pub scan_code: u16,
     /**
      * 键的枚举
      */
-    key: Key,
+    pub key: Key,
     /**
      * 扫描码类型
      */
-    code_type: ScanCodeType,
+    pub code_type: ScanCodeType,
     /**
      * 该扫描码对应的字符（ascii）
      */
-    char: char, 
+    pub char: char, 
     /**
      * 该键大写字符
      */
-    char_cap: char,
+    pub char_cap: char,
 }
 
 /**
  * 扫描码的类型
  */
-#[derive(Debug)]
+#[derive(Debug,PartialEq)]
 pub enum ScanCodeType {
     /**
      * 通码（键按下去产生）

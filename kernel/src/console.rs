@@ -25,6 +25,17 @@ pub fn console_print(args: fmt::Arguments) {
     unsafe { DEFAULT_CONSOLE.get_mut().lock() }.print(args);
 }
 
+pub fn console_print_char(ch: char) {
+    unsafe { DEFAULT_CONSOLE.get_mut().lock().print_char(ch) };
+}
+
+pub fn clear_row() {
+    unsafe { DEFAULT_CONSOLE.get_mut().lock().clear_row() };
+}
+
+pub fn clear_all() {
+    unsafe { DEFAULT_CONSOLE.get_mut().lock().clear_all() };
+}
 
 
 pub struct Console {}
@@ -34,5 +45,15 @@ impl Console {
     }
     pub fn print(&self, args: fmt::Arguments) {
         vga::print(args);
+    }
+    // 输出单个字符
+    pub fn print_char(&self, ch: char) {
+        vga::print_char(ch);
+    }
+    pub fn clear_row(&self) {
+        vga::clear_current_row()
+    }
+    pub fn clear_all(&self) {
+        vga::clear_all();
     }
 }

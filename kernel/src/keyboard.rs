@@ -1,6 +1,6 @@
 use os_in_rust_common::{println, racy_cell::RacyCell};
 
-use crate::scancode::{self, KeyCode, ScanCodeType};
+use crate::{printer, scancode::{self, KeyCode, ScanCodeType}};
 
 /**
  * 扫描码合并器。
@@ -62,14 +62,7 @@ pub fn scan_code_handler(scan_code: u8) {
     unsafe { COMBINATOR.get_mut() }
     // 进行合并扩展码，得到合并后完整的键码
     .do_combine(scan_code, |key_code_opt| {
-        // 得到键码之后的处理
-        match key_code_opt {
-            Some(key_code) => {
-                println!("{:?}", key_code);
-            },
-            None => {
-                println!("invalid key");
-            },
-        }
+        // 调用文本打印模块，处理键码
+        printer::print_key_code(key_code_opt);
     });
 }

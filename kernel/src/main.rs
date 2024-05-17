@@ -12,6 +12,8 @@ mod mutex;
 mod console;
 mod keyboard;
 mod scancode;
+mod printer;
+pub mod blocking_queue;
 
 use core::{arch::asm, mem, panic::PanicInfo, ptr};
 use lazy_static::lazy_static;
