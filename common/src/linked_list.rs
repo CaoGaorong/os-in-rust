@@ -29,7 +29,7 @@ pub struct LinkedList {
 }
 impl LinkedList {
 
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self {
             head: LinkedNode::new(),
             tail: LinkedNode::new(),

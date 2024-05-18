@@ -14,7 +14,7 @@ pub struct Mutex<T: ?Sized> {
     data: UnsafeCell<T>,
 }
 impl <T> Mutex<T> {
-    pub fn new(data: T) -> Self {
+    pub const fn new(data: T) -> Self {
         Self {
             lock: sync::Lock::new(),
             data: UnsafeCell::new(data),
@@ -38,6 +38,26 @@ impl <T> Mutex<T> {
 unsafe impl<T: ?Sized + Send> Sync for Mutex<T> {}
 unsafe impl<T: ?Sized + Send> Send for Mutex<T> {}
 
+
+
+impl <T:?Sized> Deref for Mutex<T> {
+    type Target = T;
+
+    /**
+     * 解引用。
+     * 指定返回值的生命周期跟MutexGuard生命周期一致。
+     * 这样避免了编译器的自动推断，更加准确
+     */
+    fn deref(&self) -> & Self::Target {
+        unsafe { &*self.data.get() }
+    }
+}
+
+impl <T:?Sized> DerefMut for Mutex<T> {
+    fn deref_mut<>(&mut self) -> &mut Self::Target {
+        unsafe { &mut *self.data.get() }
+    }
+}
 
 
 /**

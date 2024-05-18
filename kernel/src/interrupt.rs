@@ -3,7 +3,7 @@ use core::{arch::asm, ptr::addr_of};
 
 use os_in_rust_common::{constants, idt::{self, HandlerFunc, InterruptStackFrame, InterruptTypeEnum}, instruction, pic, pit, port::Port, print, println, thread, ASSERT};
 
-use crate::{keyboard::{self, ScanCodeCombinator}, scheduler};
+use crate::{interrupt, keyboard::{self, ScanCodeCombinator}, scheduler};
 
 pub fn init() {
     
@@ -66,7 +66,7 @@ pub extern "x86-interrupt" fn timer_handler(frame: InterruptStackFrame) {
     task_struct.elapsed_ticks += 1;
 
     // 如果剩余的时间片还有，那就减少
-    if (task_struct.left_ticks > 0) {
+    if task_struct.left_ticks > 0 {
         task_struct.left_ticks -= 1;
     } else {
         // 否则就切换其他线程

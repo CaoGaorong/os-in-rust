@@ -14,17 +14,17 @@ pub struct Semaphore {
     /**
      * 信号量的值
      */
-    value: u8,
+    pub value: u32,
     /**
      * 等待进程的列表
      */
-    waiters: LinkedList,
+    pub waiters: LinkedList,
 }
 impl Semaphore {
     /**
      * 创建一个有初始化值的信号量
      */
-    pub fn new(value: u8) -> Self {
+    pub const fn new(value: u32) -> Self {
         let mut linked_list = LinkedList::new();
         Self {
             value,
@@ -113,7 +113,7 @@ impl Lock {
     /**
      * 创建一个持有者为holder的锁
      */
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self {
             holder: ptr::null_mut(),
             // 二元信号量

@@ -15,6 +15,16 @@ pub trait Queue<T: Copy> {
      * 队列大小
      */
     fn size(&self) -> u32;
+
+    /**
+     * 是否队列的数据空了
+     */
+    fn is_empty(&self) -> bool;
+
+    /**
+     * 是否队列的数据满了
+     */
+    fn is_full(&self) -> bool;
 }
 
 /**
@@ -25,7 +35,7 @@ pub struct ArrayQueue<'a, T: 'a + Copy> {
     len: usize, 
 }
 impl <'a, T: Copy> ArrayQueue<'a, T> {
-    pub fn new(data: &'a mut [T]) -> Self {
+    pub const fn new(data: &'a mut [T]) -> Self {
         Self { 
             buffer: data,
             len: 0, 
@@ -42,7 +52,7 @@ impl<'a, T: Copy> Queue<T> for ArrayQueue<'a, T> {
      * 追加元素
      */
     fn append(&mut self, data: T) -> Result<bool, QueueError> {
-        if self.len == self.buffer.len() {
+        if self.is_full() {
             return Result::Err(QueueError::QueueElementExceed);
         }
         let idx = self.len;
@@ -67,5 +77,13 @@ impl<'a, T: Copy> Queue<T> for ArrayQueue<'a, T> {
     fn size(&self) -> u32 {
         self.len as u32
     }
-}
+    
+    fn is_empty(&self) -> bool {
+        self.len == 0
+    }
 
+
+    fn is_full(&self) -> bool {
+        self.len == self.buffer.len()
+    }
+}
