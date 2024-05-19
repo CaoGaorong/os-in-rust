@@ -1,5 +1,7 @@
 use core::arch::asm;
 
+use crate::gdt::DescriptorType;
+
 /**
  * 段选择子的结构
  * <https://wiki.osdev.org/Segment_Selector>
@@ -17,14 +19,46 @@ pub enum SegmentSelector {
      * TI = 0
      * RPL = 0
      */
-    Code0Selector = 0b1_0_00,
+    Code0Selector = ((DescriptorType::Code as u8) << 3) as isize |  0b0_00,
     /**
      * 0级数据段选择子
      * Index = 2
      * TI = 0
      * RPL = 0
      */
-    Data0Selector = 0b10_0_00,
+    Data0Selector = ((DescriptorType::Data as u8) << 3) as isize |  0b0_00,
+
+    /**
+     * 显存段选择子
+     * Index = 3
+     * TI = 0
+     * RPL = 0
+     */
+    VideoSelector = ((DescriptorType::Video as u8) << 3) as isize |  0b0_00,
+
+    /**
+     * TSS段选择子
+     * Index = 4
+     * TI = 0
+     * RPL = 0
+     */
+    TssSelector = ((DescriptorType::Tss as u8) << 3) as isize |  0b0_00,
+
+    /**
+     * 用户代码段选择子
+     * Index = 5
+     * TI = 0
+     * RPL = 3
+     */
+    UserCodeSelector = ((DescriptorType::UserCode as u8) << 3) as isize |  0b0_11,
+
+    /**
+     * 用户数据段选择子
+     * Index = 6
+     * TI = 0
+     * RPL = 3
+     */
+    UserDataSelector = ((DescriptorType::UserData as u8) << 3) as isize |  0b0_11,
 }
 
 

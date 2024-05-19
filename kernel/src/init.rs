@@ -3,7 +3,7 @@
 
 use os_in_rust_common::{bios_mem::{ARDSType, AddressRangeDescriptorStructure}, context::BootContext, memory, println, ASSERT};
 
-use crate::{interrupt, thread_management};
+use crate::{interrupt, thread_management, tss};
 
 pub fn init_all(boot_info: &BootContext) {
     // 初始化中断描述符和中断控制器
@@ -37,5 +37,8 @@ pub fn init_all(boot_info: &BootContext) {
     // println!("malloc addr: 0x{:x}", addr);
 
     thread_management::thread_init();
+
+    // 加载TSS
+    tss::tss_init();
 
 }

@@ -1,6 +1,6 @@
 use core::{arch::asm, mem::size_of, ptr::addr_of};
 
-use crate::sd::{Granularity, GranularityEnum, SegmentDPL, SegmentDescriptor, SegmentType};
+use crate::{constants, sd::{Granularity, GranularityEnum, SegmentDPL, SegmentDescriptor, SegmentType}};
 
 #[no_mangle]
 static mut GDT: GlobalDescriptorTable = GlobalDescriptorTable::new();
@@ -53,14 +53,38 @@ pub fn get_descriptor(desc_type: DescriptorType) -> SegmentDescriptor {
 #[derive(Clone, Copy)]
 #[repr(C, packed)]
 pub struct GlobalDescriptorTable {
-    data: [SegmentDescriptor; 4]
+    data: [SegmentDescriptor; constants::GDT_SIZE]
 }
 
 pub enum DescriptorType {
+    /**
+     * 0号描述符。不可用
+     */
     Zero = 0x0,
+    /**
+     * 内核段描述符
+     */
     Code = 0x1,
+    /**
+     * 内核数据段描述符
+     */
     Data = 0x2,
-    Video = 0x3
+    /**
+     * 视频段描述符
+     */
+    Video = 0x3,
+    /**
+     * TSS描述符
+     */
+    Tss = 0x4,
+    /**
+     * 用户代码段描述符
+     */
+    UserCode = 0x5,
+    /**
+     * 用户代码段描述符
+     */
+    UserData = 0x6,
 }
 
 /**
@@ -93,6 +117,13 @@ impl GDTR {
 }
 
 impl GlobalDescriptorTable {
+
+    pub const fn empty() -> Self {
+        Self {
+            data: [SegmentDescriptor::empty(); constants::GDT_SIZE]
+        }
+    }
+
     pub const fn new() -> Self {
         let base_addr = 0x0;
         let seg_limit = 0xfffff;
@@ -139,10 +170,12 @@ impl GlobalDescriptorTable {
         // 第0个描述符，全部都是0
         let zero_val: u64 = 0;
         let zero_seg = unsafe { *(&zero_val as *const u64 as *const SegmentDescriptor) };
-
-        Self {
-            data: [zero_seg, code_segment, data_segment,video_segment]
-        }
+        let mut gdt = Self::empty();
+        gdt.set_descriptor(DescriptorType::Zero, zero_seg);
+        gdt.set_descriptor(DescriptorType::Code, code_segment);
+        gdt.set_descriptor(DescriptorType::Data, data_segment);
+        gdt.set_descriptor(DescriptorType::Video, video_segment);
+        gdt
     }
     pub fn compose_gdtr(&'static self) -> GDTR {
         GDTR::new(self)
@@ -157,14 +190,14 @@ impl GlobalDescriptorTable {
     /**
      * 根据类型，取出描述符
      */
-    pub fn get_descriptor(&'static self, desc_type: DescriptorType) -> &'static SegmentDescriptor {
+    pub fn get_descriptor(&self, desc_type: DescriptorType) -> &SegmentDescriptor {
         &self.data[desc_type as usize]
     }
 
     /**
      * 把描述符数据塞入到GDT
      */
-    pub fn set_descriptor(&'static mut self, desc_type: DescriptorType, descriptor: SegmentDescriptor) {
+    pub const fn set_descriptor(& mut self, desc_type: DescriptorType, descriptor: SegmentDescriptor) {
         self.data[desc_type as usize] = descriptor;
     }
 }

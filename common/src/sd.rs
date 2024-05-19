@@ -44,7 +44,16 @@ impl SegmentDescriptor {
      * db：偏移地址和操作数大小是否为32位
      * <https://wiki.osdev.org/Global_Descriptor_Table>
      */
-    pub const fn new(seg_base_addr: u32, seg_limit: u32, granularity: Granularity, dpl: SegmentDPL, present: bool, seg_type: SegmentType, avl: bool, l: bool, db: bool) -> Self{
+    pub const fn new(seg_base_addr: u32, 
+                    seg_limit: u32, 
+                    granularity: Granularity, 
+                    dpl: SegmentDPL, 
+                    present: bool, 
+                    seg_type: SegmentType, 
+                    avl: bool, 
+                    l: bool, 
+                    db: bool
+        ) -> Self{
         let type_s_val = ((seg_type as u8) & 0b11111) as u8;
         let dpl_val = dpl as u8;
         let p_val:u8 = if present {1} else {0};
@@ -60,6 +69,16 @@ impl SegmentDescriptor {
             type_s_dpl_p: type_s_val | (dpl_val << 5) | (p_val << 7),
             seg_limit_20_avl_l_db_g: seg_limit_16_20_val | (avl_val << 4) | (l_val << 5) | (db_val <<6) | (granularity.value << 7),
             seg_base_32: (seg_base_addr >> 24) as u8,
+        }
+    }
+    pub const fn empty() -> Self {
+        Self {
+            seg_limit_16: 0,
+            seg_base_16: 0,
+            seg_base_24: 0,
+            type_s_dpl_p: 0,
+            seg_limit_20_avl_l_db_g: 0,
+            seg_base_32: 0,
         }
     }
 }
@@ -129,5 +148,24 @@ pub enum SegmentType {
      */
     NormalDataSegment = 0b10010,
 
+    /**
+     * TSS不忙的类型
+     * 0: s字段，系统段
+     * 1: 固定
+     * 0: 固定
+     * 0: 不忙
+     * 1: 固定
+     */
+    TssNonBusySegment = 0b01001,
+
+    /**
+     * TSS不忙的类型
+     * 0: s字段，系统段
+     * 1: 固定
+     * 0: 固定
+     * 1: 忙
+     * 1: 固定
+     */
+    TssBusySegment = 0b01011,
 }
 
