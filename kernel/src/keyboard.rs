@@ -1,6 +1,6 @@
 use os_in_rust_common::{println, racy_cell::RacyCell};
 
-use crate::{printer, scancode::{self, KeyCode, ScanCodeType}};
+use crate::{blocking_queue::{ArrayBlockingQueue, BlockingQueue}, printer, scancode::{self, KeyCode, ScanCodeType}};
 
 /**
  * 扫描码合并器。
@@ -53,6 +53,18 @@ impl ScanCodeCombinator {
 // 设置一个全局的扫描码合并器
 static COMBINATOR: RacyCell<ScanCodeCombinator> = RacyCell::new(ScanCodeCombinator::new());
 
+// 键盘键的缓冲区，利用阻塞队列
+static mut BUFFER: [Option<KeyCode>; 1000] = [Option::None;1000];
+static KEYCODE_BLOCKING_QUEUE: RacyCell<ArrayBlockingQueue<Option<KeyCode>>> = RacyCell::new(ArrayBlockingQueue::new(unsafe { &mut BUFFER }));
+
+
+/**
+ * 得到键码阻塞队列
+ */
+pub fn get_keycode_queue() -> &'static mut ArrayBlockingQueue<'static, Option<KeyCode>> {
+    unsafe { KEYCODE_BLOCKING_QUEUE.get_mut() }
+}
+
 /**
  * 扫描码处理
  */
@@ -62,7 +74,7 @@ pub fn scan_code_handler(scan_code: u8) {
     unsafe { COMBINATOR.get_mut() }
     // 进行合并扩展码，得到合并后完整的键码
     .do_combine(scan_code, |key_code_opt| {
-        // 调用文本打印模块，处理键码
-        printer::print_key_code(key_code_opt);
+        // 取得键盘队列，放一个元素
+        get_keycode_queue().put(key_code_opt);
     });
 }

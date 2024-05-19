@@ -23,23 +23,15 @@ use mutex::Mutex;
 
 use crate::blocking_queue::{ArrayBlockingQueue, BlockingQueue};
 
-static mut BUFFER: [u8; 4] = [0;4];
-static BLOCKING_QUEUE: RacyCell<ArrayBlockingQueue<u8>> = RacyCell::new(ArrayBlockingQueue::new(unsafe { &mut BUFFER }));
-
 /**
- * 子线程，无限循环消费数据
+ * 子线程，无限循环，取出键盘元素
  */
-fn consumer_func(arg: &'static str) {
-    // 获取阻塞队列
-    let blocking_queue = unsafe { BLOCKING_QUEUE.get_mut() };
-    
-    // 子线程无线循环，往里面取元素。知道阻塞为止
+fn keycode_consumer(arg: &'static str) {
     loop {
-
-        // 休息一下
-        dummy_sleep(100000);
-        let e = blocking_queue.take();
-        console_println!("thread take {} ", e);
+        // 从阻塞队列中取出键码
+        let key_opt = keyboard::get_keycode_queue().take();
+        // 把键码，调用打印程序打印出来
+        printer::print_key_code(key_opt);
     }
 }
 
@@ -55,19 +47,9 @@ pub extern "C" fn _start(boot_info: &BootContext) {
     thread_management::print_thread();
 
     // 这里创建子线程，特意把priority设置为1，而main线程的priority设置的是5
-    thread_management::thread_start("thread_a", 1, consumer_func, "!");
+    thread_management::thread_start("thread_a", 1, keycode_consumer, "!");
 
     enable_interrupt();
-
-    let blocking_queue = unsafe { BLOCKING_QUEUE.get_mut() };
-    
-    // 主线程往里面放元素
-    for i in 0 .. 10 {
-        // 休息一下
-        dummy_sleep(100000);
-        blocking_queue.put(i);
-        console_println!("main put {} ", i);
-    }
 
     loop {}
 }

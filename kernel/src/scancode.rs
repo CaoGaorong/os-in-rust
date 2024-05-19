@@ -7,8 +7,6 @@ use os_in_rust_common::{constants, ASSERT};
  * 把纯数字的扫描码，转换成更加有结构性的键码信息，方便业务处理
  */
 
-
-
 /**
  * 扫描码和通码和字符的映射，关系如下：
  * index: 通码（按下键产生的码）
@@ -21,18 +19,17 @@ static MAKE_CODE_ASCII_MAPPING: [(Key, char, char); constants::KEYBOARD_KEY_COUN
     (Key::One, '1', '!'),
     (Key::Two, '2', '@'),
     (Key::Three, '3', '#'),
-    (Key::Four,'4', '$'),
+    (Key::Four, '4', '$'),
     (Key::Five, '5', '%'),
     (Key::Six, '6', '^'),
-    (Key::Seven,'7', '&'),
+    (Key::Seven, '7', '&'),
     (Key::Eight, '8', '*'),
-    (Key::Night,'9', '('),
-    (Key::Zero,'0', ')'),
-    (Key::Dash,'-', '_'),
+    (Key::Night, '9', '('),
+    (Key::Zero, '0', ')'),
+    (Key::Dash, '-', '_'),
     (Key::Equals, '=', '+'),
-
     // 0x0E
-    (Key::Backspace, 0x8 as char, 0x8 as char,),
+    (Key::Backspace, 0x8 as char, 0x8 as char),
     // 0x0F
     (Key::Tab, 0x9 as char, 0x9 as char),
     // 0x10
@@ -61,7 +58,6 @@ static MAKE_CODE_ASCII_MAPPING: [(Key, char, char); constants::KEYBOARD_KEY_COUN
     (Key::RightBracket, ']', '}'),
     // 0x1C
     (Key::Enter, 0x0d as char, 0x0d as char),
-
     // 0x1D
     (Key::LeftCtrl, '\0', '\0'),
     // 0x1E
@@ -86,16 +82,12 @@ static MAKE_CODE_ASCII_MAPPING: [(Key, char, char); constants::KEYBOARD_KEY_COUN
     (Key::Semicolon, ';', ':'),
     // 0x28
     (Key::Quote, '\'', '"'),
-
     // 0x29
     (Key::Tilde, '`', '~'),
-    
     // 0x2A
     (Key::LeftShift, '\0', '\0'),
-
     // 0x2B
     (Key::Pipe, '\\', '|'),
-
     // 0x2C
     (Key::Z, 'z', 'Z'),
     // 0x2D
@@ -128,22 +120,67 @@ static MAKE_CODE_ASCII_MAPPING: [(Key, char, char); constants::KEYBOARD_KEY_COUN
     (Key::CapsLock, '\0', '\0'),
 ];
 
-
 /**
  * 目前适配的所有的键。value是这个键的通码
  */
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Key {
     Null = 0x00,
-    Esc = 0x01, One, Two, Three, Four, Five, Six, Seven, Eight, Night, Zero, Dash, Equals, Backspace,
-    Tab = 0x0f, Q, W, E, R, T, Y, U, I, O, P, LeftBracket, RightBracket, Enter,
+    Esc = 0x01,
+    One,
+    Two,
+    Three,
+    Four,
+    Five,
+    Six,
+    Seven,
+    Eight,
+    Night,
+    Zero,
+    Dash,
+    Equals,
+    Backspace,
+    Tab = 0x0f,
+    Q,
+    W,
+    E,
+    R,
+    T,
+    Y,
+    U,
+    I,
+    O,
+    P,
+    LeftBracket,
+    RightBracket,
+    Enter,
     LeftCtrl = 0x1D,
-    A = 0x1E, S, D, F, G, H, J, K, L, Semicolon, Quote, 
-    Tilde = 0x29, 
-    LeftShift = 0x2A, 
+    A = 0x1E,
+    S,
+    D,
+    F,
+    G,
+    H,
+    J,
+    K,
+    L,
+    Semicolon,
+    Quote,
+    Tilde = 0x29,
+    LeftShift = 0x2A,
     Pipe = 0x2B,
-    Z = 0x2C, X, C, V, B, N, M, LessThan, GraterThan, Slash, RightShift,
-    Asterisk = 0x37, 
+    Z = 0x2C,
+    X,
+    C,
+    V,
+    B,
+    N,
+    M,
+    LessThan,
+    GraterThan,
+    Slash,
+    RightShift,
+    Asterisk = 0x37,
     LeftAlt = 0x38,
     Space = 0x39,
     CapsLock = 0x3A,
@@ -154,11 +191,11 @@ pub enum Key {
 /**
  * 键码。把扫描码转换成这个，然后做业务处理
  */
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct KeyCode {
     /**
-     * 扫描码（完整的） 
-     */ 
+     * 扫描码（完整的）
+     */
     pub scan_code: u16,
     /**
      * 键的枚举
@@ -171,7 +208,7 @@ pub struct KeyCode {
     /**
      * 该扫描码对应的字符（ascii）
      */
-    pub char: char, 
+    pub char: char,
     /**
      * 该键大写字符
      */
@@ -181,7 +218,7 @@ pub struct KeyCode {
 /**
  * 扫描码的类型
  */
-#[derive(Debug,PartialEq)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum ScanCodeType {
     /**
      * 通码（键按下去产生）
@@ -194,7 +231,16 @@ pub enum ScanCodeType {
 }
 
 impl KeyCode {
-    fn new(scan_code: u16, key: Key, code_type: ScanCodeType, char: char, char_cap: char,) -> Self {
+    pub const fn empty() -> Self {
+        Self {
+            scan_code: 0,
+            key: Key::Null,
+            code_type: ScanCodeType::MakeCode,
+            char: '\0',
+            char_cap: '\0',
+        }
+    }
+    fn new(scan_code: u16, key: Key, code_type: ScanCodeType, char: char, char_cap: char) -> Self {
         Self {
             scan_code,
             key,
@@ -208,10 +254,13 @@ impl KeyCode {
      * 注意这里的扫描码是加上了扩展码的，16个字节
      */
     pub fn get_from_scan_code(scan_code: u16) -> Option<Self> {
-        
         // 第8位不是0，说明是断码，否则是通码
-        let code_type = if scan_code & 0x0080 != 0 {ScanCodeType::BreakCode} else {ScanCodeType::MakeCode};
-        
+        let code_type = if scan_code & 0x0080 != 0 {
+            ScanCodeType::BreakCode
+        } else {
+            ScanCodeType::MakeCode
+        };
+
         // 得到通码
         let make_code = scan_code & 0xff7f;
 
@@ -223,11 +272,23 @@ impl KeyCode {
         } else {
             // 特殊判断
             if make_code == Key::RightAlt as u16 {
-                return Option::Some(KeyCode::new(scan_code, Key::RightAlt, code_type, '\0', '\0'));
+                return Option::Some(KeyCode::new(
+                    scan_code,
+                    Key::RightAlt,
+                    code_type,
+                    '\0',
+                    '\0',
+                ));
             // 特殊判断
             } else if make_code == Key::RightCtrl as u16 {
-                return Option::Some(KeyCode::new(scan_code, Key::RightCtrl, code_type, '\0', '\0'));
-            } 
+                return Option::Some(KeyCode::new(
+                    scan_code,
+                    Key::RightCtrl,
+                    code_type,
+                    '\0',
+                    '\0',
+                ));
+            }
         }
 
         Option::None
