@@ -15,12 +15,15 @@ mod scancode;
 mod printer;
 pub mod blocking_queue;
 pub mod tss;
-
+pub mod memory;
+pub mod page_util;
+pub mod process;
+mod thread;
 
 
 use core::{arch::asm, mem, panic::PanicInfo, ptr};
 use lazy_static::lazy_static;
-use os_in_rust_common::{constants, context::BootContext, instruction::{self, disable_interrupt, enable_interrupt}, print, println, queue::Queue, racy_cell::RacyCell, thread::{self, current_thread}};
+use os_in_rust_common::{constants, context::BootContext, instruction::{self, disable_interrupt, enable_interrupt}, print, println, queue::Queue, racy_cell::RacyCell};
 use sync::Lock;
 use mutex::Mutex;
 

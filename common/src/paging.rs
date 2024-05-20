@@ -211,5 +211,8 @@ impl PageTableEntry {
     pub fn present(&self) -> bool {
         self.data & 0x00000001 == 0x1
     }
+    pub fn get_data(&self) -> u32 {
+        self.data
+    }
 }
 

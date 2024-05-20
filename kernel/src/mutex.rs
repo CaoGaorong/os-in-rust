@@ -1,7 +1,5 @@
 use core::{cell::UnsafeCell, ops::{Deref, DerefMut}};
 
-use os_in_rust_common::println;
-
 use crate::sync;
 
 /**

@@ -3,7 +3,7 @@
 
 use core::{arch::asm, panic::PanicInfo};
 
-use os_in_rust_common::{context::{self, BootContext}, disk, gdt::{self, GlobalDescriptorTable}, memory, paging::{self, PageTable}, println, racy_cell::RacyCell, reg_cr0::{self, CR0}, reg_cr3::CR3, selector};
+use os_in_rust_common::{context::BootContext, disk, gdt::{self, GlobalDescriptorTable}, paging::{self, PageTable}, racy_cell::RacyCell, reg_cr0::{self, CR0}, reg_cr3::CR3};
 
 
 static BOOT_CONTEXT: RacyCell<BootContext> = RacyCell::new(BootContext {

@@ -1,9 +1,9 @@
 
 use core::{arch::asm, ptr::addr_of};
 
-use os_in_rust_common::{constants, idt::{self, HandlerFunc, InterruptStackFrame, InterruptTypeEnum}, instruction, pic, pit, port::Port, print, println, thread, ASSERT};
+use os_in_rust_common::{constants, idt::{self, HandlerFunc, InterruptStackFrame, InterruptTypeEnum}, instruction, pic, pit, port::Port, print, println, ASSERT};
 
-use crate::{interrupt, keyboard::{self, ScanCodeCombinator}, scheduler};
+use crate::{interrupt, keyboard::{self, ScanCodeCombinator}, scheduler, thread};
 
 pub fn init() {
     

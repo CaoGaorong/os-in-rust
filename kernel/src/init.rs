@@ -1,9 +1,9 @@
 #![feature(abi_x86_interrupt)]
 
 
-use os_in_rust_common::{bios_mem::{ARDSType, AddressRangeDescriptorStructure}, context::BootContext, memory, println, ASSERT};
+use os_in_rust_common::{bios_mem::{ARDSType, AddressRangeDescriptorStructure}, context::BootContext, println, ASSERT};
 
-use crate::{interrupt, thread_management, tss};
+use crate::{interrupt, memory, thread_management, tss};
 
 pub fn init_all(boot_info: &BootContext) {
     // 初始化中断描述符和中断控制器
@@ -32,9 +32,9 @@ pub fn init_all(boot_info: &BootContext) {
     
     memory::mem_pool_init(os_memory_size);
 
-    // // 申请一个内核页
-    // let addr = memory::malloc_kernel_page(3);
-    // println!("malloc addr: 0x{:x}", addr);
+    // 申请一个内核页
+    let addr = memory::malloc_kernel_page(3);
+    println!("malloc addr: 0x{:x}", addr);
 
     thread_management::thread_init();
 

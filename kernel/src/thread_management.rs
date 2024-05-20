@@ -1,11 +1,11 @@
 use core::mem::size_of;
 
 use os_in_rust_common::{
-    constants, elem2entry, instruction, linked_list::LinkedList, memory, println, racy_cell::RacyCell, thread::{self, PcbPage, TaskStatus, TaskStruct, ThreadArg, ThreadFunc}, utils, ASSERT
+    constants, elem2entry, instruction, linked_list::LinkedList, println, racy_cell::RacyCell, ASSERT
 };
 
 use lazy_static::lazy_static;
-use crate::scheduler;
+use crate::{memory, scheduler, thread::{self, PcbPage, TaskStatus, TaskStruct, ThreadArg, ThreadFunc},};
 
 
 lazy_static! {

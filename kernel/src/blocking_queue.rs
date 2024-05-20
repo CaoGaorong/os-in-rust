@@ -1,6 +1,6 @@
-use os_in_rust_common::{println, queue::{ArrayQueue, Queue, QueueError}, thread};
+use os_in_rust_common::{println, queue::{ArrayQueue, Queue, QueueError}};
 
-use crate::{mutex::Mutex, sync::{Lock, Semaphore}, thread_management};
+use crate::{mutex::Mutex, sync::{Lock, Semaphore}, thread_management, thread};
 
 
 /**

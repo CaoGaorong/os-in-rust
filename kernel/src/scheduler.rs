@@ -1,9 +1,9 @@
 #![feature(global_asm)]
 use core::{arch::{asm, global_asm}, task};
 
-use os_in_rust_common::{elem2entry, instruction, println, reg_cr0::CR0, reg_eflags, thread::{self, TaskStatus, TaskStruct}, ASSERT};
+use os_in_rust_common::{elem2entry, instruction, println, reg_cr0::CR0, reg_eflags, ASSERT};
 
-use crate::{console_println, interrupt, thread_management};
+use crate::{console_println, interrupt, thread_management, thread::{self, TaskStatus, TaskStruct}};
 
 
 global_asm!(include_str!("switch.s"));
