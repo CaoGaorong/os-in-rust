@@ -1,6 +1,6 @@
 use core::{mem, ops::DerefMut, slice};
 
-use os_in_rust_common::{paging, pool::MemPool, racy_cell::RacyCell};
+use os_in_rust_common::{bitmap::MemoryError, paging, pool::MemPool, racy_cell::RacyCell, ASSERT};
 
 use crate::{constants, mutex::Mutex, page_util};
 
@@ -143,12 +143,17 @@ pub fn malloc_user_page(user_addr_pool: &mut MemPool, page_cnt: usize) -> u32{
  */
 fn malloc_page(addr_pool: &mut MemPool, mem_pool: &mut MemPool, page_cnt: usize) -> u32 {
     // 从虚拟地址池中申请连续的虚拟地址
-    let base_virtual_addr  = addr_pool.apply(page_cnt).unwrap();
+    let addr_apply_res = addr_pool.apply(page_cnt);
+    ASSERT!(let Result::Err(MemoryError) != apply_res);
+    
+    let base_virtual_addr  = addr_apply_res.unwrap();
 
     let mut virtual_addr = base_virtual_addr;
     for _ in 0..page_cnt {
+        let mem_apply_res = mem_pool.apply_one();
+        ASSERT!(let Result::Err(MemoryError) != mem_apply_res);
         // 从物理地址池中申请1页
-        let phy_addr = mem_pool.apply_one().unwrap();
+        let phy_addr = mem_apply_res.unwrap();
 
         // 构建页表，把两者连起来
         page_util::add_page_connection(virtual_addr, phy_addr);

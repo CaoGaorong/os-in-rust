@@ -1,6 +1,6 @@
 use core::{arch::asm, mem::size_of, ptr};
 
-use os_in_rust_common::{constants, elem2entry, instruction::enable_interrupt, linked_list::LinkedNode, paging::{self, PageTable}, reg_cr3::{self, CR3}};
+use os_in_rust_common::{constants, elem2entry, instruction::enable_interrupt, linked_list::LinkedNode, paging::{self, PageTable}, pool::MemPool, reg_cr3::{self, CR3}};
 
 use crate::page_util;
 
@@ -13,7 +13,7 @@ pub type ThreadFunc = fn(ThreadArg);
 /**
  * 内核线程，函数执行的参数
  */
-pub type ThreadArg = &'static str;
+pub type ThreadArg = u32;
 
 
 
@@ -168,6 +168,11 @@ pub struct TaskStruct {
     pub all_tag: LinkedNode,
 
     /**
+     * 该进程的虚拟地址池
+     */
+    pub vaddr_pool: MemPool,
+
+    /**
      * 栈边界的魔数
      */
     pub stack_magic: u32,
@@ -185,6 +190,7 @@ impl TaskStruct {
             pgdir: ptr::null_mut(),
             general_tag: LinkedNode::new(),
             all_tag: LinkedNode::new(),
+            vaddr_pool: MemPool::empty(),
             stack_magic: constants::TASK_STRUCT_STACK_MAGIC,
         }
     }
@@ -324,7 +330,9 @@ impl ThreadStack {
 
 #[derive(Clone, Copy)]
 #[repr(C, packed)]
-pub struct InterruptStack {}
+pub struct InterruptStack {
+    
+}
 impl InterruptStack {
     pub fn new() -> Self {
         Self {}

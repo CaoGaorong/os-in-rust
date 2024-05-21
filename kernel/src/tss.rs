@@ -132,7 +132,6 @@ pub fn load_tss(tss_selector: u16) {
 
 pub static GLOBAL_TSS: RacyCell<Tss> = RacyCell::new(Tss::empty());
 
-
 #[no_mangle]
 pub fn tss_init() {
     let global_tss = unsafe { GLOBAL_TSS.get_mut() };
@@ -190,4 +189,11 @@ pub fn tss_init() {
     gdt::load_gdt();
     // tss选择子可以访问到GDT中TSS，把这个tss选择子加载到tr寄存器
     load_tss(SegmentSelector::TssSelector as u16);
+}
+
+/**
+ * 更新全局TSS的esp0
+ */
+pub fn update_esp0(new_esp0: u32) {
+    unsafe { GLOBAL_TSS.get_mut().esp0 = new_esp0 };
 }

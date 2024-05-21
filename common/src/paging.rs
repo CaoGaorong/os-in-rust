@@ -138,7 +138,27 @@ impl PageTable {
     pub fn set_entry(&mut self, index: usize, entry: PageTableEntry) {
         self.data[index] = entry;
     }
-    
+
+    /**
+     * 得到某一目录项
+     */
+    pub fn get_entry(&self, index: usize) -> &PageTableEntry {
+        &self.data[index]
+    }
+
+    /**
+     * 从某一个页表中赋值若干项页目录项到当前页表中
+     * from_table: &PageTable 从这个页表复制数据
+     * from_idx: usize 要复制页目录项所在页表的起始下标
+     * len: usize 要复制页目录项的数量
+     */
+    pub fn copy_from(&mut self, from_table: &PageTable, from_idx: usize, len: usize) {
+        for idx in from_idx .. from_idx + len {
+            // 从from_table取出这一项，然后复制给当前的页表
+            self.data[idx] = *from_table.get_entry(idx);
+        }
+    }
+
     pub fn size(&self) -> usize {
         self.data.len()
     }

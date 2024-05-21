@@ -90,3 +90,8 @@ pub const TASK_DEFAULT_PRIORITY: u8 = 5;
 
 
 pub const KEYBOARD_KEY_COUNT: usize = 0x3B;
+
+/**
+ * 用户进程的堆内存起始地址
+ */
+pub const USER_PROCESS_ADDR_START: usize = 0x8048000;
