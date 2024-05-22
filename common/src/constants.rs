@@ -95,3 +95,13 @@ pub const KEYBOARD_KEY_COUNT: usize = 0x3B;
  * 用户进程的堆内存起始地址
  */
 pub const USER_PROCESS_ADDR_START: usize = 0x8048000;
+
+/**
+ * 用户进程的栈地址(虚拟地址)
+ */
+pub const USER_STACK_BASE_ADDR: usize = 0xc0000000;
+
+/**
+ * 用户进程的栈地址(虚拟地址)
+ */
+pub const USER_STACK_TOP_ADDR: usize = USER_STACK_BASE_ADDR - 0x1000;

@@ -29,19 +29,6 @@ use mutex::Mutex;
 
 use crate::blocking_queue::{ArrayBlockingQueue, BlockingQueue};
 
-/**
- * 子线程，无限循环，取出键盘元素
- */
-fn keycode_consumer(arg: &'static str) {
-    loop {
-        // 从阻塞队列中取出键码
-        let key_opt = keyboard::get_keycode_queue().take();
-        // 把键码，调用打印程序打印出来
-        printer::print_key_code(key_opt);
-    }
-}
-
-
 #[no_mangle]
 #[link_section = ".start"]
 pub extern "C" fn _start(boot_info: &BootContext) {
@@ -53,12 +40,22 @@ pub extern "C" fn _start(boot_info: &BootContext) {
     thread_management::print_thread();
 
     // 这里创建子线程，特意把priority设置为1，而main线程的priority设置的是5
-    thread_management::thread_start("thread_a", 1, keycode_consumer, "!");
+    // thread_management::thread_start("thread_a", 1, keycode_consumer, "!");
+
+    process::process_execute("user process", u_prog_a);
 
     enable_interrupt();
 
     loop {}
 }
+
+
+fn u_prog_a() {
+    loop {
+       println!("user process");
+    }
+ }
+
 
 /**
  * 做一个假的sleep

@@ -126,14 +126,14 @@ fn compose_pool(addr_start: usize, pool_page: u32, bitmap_base_addr: usize) -> M
 /**
  * 申请page_cnt个内核页。得到虚拟地址
  */
-pub fn malloc_kernel_page(page_cnt: usize) -> u32{ 
+pub fn malloc_kernel_page(page_cnt: usize) -> usize{ 
     malloc_page(unsafe { &mut KERNEL_ADDR_POOL.get_mut().lock()}, unsafe { &mut KERNEL_MEM_POOL.get_mut().lock() }, page_cnt)
 }
 
 /**
  * 在user_addr_pool虚拟地址池中，申请page_cnt个用户页。得到虚拟地址
  */
-pub fn malloc_user_page(user_addr_pool: &mut MemPool, page_cnt: usize) -> u32{
+pub fn malloc_user_page(user_addr_pool: &mut MemPool, page_cnt: usize) -> usize{
     malloc_page(user_addr_pool, unsafe { &mut USER_MEM_POOL.get_mut().lock() }, page_cnt)
 }
 
@@ -141,24 +141,41 @@ pub fn malloc_user_page(user_addr_pool: &mut MemPool, page_cnt: usize) -> u32{
 /**
  * 从addr_pool地址池中申请连续的page_cnt页虚拟地址，从mem_pool中申请不连续的page_cnt物理页，并且构建虚拟地址和物理地址的页表联系。返回虚拟起始地址
  */
-fn malloc_page(addr_pool: &mut MemPool, mem_pool: &mut MemPool, page_cnt: usize) -> u32 {
+fn malloc_page(addr_pool: &mut MemPool, mem_pool: &mut MemPool, page_cnt: usize) -> usize {
     // 从虚拟地址池中申请连续的虚拟地址
     let addr_apply_res = addr_pool.apply(page_cnt);
-    ASSERT!(let Result::Err(MemoryError) != apply_res);
+    ASSERT!(addr_apply_res.is_ok());
     
     let base_virtual_addr  = addr_apply_res.unwrap();
 
     let mut virtual_addr = base_virtual_addr;
     for _ in 0..page_cnt {
-        let mem_apply_res = mem_pool.apply_one();
-        ASSERT!(let Result::Err(MemoryError) != mem_apply_res);
-        // 从物理地址池中申请1页
-        let phy_addr = mem_apply_res.unwrap();
+        // 给定虚拟地址，申请一个物理空间，并且建立虚拟地址和该物理空间的联系
+        malloc_phy_by_vaddr(virtual_addr, mem_pool);
 
-        // 构建页表，把两者连起来
-        page_util::add_page_connection(virtual_addr, phy_addr);
-
-        virtual_addr += constants::PAGE_SIZE;
+        virtual_addr += constants::PAGE_SIZE as usize;
     }
     base_virtual_addr
+}
+
+/**
+ * 已知虚拟地址virtual_addr，然后前往mem_pool物理空间池申请1页空间，并且返回物理空间池的物理地址
+ */
+fn malloc_phy_by_vaddr(virtual_addr: usize, mem_pool: &mut MemPool) -> usize{
+    let mem_apply_res = mem_pool.apply_one();
+    ASSERT!(mem_apply_res.is_ok());
+    // 从物理地址池中申请1页
+    let phy_addr = mem_apply_res.unwrap();
+
+    // 构建页表，把两者连起来
+    page_util::add_page_connection(virtual_addr, phy_addr);
+
+    phy_addr
+}
+
+/**
+ * 已知栈顶，分配一个物理页
+ */
+pub fn malloc_user_stack_page(user_stack_top: usize) {
+    malloc_phy_by_vaddr(user_stack_top, unsafe { &mut USER_MEM_POOL.get_mut().lock()});
 }

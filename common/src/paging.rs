@@ -48,7 +48,7 @@ fn get_table_ref(idx: usize) -> &'static mut PageTable {
  */
 #[no_mangle]
 pub fn  fill_dir_directory() {
-    let page_table0 = PageTableEntry::new_default(get_table_ref(0) as *const _ as u32);
+    let page_table0 = PageTableEntry::new_default(get_table_ref(0) as *const _ as usize);
     
     let dir_table_ref = unsafe { PAGE_DIRECTORY.get_mut() };
 
@@ -57,7 +57,7 @@ pub fn  fill_dir_directory() {
     dir_table_ref.set_entry(constants::KERNEL_DIR_ENTRY_START_IDX, page_table0);
     
     // 页目录表的最后一项，指向自己
-    let self_entry = PageTableEntry::new_default(dir_table_ref as *const PageTable as u32);
+    let self_entry = PageTableEntry::new_default(dir_table_ref as *const PageTable as usize);
     dir_table_ref.set_entry(dir_table_ref.size() - 1, self_entry);
 }
 /**
@@ -77,7 +77,7 @@ pub fn fill_kernel_directory() {
         // 找到page_table_idx号页表
         let page_idx_addr = get_table_ref(page_table_idx);
         // 把page_table_idx号页表的地址，赋值给第idx页目录项
-        directory_table_ref.set_entry(dir_entry_idx, PageTableEntry::new_default(page_idx_addr as *const PageTable as u32));
+        directory_table_ref.set_entry(dir_entry_idx, PageTableEntry::new_default(page_idx_addr as *const PageTable as usize));
         page_table_idx += 1;
     }
 }
@@ -95,7 +95,7 @@ pub fn fill_table0(){
     // 0号页表
     for i in 0 .. 256 {
         // 页表，指向从0开始的低端地址。
-        let entry = PageTableEntry::new_default(i * PAGE_SIZE);
+        let entry = PageTableEntry::new_default(i * PAGE_SIZE as usize);
         page_table_0.set_entry(i as usize, entry);
     }
 }
@@ -127,7 +127,10 @@ impl PageTable {
             data: [PageTableEntry::empty(); PAGE_TABLE_ENTRY_COUNT]
         }
     }
-    pub fn from(addr: u32) -> &'static mut Self {
+    /**
+     * 根据一个地址，把这地址的空间，强行转成页表的格式
+     */
+    pub fn from(addr: usize) -> &'static mut Self {
         unsafe {
             &mut *(addr as *mut Self)
         }
@@ -183,7 +186,7 @@ impl PageTableEntry {
     /**
      * 32位的内存地址
      */
-    pub fn new_default(address: u32) -> Self {
+    pub fn new_default(address: usize) -> Self {
         Self::new(
             address, 
             true, 
@@ -200,7 +203,7 @@ impl PageTableEntry {
      * address: 该页表项指向的地址的高20位
      */
     pub fn new(
-        address: u32,
+        address: usize,
         present: bool, 
         wr_enable: bool, 
         user: bool, 

@@ -52,7 +52,7 @@ impl MemPool {
     /**
      * 申请page_cnt页的空间大小，返回申请到的该页的起始虚拟地址
      */
-    pub fn apply(&mut self, page_cnt: usize) -> Result<u32, MemoryError> {
+    pub fn apply(&mut self, page_cnt: usize) -> Result<usize, MemoryError> {
         
         // 从位图里面，申请连续page_cnt位
         let bit_idx_available = self.bitmap.apply_bits(page_cnt)?;
@@ -62,13 +62,13 @@ impl MemPool {
         }
         
         // 返回虚拟地址。位图每一位，粒度是granularity
-        Result::Ok((self.addr_start + bit_idx_available * self.granularity) as u32)
+        Result::Ok(self.addr_start + bit_idx_available * self.granularity)
     }
 
     /**
      * 申请1个。得到申请到的起始虚拟地址
      */
-    pub fn apply_one(&mut self) -> Result<u32, MemoryError> {
+    pub fn apply_one(&mut self) -> Result<usize, MemoryError> {
         self.apply(1)
     }
 }

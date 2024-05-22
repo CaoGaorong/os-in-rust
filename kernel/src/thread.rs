@@ -1,6 +1,6 @@
 use core::{arch::asm, mem::size_of, ptr};
 
-use os_in_rust_common::{constants, elem2entry, instruction::enable_interrupt, linked_list::LinkedNode, paging::{self, PageTable}, pool::MemPool, reg_cr3::{self, CR3}};
+use os_in_rust_common::{constants, elem2entry, instruction::enable_interrupt, linked_list::LinkedNode, paging::{self, PageTable}, pool::MemPool, reg_cr3::{self, CR3}, selector::SegmentSelector};
 
 use crate::page_util;
 
@@ -223,14 +223,14 @@ impl TaskStruct {
      * 激活该任务的页表
      */
     pub fn activate_pgdir(&self) {
-        let page_dir_phy_addr: u32;
+        let page_dir_phy_addr: usize;
         // 如果该任务没有页表
         if self.pgdir == ptr::null_mut() {
             // 取内核的页表
-            page_dir_phy_addr = paging::get_dir_ref();
+            page_dir_phy_addr = paging::get_dir_ref() as *const _ as usize;
         } else {
             // 取自己的页表，转成物理地址
-            page_dir_phy_addr = page_util::get_phy_from_virtual_addr(self.pgdir as u32);
+            page_dir_phy_addr = page_util::get_phy_from_virtual_addr(self.pgdir as usize);
         }
 
         // 把物理地址放入cr3寄存器
@@ -331,11 +331,52 @@ impl ThreadStack {
 #[derive(Clone, Copy)]
 #[repr(C, packed)]
 pub struct InterruptStack {
-    
+    // 下面几个寄存器，是操作系统实现中，手动赋值的
+    edi: u32,
+    esi: u32,
+    ebp: u32,
+    epb_dummy: u32, // pushad自动压入，popad自动弹出
+    ebx: u32,
+    edx: u32,
+    ecx: u32,
+    eax: u32,
+    gs: u32,
+    fs: u32,
+    es: u32,
+    ds: u32,
+
+    // 下面的字段数据，是中断发生CPU自动压入0级栈，中断退出自动弹出栈的
+    eip:u32,
+    cs: u32,
+    eflags: u32,
+    esp: u32,
+    ss: u32,
 }
 impl InterruptStack {
-    pub fn new() -> Self {
-        Self {}
+    /**
+     * fun_addr: 中断返回的函数地址
+     * user_stack_addr: 用户栈的虚拟地址
+     */
+    pub fn new(fun_addr: u32, user_stack_addr: u32) -> Self {
+        Self {
+            edi: 0,
+            esi: 0,
+            ebp: 0,
+            epb_dummy: 0,
+            ebx: 0,
+            edx: 0,
+            ecx: 0,
+            eax: 0,
+            gs: 0,
+            fs: SegmentSelector::UserDataSelector as u32,
+            es: SegmentSelector::UserDataSelector as u32,
+            ds: SegmentSelector::UserDataSelector as u32,
+            eip: fun_addr,
+            cs: SegmentSelector::UserCodeSelector as u32,
+            eflags: 0,
+            esp: user_stack_addr,
+            ss: SegmentSelector::UserDataSelector as u32,
+        }
     }
 }
 

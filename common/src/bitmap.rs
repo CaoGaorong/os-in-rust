@@ -15,7 +15,7 @@ pub struct BitMap {
 }
 #[derive(Debug)]
 pub enum MemoryError {
-    MemInsuffient,
+    MemInsufficient,
     NoMemeoryMap,
 
 }
@@ -69,7 +69,7 @@ impl BitMap {
             }
 
         }
-        Result::Err(MemoryError::MemInsuffient)
+        Result::Err(MemoryError::MemInsufficient)
     }
     /**
      * 设置某一位

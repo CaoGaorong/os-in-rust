@@ -17,7 +17,7 @@ use crate::memory;
  * 
  * 这是建立在一个前提下，就是页目录表已经存在了。如果整个页目录表都不存在，那直接就page fault了
  */
-pub fn add_page_connection(virtual_addr: u32, physical_addr: u32) {
+pub fn add_page_connection(virtual_addr: usize, physical_addr: usize) {
     let pde_addr =  addr_to_pde(virtual_addr);
     let pte_addr =  addr_to_pte(virtual_addr);
     let pde = unsafe { *pde_addr };
@@ -44,9 +44,9 @@ pub fn add_page_connection(virtual_addr: u32, physical_addr: u32) {
  * 为什么不直接访问页表呢？因为开启分页后
  * 
  */
-fn addr_to_pde(virtual_addr: u32) -> *mut PageTableEntry {
+fn addr_to_pde(virtual_addr: usize) -> *mut PageTableEntry {
     // 高10位，作为目录项的下标
-    let pde_idx = (virtual_addr >> 22) as usize;
+    let pde_idx = virtual_addr >> 22;
     // 构造一个地址，当访问这个地址的时候，可以访问到这个页目录项本身
     (0xfffff000 + pde_idx * size_of::<PageTableEntry>() ) as *mut PageTableEntry
 }
@@ -55,23 +55,23 @@ fn addr_to_pde(virtual_addr: u32) -> *mut PageTableEntry {
 /**
  * 构建一个虚拟地址，可以访问到该虚拟地址经过的页表项自身
  */
-fn addr_to_pte(virtual_addr: u32) -> *mut PageTableEntry {
+fn addr_to_pte(virtual_addr: usize) -> *mut PageTableEntry {
     // 取虚拟地址的中间10位，就是pte所在页表的下标
     let pte_idx = (virtual_addr & 0x003ff000) >> 12;
     // 构造一个地址。高10位是1，中间10位是该地址的高10位，然后地址的中间10位作为下标
-    (0xffc00000 + ((virtual_addr & 0xffc00000) >> 10) + pte_idx * size_of::<PageTableEntry>() as u32) as *mut PageTableEntry
+    (0xffc00000 + ((virtual_addr & 0xffc00000) >> 10) + pte_idx * size_of::<PageTableEntry>()) as *mut PageTableEntry
 }
 
 /**
  * 经过页表索引，得到virtual_addr虚拟地址指向的物理地址
  */
-pub fn get_phy_from_virtual_addr(virtual_addr: u32) -> u32 {
+pub fn get_phy_from_virtual_addr(virtual_addr: usize) -> usize {
     // 得到这个虚拟地址，会映射到的页表项，得到该页表项的虚拟地址
     let pte = unsafe { &mut *addr_to_pte(virtual_addr) };
     // 取出该页表项，页表项的结构中，高20位，就是物理页框的物理地址的高20位
     let frame_phy_addr = pte.get_data() & 0xfffff000;
 
     // 物理页框地址高20位 + 该虚拟地址低12位 = 该虚拟地址将要访问的物理地址
-    return (frame_phy_addr + (virtual_addr & 0x00000fff));
+    return (frame_phy_addr as usize + (virtual_addr & 0x00000fff));
 }
 

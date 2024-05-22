@@ -1,19 +1,37 @@
-use core::{mem, ptr::slice_from_raw_parts, slice};
+use core::{arch::asm, mem::{self, size_of}, ptr::slice_from_raw_parts, slice};
 
 use os_in_rust_common::{bitmap::BitMap, constants, instruction, paging::{self, PageTable, PageTableEntry}, pool::MemPool};
 
-use crate::{memory, page_util, thread::{self, TaskStruct}, thread_management};
+use crate::{memory, page_util, thread::{self, TaskStruct, ThreadArg}, thread_management};
 
 /**
  * 用户进程的实现
  */
-pub fn start_process(func: ThreadArg) {
+pub fn start_process(func_addr: ThreadArg) {
     let cur_task = &mut thread::current_thread().task_struct;
-    cur_task.kernel_stack += size_of::<thread::ThreadStack>();
-    let intr_stack = cur_task.kernel_stack as *mut thread::InterruptStack as &mut thread::InterruptStack;
-    // intr_stack.
-    
+    cur_task.kernel_stack += size_of::<thread::ThreadStack>() as u32;
+    let intr_stack = unsafe { &mut *(cur_task.kernel_stack as *mut thread::InterruptStack) };
+
+    // 申请一个用户页，作为栈空间
+    memory::malloc_user_stack_page(constants::USER_STACK_TOP_ADDR);
+
+    intr_stack.clone_from(&thread::InterruptStack::new(func_addr, constants::USER_STACK_BASE_ADDR as u32));
+
+    // 利用iretd指令退出中断
+    unsafe {
+        asm!(
+            "popad",
+            "pop gs",
+            "pop fs",
+            "pop es",
+            "pop ds",
+            // 使用中断退出指令，CPU从高特权级切换到低特权级
+            // 会自动弹出上下文（中断约定的CPU上下文）
+            "iretd",
+        )
+    }
 }
+
 
 
 /**
@@ -31,7 +49,9 @@ pub fn create_page_dir() -> *mut PageTable {
     // 得到这个页表的物理地址
     let page_dir_phy_addr = page_util::get_phy_from_virtual_addr(page_dir_addr);
     // 页表的最后一项，指向自己
-    page_table.set_entry(page_table.size() - 1, PageTableEntry::new_default(page_dir_phy_addr))
+    page_table.set_entry(page_table.size() - 1, PageTableEntry::new_default(page_dir_phy_addr));
+    
+    page_table
 }
 
 /**
@@ -43,11 +63,11 @@ pub fn apply_user_addr_pool() -> MemPool {
     // 虚拟地址的长度。单位字节
     let virtual_addr_len = constants::KERNEL_ADDR_START - constants::USER_PROCESS_ADDR_START;
     // 位图的1位，代表一页虚拟地址。那么位图中一共需要bitmap_bit_len位
-    let bitmap_bit_len = (virtual_addr_len / constants::PAGE_SIZE) as usize;
+    let bitmap_bit_len = virtual_addr_len / constants::PAGE_SIZE as usize;
     // 位图中一共需要bitmap_byte_len个字节
     let bitmap_byte_len = (bitmap_bit_len / 8) as usize;
     // 该位图一共需要bitmap_page_cnt页
-    let bitmap_page_cnt =  (bitmap_byte_len / constants::PAGE_SIZE) as usize;
+    let bitmap_page_cnt =  bitmap_byte_len / constants::PAGE_SIZE as usize; 
     
     /**** 2. 申请堆空间 */
     // 向堆空间申请空间
@@ -60,7 +80,7 @@ pub fn apply_user_addr_pool() -> MemPool {
     MemPool::new(constants::USER_PROCESS_ADDR_START, BitMap::new(bitmap_array))
 }
 
-pub fn process_execute(process_name: &str) {
+pub fn process_execute(process_name: &'static str, func: fn()) {
     // 申请1页空间
     let pcb_page_addr = memory::malloc_kernel_page(1);
     // 强转
@@ -68,7 +88,7 @@ pub fn process_execute(process_name: &str) {
     // 初始化任务信息
     pcb_page.init_task_struct(process_name, constants::TASK_DEFAULT_PRIORITY);
     
-    pcb_page.init_thread_stack(function, arg)
+    pcb_page.init_thread_stack(start_process, func as u32);
 
     // 申请1页空间作为该进程的页表
     pcb_page.task_struct.pgdir = create_page_dir();
