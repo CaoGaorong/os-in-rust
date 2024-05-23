@@ -1,8 +1,8 @@
-use core::{arch::asm, mem::size_of, ptr};
+use core::{arch::asm, fmt::{write, Display, Pointer}, mem::size_of, ptr};
 
 use os_in_rust_common::{constants, elem2entry, instruction::enable_interrupt, linked_list::LinkedNode, paging::{self, PageTable}, pool::MemPool, reg_cr3::{self, CR3}, selector::SegmentSelector};
 
-use crate::page_util;
+use crate::{console_println, page_util};
 
 
 /**
@@ -63,11 +63,11 @@ pub struct PcbPage {
     /**
      * 然后是线程栈
      */
-    thread_stack: ThreadStack,
+    pub thread_stack: ThreadStack,
     /**
      * 一页的部分最后是中断栈
      */
-    interrupt_stack: InterruptStack,
+    pub interrupt_stack: InterruptStack,
 }
 impl PcbPage {
     pub fn new(
@@ -100,6 +100,10 @@ impl PcbPage {
         self.thread_stack.init(function, arg);
     }
 
+    pub fn init_intr_stack(&mut self, fun_addr: u32, user_stack_addr: u32) {
+        self.interrupt_stack.init(fun_addr, user_stack_addr);
+    }
+
     /**
      * 加载PCB页。
      * 把把“上下文”恢复到当前CPU寄存器中，利用ret指令，把(esp + 4)的值赋值到eip寄存器，来实现跳转执行
@@ -120,6 +124,13 @@ impl PcbPage {
                 in(reg) stack_addr,
             );
         }
+    }
+}
+
+impl Display for PcbPage {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        console_println!("PcbPage(task_struct: {}, thread_stack:{}, interrupt_stack:{})", self.task_struct, self.thread_stack, self.interrupt_stack);
+        Result::Ok(())
     }
 }
 /**
@@ -176,6 +187,13 @@ pub struct TaskStruct {
      * 栈边界的魔数
      */
     pub stack_magic: u32,
+}
+
+impl Display for TaskStruct {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        console_println!("TaskStruct(name:{}, kernel_stack:0x{:x}, task_status:{:?}, pgdir:0x{:x}, vaddr_pool:{})", self.name, self.kernel_stack, self.task_status, self.pgdir as u32, self.vaddr_pool);;
+        Result::Ok(())
+    }
 }
 
 impl TaskStruct {
@@ -256,7 +274,7 @@ impl TaskStruct {
 }
 
 // #[repr(u32)]
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub enum TaskStatus {
     TaskRunning,
     TaskReady,
@@ -328,6 +346,21 @@ impl ThreadStack {
     }
 }
 
+impl Display for ThreadStack {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        console_println!("ThreadStack(ebp:0x{:x}, ebx:0x{:x}, edi:0x{:x}, esi:0x{:x}, eip:0x{:x}, ret_addr:0x{:x}, function:0x{:x}, func_arg:0x{:x})", 
+        self.ebp as u32, 
+        self.ebx as u32, 
+        self.edi as u32, 
+        self.esi as u32, 
+        self.eip as u32, 
+        self.ret_addr as u32, 
+        self.function as u32, 
+        self.func_arg as u32);
+        Result::Ok(())
+    }
+}
+
 #[derive(Clone, Copy)]
 #[repr(C, packed)]
 pub struct InterruptStack {
@@ -335,7 +368,7 @@ pub struct InterruptStack {
     edi: u32,
     esi: u32,
     ebp: u32,
-    epb_dummy: u32, // pushad自动压入，popad自动弹出
+    esp_dummy: u32, // pushad自动压入，popad自动弹出
     ebx: u32,
     edx: u32,
     ecx: u32,
@@ -362,7 +395,7 @@ impl InterruptStack {
             edi: 0,
             esi: 0,
             ebp: 0,
-            epb_dummy: 0,
+            esp_dummy: 0,
             ebx: 0,
             edx: 0,
             ecx: 0,
@@ -377,6 +410,50 @@ impl InterruptStack {
             esp: user_stack_addr,
             ss: SegmentSelector::UserDataSelector as u32,
         }
+    }
+
+    pub fn init(&mut self, fun_addr: u32, user_stack_addr: u32) {
+        self.edi = 0;
+        self.esi = 0;
+        self.ebp = 0;
+        self.esp_dummy = 0;
+        self.ebx = 0;
+        self.edx = 0;
+        self.ecx = 0;
+        self.eax = 0;
+        self.gs = 0;
+        self.fs = SegmentSelector::UserDataSelector as u32;
+        self.es = SegmentSelector::UserDataSelector as u32;
+        self.ds = SegmentSelector::UserDataSelector as u32;
+        self.eip = fun_addr;
+        self.cs = SegmentSelector::UserCodeSelector as u32;
+        self.eflags = 0;
+        self.esp = user_stack_addr;
+        self.ss = SegmentSelector::UserDataSelector as u32;
+    }
+}
+
+impl Display for InterruptStack {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        console_println!("InterruptStack(edi:0x{:x}, esi:0x{:x}, ebp:0x{:x}, esp_dummy:0x{:x}, ebx:0x{:x}, edx:0x{:x}, ecx:0x{:x}, eax:0x{:x}, gs:0x{:x}, fs:0x{:x}, es:0x{:x}, ds:0x{:x}, eip:0x{:x}, cs:0x{:x}, eflags:0x{:x}, esp:0x{:x}, ss:0x{:x})",
+        self.edi as u32, 
+        self.esi as u32, 
+        self.ebp as u32, 
+        self.esp_dummy as u32, 
+        self.ebx as u32, 
+        self.edx as u32, 
+        self.ecx as u32, 
+        self.eax as u32, 
+        self.gs as u32,
+        self.fs as u32, 
+        self.es as u32, 
+        self.ds as u32, 
+        self.eip as u32,
+        self.cs as u32, 
+        self.eflags as u32, 
+        self.esp as u32, 
+        self.ss as u32);
+        Result::Ok(())
     }
 }
 

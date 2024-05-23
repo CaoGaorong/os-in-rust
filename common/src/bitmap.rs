@@ -1,5 +1,5 @@
 
-use core::ptr;
+use core::{fmt::Display, ptr};
 
 use crate::{println, ASSERT};
 
@@ -88,4 +88,11 @@ impl BitMap {
     }
 
 
+}
+
+impl Display for BitMap {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        println!("BitMap(map_ptr:0x{:x}, size:{})", self.map_ptr as usize, self.size);
+        Result::Ok(())
+    }
 }

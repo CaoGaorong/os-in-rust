@@ -44,6 +44,7 @@ pub extern "C" fn _start(boot_info: &BootContext) {
 
     process::process_execute("user process", u_prog_a);
 
+    println!("create user process");
     enable_interrupt();
 
     loop {}
@@ -52,7 +53,8 @@ pub extern "C" fn _start(boot_info: &BootContext) {
 
 fn u_prog_a() {
     loop {
-       println!("user process");
+    //    println!("user process");
+        println!("...");
     }
  }
 

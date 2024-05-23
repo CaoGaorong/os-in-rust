@@ -1,6 +1,6 @@
 use core::{arch::asm, mem::{self, size_of}, ptr::slice_from_raw_parts, slice};
 
-use os_in_rust_common::{bitmap::BitMap, constants, instruction, paging::{self, PageTable, PageTableEntry}, pool::MemPool};
+use os_in_rust_common::{bitmap::BitMap, constants, instruction, paging::{self, PageTable, PageTableEntry}, pool::MemPool, println};
 
 use crate::{memory, page_util, thread::{self, TaskStruct, ThreadArg}, thread_management};
 
@@ -8,18 +8,24 @@ use crate::{memory, page_util, thread::{self, TaskStruct, ThreadArg}, thread_man
  * 用户进程的实现
  */
 pub fn start_process(func_addr: ThreadArg) {
-    let cur_task = &mut thread::current_thread().task_struct;
-    cur_task.kernel_stack += size_of::<thread::ThreadStack>() as u32;
-    let intr_stack = unsafe { &mut *(cur_task.kernel_stack as *mut thread::InterruptStack) };
+    let pcb_page = thread::current_thread();
+
+    println!("user process:{}", pcb_page.task_struct.name);
 
     // 申请一个用户页，作为栈空间
     memory::malloc_user_stack_page(constants::USER_STACK_TOP_ADDR);
 
-    intr_stack.clone_from(&thread::InterruptStack::new(func_addr, constants::USER_STACK_BASE_ADDR as u32));
+    pcb_page.init_intr_stack(func_addr, constants::USER_STACK_BASE_ADDR as u32);
+
+    let pcb_intr_stack_addr = &pcb_page.interrupt_stack as *const _ as u32;
+    pcb_page.task_struct.kernel_stack = pcb_intr_stack_addr;
+    
+    println!("{}", pcb_page);
 
     // 利用iretd指令退出中断
     unsafe {
         asm!(
+            "mov esp, {:e}",
             "popad",
             "pop gs",
             "pop fs",
@@ -28,6 +34,7 @@ pub fn start_process(func_addr: ThreadArg) {
             // 使用中断退出指令，CPU从高特权级切换到低特权级
             // 会自动弹出上下文（中断约定的CPU上下文）
             "iretd",
+            in(reg) pcb_intr_stack_addr,
         )
     }
 }
@@ -44,7 +51,7 @@ pub fn create_page_dir() -> *mut PageTable {
     // 把这个地址空间，转成一个页表的格式。空的页表
     let mut page_table = paging::PageTable::from(page_dir_addr);
     // 把内核页目录表的第0x300（768）项开始的0x100（256）项，都拷贝到本页表中
-    page_table.copy_from(paging::get_dir_ref(), 0x300, 0x100 * 4);
+    page_table.copy_from(paging::get_dir_ref(), 0x300, 0x100);
     
     // 得到这个页表的物理地址
     let page_dir_phy_addr = page_util::get_phy_from_virtual_addr(page_dir_addr);

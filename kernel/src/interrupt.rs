@@ -14,6 +14,13 @@ pub fn init() {
     // 初始化键盘中断
     unsafe { idt::IDT.get_mut().set_handler(InterruptTypeEnum::Keyboard, keyboard_handler) }
     
+
+    unsafe {
+        
+        idt::IDT.get_mut().set_error_code_handler(InterruptTypeEnum::DoubleFault, general_handler_with_error_code);
+        idt::IDT.get_mut().set_error_code_handler(InterruptTypeEnum::SegmentNotPresent, general_handler_with_error_code);
+    }
+
     idt::idt_init();
 
     // 初始化中断控制器
@@ -29,9 +36,20 @@ pub fn init() {
  * 通用的中断处理程序
  */
 extern "x86-interrupt" fn general_handler(frame: InterruptStackFrame) {
-    // print!(".");
+    print!(".");
     pic::send_end_of_interrupt();
 }
+
+
+/**
+ * 通用的中断处理程序
+ */
+extern "x86-interrupt" fn general_handler_with_error_code(frame: InterruptStackFrame, error_code: u32) {
+    pic::send_end_of_interrupt();
+    println!("!!!!general error code exception occur!!!");
+    loop {}
+}
+
 
 extern "x86-interrupt" fn keyboard_handler(frame: InterruptStackFrame) {
     pic::send_end_of_interrupt();

@@ -1,4 +1,4 @@
-use core::mem::size_of;
+use core::{fmt::Display, mem::size_of};
 
 use crate::{bitmap::{BitMap, MemoryError}, println};
 
@@ -21,6 +21,12 @@ pub struct MemPool {
 unsafe impl Send for MemPool{}
 unsafe impl Sync for MemPool {}
 
+impl Display for MemPool {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        println!("MemPool(bitmap:{}, addr_start:0x{:x})", self.bitmap, self.addr_start);
+        Result::Ok(())
+    }
+}
 impl MemPool {
     pub fn new(addr_start: usize, bitmap: BitMap) -> Self {
         Self {
