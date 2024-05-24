@@ -47,14 +47,20 @@ pub extern "C" fn _start(boot_info: &BootContext) {
     println!("create user process");
     enable_interrupt();
 
-    loop {}
+    loop {
+        println!("{}", *unsafe { NUM.get_mut() });
+    }
 }
 
+static NUM: RacyCell<u8> = RacyCell::new(0);
 
-fn u_prog_a() {
+extern "C" fn u_prog_a() {
     loop {
-    //    println!("user process");
-        println!("...");
+        // let num_borrow = unsafe { NUM.get_mut() };
+        // *num_borrow += 1;
+        // 用户进程不能调用内核程序，不能直接输出
+        // println!("user process");
+
     }
  }
 

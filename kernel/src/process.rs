@@ -1,42 +1,36 @@
-use core::{arch::asm, mem::{self, size_of}, ptr::slice_from_raw_parts, slice};
+use core::{arch::{asm, global_asm}, mem::{self, size_of}, ptr::slice_from_raw_parts, slice};
 
 use os_in_rust_common::{bitmap::BitMap, constants, instruction, paging::{self, PageTable, PageTableEntry}, pool::MemPool, println};
 
 use crate::{memory, page_util, thread::{self, TaskStruct, ThreadArg}, thread_management};
 
+global_asm!(include_str!("intr_exit.s"));
+
+extern "C" {
+    fn intr_exit(stack_addr: u32);
+}
+
 /**
  * 用户进程的实现
  */
-pub fn start_process(func_addr: ThreadArg) {
+pub extern "C" fn start_process(func_addr: ThreadArg) {
     let pcb_page = thread::current_thread();
-
-    println!("user process:{}", pcb_page.task_struct.name);
 
     // 申请一个用户页，作为栈空间
     memory::malloc_user_stack_page(constants::USER_STACK_TOP_ADDR);
 
     pcb_page.init_intr_stack(func_addr, constants::USER_STACK_BASE_ADDR as u32);
 
-    let pcb_intr_stack_addr = &pcb_page.interrupt_stack as *const _ as u32;
+    let pcb_intr_stack_addr = &(pcb_page.interrupt_stack) as *const _ as u32;
     pcb_page.task_struct.kernel_stack = pcb_intr_stack_addr;
     
-    println!("{}", pcb_page);
+    // println!("page addr:0x{:x}", pcb_page as *const _ as u32);
+    // println!("{}", pcb_page);
+    // println!("fuck");
 
     // 利用iretd指令退出中断
-    unsafe {
-        asm!(
-            "mov esp, {:e}",
-            "popad",
-            "pop gs",
-            "pop fs",
-            "pop es",
-            "pop ds",
-            // 使用中断退出指令，CPU从高特权级切换到低特权级
-            // 会自动弹出上下文（中断约定的CPU上下文）
-            "iretd",
-            in(reg) pcb_intr_stack_addr,
-        )
-    }
+    // 退出中断
+    unsafe { intr_exit(pcb_intr_stack_addr) };
 }
 
 
@@ -87,7 +81,7 @@ pub fn apply_user_addr_pool() -> MemPool {
     MemPool::new(constants::USER_PROCESS_ADDR_START, BitMap::new(bitmap_array))
 }
 
-pub fn process_execute(process_name: &'static str, func: fn()) {
+pub fn process_execute(process_name: &'static str, func: extern "C" fn()) {
     // 申请1页空间
     let pcb_page_addr = memory::malloc_kernel_page(1);
     // 强转

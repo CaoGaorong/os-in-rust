@@ -8,7 +8,7 @@ use crate::{console_println, page_util};
 /**
  * 创建一个内核线程，传递的函数
  */
-pub type ThreadFunc = fn(ThreadArg);
+pub type ThreadFunc = extern "C" fn(ThreadArg);
 
 /**
  * 内核线程，函数执行的参数
