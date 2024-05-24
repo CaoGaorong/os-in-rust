@@ -2,6 +2,7 @@ use core::{fmt::Display, mem::size_of};
 
 use crate::{bitmap::{BitMap, MemoryError}, println};
 
+#[repr(C, packed)]
 pub struct MemPool {
     /**
      * 内存池的位图
@@ -23,7 +24,7 @@ unsafe impl Sync for MemPool {}
 
 impl Display for MemPool {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        println!("MemPool(bitmap:{}, addr_start:0x{:x})", self.bitmap, self.addr_start);
+        println!("MemPool(bitmap:{}, addr_start:0x{:x})", self.bitmap, self.addr_start as u32);
         Result::Ok(())
     }
 }

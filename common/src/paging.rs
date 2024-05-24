@@ -158,7 +158,7 @@ impl PageTable {
     pub fn copy_from(&mut self, from_table: &PageTable, from_idx: usize, len: usize) {
         for idx in from_idx .. from_idx + len {
             // 从from_table取出这一项，然后复制给当前的页表
-            self.data[idx] = *from_table.get_entry(idx);
+            self.data[idx] = *(from_table.get_entry(idx));
         }
     }
 

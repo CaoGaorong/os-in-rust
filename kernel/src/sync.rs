@@ -1,9 +1,9 @@
 use core::ptr;
 
 
-use os_in_rust_common::{linked_list::LinkedList, ASSERT};
+use os_in_rust_common::{linked_list::LinkedList, println, ASSERT};
 
-use crate::{instruction, thread::{self, TaskStruct}, thread_management};
+use crate::{console_println, instruction, thread::{self, TaskStruct}, thread_management};
 
 /**
  * 定义一个信号量
@@ -42,7 +42,7 @@ impl Semaphore {
      * 信号量减少操作。**阻塞操作**
      */
     pub fn down(&mut self) {
-        let old_status = instruction::disable_interrupt();
+        // let old_status = instruction::disable_interrupt();
 
         
         // 信号量的值小于等于0，需要每次都阻塞，然后被唤醒后重新判断信号量的值
@@ -55,7 +55,7 @@ impl Semaphore {
         }
         // 把信号量减一
         self.value -= 1;
-        instruction::set_interrupt(old_status);
+        // instruction::set_interrupt(old_status);
     }
 
     /**
@@ -149,6 +149,8 @@ impl Lock {
      */
     pub fn unlock(&mut self) {
         let current_task = &thread::current_thread().task_struct;
+        // println!("cur:{}, holder:{}", current_task.name, unsafe {&*self.holder}.name);
+        // println!("holder:{}", self.holder as u32);
         ASSERT!(current_task as *const _ as u32 == self.holder as u32);
         if self.repeat > 1 {
             self.repeat -= 1;

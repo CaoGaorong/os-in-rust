@@ -1,8 +1,8 @@
 use core::{arch::asm, fmt::{write, Display, Pointer}, mem::size_of, ptr};
 
-use os_in_rust_common::{constants, elem2entry, instruction::enable_interrupt, linked_list::LinkedNode, paging::{self, PageTable}, pool::MemPool, reg_cr3::{self, CR3}, selector::SegmentSelector};
+use os_in_rust_common::{constants, elem2entry, instruction::{self, enable_interrupt}, linked_list::LinkedNode, paging::{self, PageTable}, pool::MemPool, println, reg_cr3::{self, CR3}, reg_eflags::{self, EFlags, FlagEnum}, selector::SegmentSelector};
 
-use crate::{console_println, page_util};
+use crate::{console_println, page_util, tss};
 
 
 /**
@@ -28,13 +28,7 @@ extern "C" fn kernel_thread(function: ThreadFunc, arg: ThreadArg) {
  * 获取当前运行的线程
  */
 pub fn current_thread() -> &'static mut PcbPage {
-    let cur_esp: u32;
-    unsafe {
-        asm!(
-            "mov {0:e}, esp",
-            out(reg) cur_esp,
-        );
-    }
+    let cur_esp = instruction::load_esp();
     unsafe { &mut *((cur_esp & 0xfffff000) as *mut PcbPage) }
 }
 
@@ -50,7 +44,7 @@ const PCB_PAGE_BLANK_SIZE: usize = constants::PAGE_SIZE as usize
 /**
  * 一个PCB页的结构（保证是一个物理页占用4KB）
  */
-#[repr(C)]
+#[repr(C, packed)]
 pub struct PcbPage {
     /**
      * 开始部分是PCB
@@ -86,11 +80,11 @@ impl PcbPage {
     /**
      * 初始化PCB
      */
-    pub fn init_task_struct(&mut self, name: &'static str, priority: u8) {
+    pub fn init_task_struct(&mut self, name: &'static str, priority: u8, pcb_page_addr: u32) {
         // 线程栈的地址
         let thread_stack_ptr = &mut self.thread_stack as *mut ThreadStack as u32;
         // 初始化任务信息
-        self.task_struct.init(name, priority, thread_stack_ptr);
+        self.task_struct.init(name, priority, thread_stack_ptr, pcb_page_addr);
     }
 
     /**
@@ -136,7 +130,7 @@ impl Display for PcbPage {
 /**
  * PCB的结构
 */
-#[repr(C)]
+#[repr(C, packed)]
 pub struct TaskStruct {
     /**
      * PCB内核栈地址
@@ -184,6 +178,11 @@ pub struct TaskStruct {
     pub vaddr_pool: MemPool,
 
     /**
+     * PCB页的地址
+     */
+    pub pcb_page_addr: u32,
+
+    /**
      * 栈边界的魔数
      */
     pub stack_magic: u32,
@@ -191,7 +190,7 @@ pub struct TaskStruct {
 
 impl Display for TaskStruct {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        console_println!("TaskStruct(name:{}, kernel_stack:0x{:x}, task_status:{:?}, pgdir:0x{:x}, vaddr_pool:{})", self.name, self.kernel_stack, self.task_status, self.pgdir as u32, self.vaddr_pool);;
+        console_println!("TaskStruct(name:{}, kernel_stack:0x{:x}, task_status:{:?}, pgdir:0x{:x}, vaddr_pool:{})", self.name as &str, self.kernel_stack as u32, self.task_status, self.pgdir as u32, self.vaddr_pool);;
         Result::Ok(())
     }
 }
@@ -210,10 +209,11 @@ impl TaskStruct {
             all_tag: LinkedNode::new(),
             vaddr_pool: MemPool::empty(),
             stack_magic: constants::TASK_STRUCT_STACK_MAGIC,
+            pcb_page_addr: 0,
         }
     }
 
-    fn init(&mut self, name: &'static str, priority: u8, kernel_stack: u32) {
+    fn init(&mut self, name: &'static str, priority: u8, kernel_stack: u32, pcb_page_addr: u32) {
         self.kernel_stack = kernel_stack;
         self.name = name;
         self.task_status = TaskStatus::TaskReady;
@@ -224,6 +224,7 @@ impl TaskStruct {
         self.pgdir = ptr::null_mut();
         self.general_tag = LinkedNode::new();
         self.all_tag = LinkedNode::new();
+        self.pcb_page_addr = pcb_page_addr;
     }
 
     pub fn set_status(&mut self , status: TaskStatus) {
@@ -237,10 +238,21 @@ impl TaskStruct {
         self.left_ticks = self.priority;
     }
 
+    pub fn activate_process(&mut self) {
+        // 激活页表
+        self.activate_pgdir();
+        if self.pgdir == ptr::null_mut() {
+            return;
+        }
+        // 当前PCB页的最高地址 = PCB起始地址 + PCB页大小
+        let pcb_high_addr = self.pcb_page_addr + size_of::<PcbPage>() as u32;
+        tss::update_esp0(pcb_high_addr);
+    }
+    
     /**
      * 激活该任务的页表
      */
-    pub fn activate_pgdir(&self) {
+    fn activate_pgdir(&self) {
         let page_dir_phy_addr: usize;
         // 如果该任务没有页表
         if self.pgdir == ptr::null_mut() {
@@ -256,6 +268,7 @@ impl TaskStruct {
         // 加载页表
         cr3.load_cr3();
     }
+    
     
     /**
      * 根据all_tag的地址，解析出TaskStruct本身
@@ -373,10 +386,10 @@ pub struct InterruptStack {
     edx: u32,
     ecx: u32,
     eax: u32,
-    gs: u32,
-    fs: u32,
-    es: u32,
-    ds: u32,
+    gs: u16,
+    fs: u16,
+    es: u16,
+    ds: u16,
 
     // 下面的字段数据，是中断发生CPU自动压入0级栈，中断退出自动弹出栈的
     eip:u32,
@@ -391,6 +404,7 @@ impl InterruptStack {
      * user_stack_addr: 用户栈的虚拟地址
      */
     pub fn new(fun_addr: u32, user_stack_addr: u32) -> Self {
+        
         Self {
             edi: 0,
             esi: 0,
@@ -401,12 +415,12 @@ impl InterruptStack {
             ecx: 0,
             eax: 0,
             gs: 0,
-            fs: SegmentSelector::UserDataSelector as u32,
-            es: SegmentSelector::UserDataSelector as u32,
-            ds: SegmentSelector::UserDataSelector as u32,
+            fs: SegmentSelector::UserDataSelector as u16,
+            es: SegmentSelector::UserDataSelector as u16,
+            ds: SegmentSelector::UserDataSelector as u16,
             eip: fun_addr,
             cs: SegmentSelector::UserCodeSelector as u32,
-            eflags: 0,
+            eflags: Self::compose_default_eflags().get_data(),
             esp: user_stack_addr,
             ss: SegmentSelector::UserDataSelector as u32,
         }
@@ -422,14 +436,28 @@ impl InterruptStack {
         self.ecx = 0;
         self.eax = 0;
         self.gs = 0;
-        self.fs = SegmentSelector::UserDataSelector as u32;
-        self.es = SegmentSelector::UserDataSelector as u32;
-        self.ds = SegmentSelector::UserDataSelector as u32;
+        self.fs = SegmentSelector::UserDataSelector as u16;
+        self.es = SegmentSelector::UserDataSelector as u16;
+        self.ds = SegmentSelector::UserDataSelector as u16;
         self.eip = fun_addr;
         self.cs = SegmentSelector::UserCodeSelector as u32;
-        self.eflags = 0;
+        self.eflags = Self::compose_default_eflags().get_data();
         self.esp = user_stack_addr;
         self.ss = SegmentSelector::UserDataSelector as u32;
+    }
+
+    /**
+     * 构建默认的eflags寄存器的值
+     */
+    fn compose_default_eflags() -> EFlags {
+        let mut empty_eflags = reg_eflags::EFlags::load();
+        // let mut empty_eflags = reg_eflags::EFlags::empty();
+        empty_eflags.set_off(FlagEnum::InputOutputPrivilegeLevel);
+        // 保留位，为1
+        empty_eflags.set_on(FlagEnum::FirstReserved);
+        // 中断位，打开，设置1
+        empty_eflags.set_on(FlagEnum::InterruptFlag);
+        empty_eflags
     }
 }
 

@@ -29,6 +29,8 @@ use mutex::Mutex;
 
 use crate::blocking_queue::{ArrayBlockingQueue, BlockingQueue};
 
+static PROCESS_NAME: &str = "user process";
+
 #[no_mangle]
 #[link_section = ".start"]
 pub extern "C" fn _start(boot_info: &BootContext) {
@@ -42,22 +44,21 @@ pub extern "C" fn _start(boot_info: &BootContext) {
     // 这里创建子线程，特意把priority设置为1，而main线程的priority设置的是5
     // thread_management::thread_start("thread_a", 1, keycode_consumer, "!");
 
-    process::process_execute("user process", u_prog_a);
+    process::process_execute(PROCESS_NAME, u_prog_a);
 
-    println!("create user process");
     enable_interrupt();
 
     loop {
-        println!("{}", *unsafe { NUM.get_mut() });
+        print!("{}", *unsafe { NUM.get_mut() });
     }
 }
 
 static NUM: RacyCell<u8> = RacyCell::new(0);
 
 extern "C" fn u_prog_a() {
+    let num_borrow = unsafe { NUM.get_mut() };
+    *num_borrow += 1;
     loop {
-        // let num_borrow = unsafe { NUM.get_mut() };
-        // *num_borrow += 1;
         // 用户进程不能调用内核程序，不能直接输出
         // println!("user process");
 

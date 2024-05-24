@@ -3,7 +3,7 @@ use core::{arch::{asm, global_asm}, task};
 
 use os_in_rust_common::{elem2entry, instruction, println, reg_cr0::CR0, reg_eflags, ASSERT};
 
-use crate::{console_println, interrupt, thread_management, thread::{self, TaskStatus, TaskStruct}};
+use crate::{console_println, interrupt, thread::{self, PcbPage, TaskStatus, TaskStruct}, thread_management};
 
 
 global_asm!(include_str!("switch.s"));
@@ -40,12 +40,16 @@ pub fn schedule() {
     let task_to_run = unsafe { &mut *(TaskStruct::parse_by_general_tag(pcb_ready_tag)) };
     task_to_run.set_status(TaskStatus::TaskRunning);
 
+    // 激活这个进程
+    task_to_run.activate_process();
+
     // if cur_task.name != "main" || task_to_run.name != "main" {
     //     console_println!("{} left_ticks:{}, {} left_ticks:{}", cur_task.name, cur_task.left_ticks, task_to_run.name, task_to_run.left_ticks);
     // }
 
     // 从当前的任务，切换到要运行的任务j
     unsafe { switch_to(cur_task, task_to_run) };
+
 }
 
 /**

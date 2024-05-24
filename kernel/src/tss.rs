@@ -1,6 +1,6 @@
 use core::{arch::asm, mem::size_of};
 
-use os_in_rust_common::{gdt::{self, DescriptorType}, racy_cell::RacyCell, sd::{Granularity, GranularityEnum, SegmentDPL, SegmentDescriptor, SegmentType}, selector::SegmentSelector};
+use os_in_rust_common::{gdt::{self, DescriptorType}, println, racy_cell::RacyCell, sd::{Granularity, GranularityEnum, SegmentDPL, SegmentDescriptor, SegmentType}, selector::SegmentSelector};
 
 /**
  * TSS的结构：<https://wiki.osdev.org/Task_State_Segment>
@@ -10,6 +10,7 @@ use os_in_rust_common::{gdt::{self, DescriptorType}, racy_cell::RacyCell, sd::{G
  * - IOPB: I/O Map Base Address Field. Contains a 16-bit offset from the base of the TSS to the I/O Permission Bit Map.
  * - SSP: Shadow Stack Pointer.
  */
+#[repr(C, packed)]
 pub struct Tss {
     /**
      * 上一个任务的指针，这个字段是上个任务的TSS选择子
@@ -30,7 +31,7 @@ pub struct Tss {
     
     esp2: u32,
     
-    ss2: u32,
+    ss2: u16,
     ss2_reserved: u16,
 
     cr3: u32,

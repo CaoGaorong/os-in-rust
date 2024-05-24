@@ -4,14 +4,14 @@ use core::arch::asm;
  * 寄存器结构：<https://wiki.osdev.org/CPU_Registers_x86>
  */
 
-use crate::paging::PageTable;
+use crate::{paging::PageTable, println};
 
  /**
   * cr3寄存器的长度32位
   */
 #[repr(transparent)]
 pub struct CR3 {
-    data: u32
+    pub data: u32
 }
 
 

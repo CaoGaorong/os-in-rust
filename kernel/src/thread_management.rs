@@ -52,13 +52,14 @@ pub fn make_thread_main() {
     // 根据当前运行的线程，找到PCB
     let pcb_page = thread::current_thread();
     // 初始化PCB数据
-    pcb_page.init_task_struct(constants::MAIN_THREAD_NAME, constants::TASK_DEFAULT_PRIORITY);
+    pcb_page.init_task_struct(constants::MAIN_THREAD_NAME, constants::TASK_DEFAULT_PRIORITY, pcb_page as *const _ as u32);
 
     // main线程，设置为运行中
     pcb_page.task_struct.task_status = TaskStatus::TaskRunning;
 
     // 添加到所有的进程中
-    all_thread_list.append(&mut pcb_page.task_struct.all_tag);
+    let all_tag = &mut pcb_page.task_struct.all_tag;
+    all_thread_list.append(all_tag);
 }
 
 
@@ -94,7 +95,7 @@ pub fn thread_start(
     let pcb_page: &mut PcbPage = unsafe { &mut *(page_addr as *mut PcbPage) };
 
     // 构建PCB页
-    pcb_page.init_task_struct(thread_name, priority);
+    pcb_page.init_task_struct(thread_name, priority, page_addr as u32);
 
     // 填充PCB页的中断栈
     pcb_page.init_thread_stack(func, arg);

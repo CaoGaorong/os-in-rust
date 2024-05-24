@@ -4,6 +4,7 @@ use crate::{println, ASSERT};
 /**
  * 定义一个链表的节点
  */
+#[repr(C, packed)]
 pub struct LinkedNode {
     pub next: *mut LinkedNode,
     pub pre: *mut LinkedNode,
@@ -79,7 +80,7 @@ impl LinkedList {
         if self.head.next.is_null() || self.tail.pre.is_null() {
             return true;
         }
-        if self.head.next == &mut self.tail {
+        if self.head.next as u32 == &mut self.tail as *const _ as u32 {
             return true;
         }
         return false;

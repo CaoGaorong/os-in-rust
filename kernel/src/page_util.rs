@@ -1,7 +1,7 @@
 use core::mem::size_of;
 
 
-use os_in_rust_common::{paging::PageTableEntry, ASSERT};
+use os_in_rust_common::{paging::{PageTable, PageTableEntry}, ASSERT};
 
 use crate::memory;
 
@@ -44,7 +44,7 @@ pub fn add_page_connection(virtual_addr: usize, physical_addr: usize) {
  * 为什么不直接访问页表呢？因为开启分页后
  * 
  */
-fn addr_to_pde(virtual_addr: usize) -> *mut PageTableEntry {
+pub fn addr_to_pde(virtual_addr: usize) -> *mut PageTableEntry {
     // 高10位，作为目录项的下标
     let pde_idx = virtual_addr >> 22;
     // 构造一个地址，当访问这个地址的时候，可以访问到这个页目录项本身
@@ -60,6 +60,14 @@ fn addr_to_pte(virtual_addr: usize) -> *mut PageTableEntry {
     let pte_idx = (virtual_addr & 0x003ff000) >> 12;
     // 构造一个地址。高10位是1，中间10位是该地址的高10位，然后地址的中间10位作为下标
     (0xffc00000 + ((virtual_addr & 0xffc00000) >> 10) + pte_idx * size_of::<PageTableEntry>()) as *mut PageTableEntry
+}
+
+/**
+ * 一个可以访问到当前页目录表自身的地址
+ */
+pub fn addr_to_dir_table() -> *mut PageTable {
+    // 当一个地址，高10位是1，中间10位是1，那么会回环两次，就会访问到页目录表自身
+    0xfffff000 as *mut PageTable
 }
 
 /**

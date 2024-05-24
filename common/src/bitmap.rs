@@ -3,6 +3,7 @@ use core::{fmt::Display, ptr};
 
 use crate::{println, ASSERT};
 
+#[repr(C, packed)]
 pub struct BitMap {
     /**
      * 位图的数据指针
@@ -92,7 +93,7 @@ impl BitMap {
 
 impl Display for BitMap {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        println!("BitMap(map_ptr:0x{:x}, size:{})", self.map_ptr as usize, self.size);
+        println!("BitMap(map_ptr:0x{:x}, size:{})", self.map_ptr as usize, self.size as u32);
         Result::Ok(())
     }
 }
