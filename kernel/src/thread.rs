@@ -256,8 +256,8 @@ impl TaskStruct {
         let page_dir_phy_addr: usize;
         // 如果该任务没有页表
         if self.pgdir == ptr::null_mut() {
-            // 取内核的页表
-            page_dir_phy_addr = paging::get_dir_ref() as *const _ as usize;
+            // 取内核的页表物理地址。
+            page_dir_phy_addr = constants::KERNEL_PAGE_DIR_ADDR;
         } else {
             // 取自己的页表，转成物理地址
             page_dir_phy_addr = page_util::get_phy_from_virtual_addr(self.pgdir as usize);

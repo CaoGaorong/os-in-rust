@@ -21,7 +21,7 @@ pub mod process;
 mod thread;
 
 
-use core::{arch::asm, mem, panic::PanicInfo, ptr};
+use core::{arch::asm, mem, panic::PanicInfo, ptr, sync::atomic::{AtomicU8, Ordering}};
 use lazy_static::lazy_static;
 use os_in_rust_common::{constants, context::BootContext, instruction::{self, disable_interrupt, enable_interrupt}, print, println, queue::Queue, racy_cell::RacyCell};
 use sync::Lock;
@@ -49,16 +49,18 @@ pub extern "C" fn _start(boot_info: &BootContext) {
     enable_interrupt();
 
     loop {
-        print!("{}", *unsafe { NUM.get_mut() });
+        println!("{}", unsafe { NUM.get_mut() }.load(Ordering::Acquire));
+        dummy_sleep(10000000);
     }
 }
 
-static NUM: RacyCell<u8> = RacyCell::new(0);
+static NUM: RacyCell<AtomicU8> = RacyCell::new(AtomicU8::new(0));
 
 extern "C" fn u_prog_a() {
-    let num_borrow = unsafe { NUM.get_mut() };
-    *num_borrow += 1;
     loop {
+        unsafe { NUM.get_mut() }.fetch_add(1, Ordering::Release);
+        dummy_sleep(10000000);
+        
         // 用户进程不能调用内核程序，不能直接输出
         // println!("user process");
 

@@ -13,6 +13,7 @@ extern "C" {
 }
 
 pub fn schedule() {
+
     // 确保没有被打断
     ASSERT!(!instruction::is_intr_on());
 

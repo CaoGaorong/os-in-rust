@@ -1,9 +1,11 @@
 #![no_std]
 #![no_main]
 
+mod page_table;
+
 use core::{arch::asm, panic::PanicInfo};
 
-use os_in_rust_common::{context::BootContext, disk, gdt::{self, GlobalDescriptorTable}, paging::{self, PageTable}, racy_cell::RacyCell, reg_cr0::{self, CR0}, reg_cr3::CR3};
+use os_in_rust_common::{context::BootContext, disk, gdt::{self, GlobalDescriptorTable}, paging::PageTable, racy_cell::RacyCell, reg_cr0::{self, CR0}, reg_cr3::CR3};
 
 
 static BOOT_CONTEXT: RacyCell<BootContext> = RacyCell::new(BootContext {
@@ -17,11 +19,11 @@ static BOOT_CONTEXT: RacyCell<BootContext> = RacyCell::new(BootContext {
 pub extern "C" fn _start(boot_info: &BootContext) {
 
     // 填充页目录表。
-    paging::fill_dir_directory();
+    page_table::fill_dir_directory();
     // 填充内核页表
-    paging::fill_kernel_directory();
+    page_table::fill_kernel_directory();
     // 填充0号页表。低端1MB
-    paging::fill_table0();
+    page_table::fill_table0();
 
     // 取出GDT的地址
     let gdt_addr = gdt::get_gdt_addr();
@@ -30,7 +32,7 @@ pub extern "C" fn _start(boot_info: &BootContext) {
     
     
     // 加载到cr3寄存器
-    let cr3 = CR3::new(paging::get_dir_ref() as  *const PageTable);
+    let cr3 = CR3::new(page_table::get_dir_ref() as  *const PageTable);
     cr3.load_cr3();
 
 

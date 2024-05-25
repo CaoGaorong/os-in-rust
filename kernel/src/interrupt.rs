@@ -78,9 +78,6 @@ pub extern "x86-interrupt" fn timer_handler(frame: InterruptStackFrame) {
     pic::send_end_of_interrupt();
     let current_thread = thread::current_thread();
     let task_name = current_thread.task_struct.name;
-    if task_name == "main" {
-        println!("main thread timer interrupt");
-    }
     // 确保栈没有溢出
     ASSERT!(current_thread.task_struct.stack_magic == constants::TASK_STRUCT_STACK_MAGIC);
     let task_struct = &mut current_thread.task_struct;

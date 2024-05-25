@@ -1,6 +1,6 @@
 use core::{mem, ops::DerefMut, slice};
 
-use os_in_rust_common::{bitmap::MemoryError, paging, pool::MemPool, racy_cell::RacyCell, ASSERT};
+use os_in_rust_common::{bitmap::MemoryError, paging::{self, PageTable}, pool::MemPool, racy_cell::RacyCell, ASSERT};
 
 use crate::{constants, mutex::Mutex, page_util};
 
@@ -31,8 +31,8 @@ static KERNEL_ADDR_POOL: RacyCell<Mutex<MemPool>> = RacyCell::new(Mutex::new(Mem
 pub fn mem_pool_init(all_mem: u32) {
     // 目前已经用了的内存空间：低端1MB + 内核页目录表（1个） + 内核页表（255个）
     let used_mem = constants::REAL_MEMORY
-        + mem::size_of_val(paging::get_dir_ref())
-        + mem::size_of_val(paging::get_table_list_ref());
+        + mem::size_of::<PageTable>()
+        + mem::size_of::<PageTable>() * constants::PAGE_TABLE_ENTRY_COUNT;
 
     // 可用的内存 = 总内存 - 已用内存
     let available_mem_size = all_mem - used_mem as u32;

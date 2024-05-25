@@ -41,6 +41,25 @@ pub const PIC_MAX_DECREMENT: u32 = 65536;
  */
 pub const TIMER_INTR_FREQUENCY: u16 = 100;
 
+
+/**
+ * 页表项的数量
+ */
+pub const PAGE_TABLE_ENTRY_COUNT: usize = 1024;
+
+
+/**
+ * 内核页目录表的地址
+ */
+pub const KERNEL_PAGE_DIR_ADDR: usize = 0x100000;
+
+
+/**
+ * 内核页表的地址
+ */
+pub const KERNEL_PAGE_TABLE_ADDR: usize = 0x100000 + 0x1000;
+
+
 /**
  * 页的大小：1024
  */

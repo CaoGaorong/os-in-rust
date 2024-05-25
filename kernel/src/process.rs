@@ -46,7 +46,7 @@ pub fn create_page_dir() -> *mut PageTable {
     // 把内核页目录表的第0x300（768）项开始的0x100（256）项，都拷贝到本页表中
 
     // 得到页表的虚拟地址。「但是我们需要访问页表自身，而不是通过页表访问映射到的内存」
-    let kernel_page_dir_addr = paging::get_dir_ref() as *const _ as u32;
+    let kernel_page_dir_addr = constants::KERNEL_PAGE_DIR_ADDR;
     // 所以根据这个地址，构造到一个可以访问到「页表自身」的虚拟地址
     let kernel_page_dir = unsafe { &*page_util::addr_to_dir_table() };
     // 用这个虚拟地址来访问「内核页表自身」
