@@ -1,7 +1,7 @@
 #![feature(global_asm)]
-use core::{arch::{asm, global_asm}, task};
+use core::{arch::{asm, global_asm}, ptr, task};
 
-use os_in_rust_common::{elem2entry, instruction, println, reg_cr0::CR0, reg_eflags, ASSERT};
+use os_in_rust_common::{elem2entry, instruction, print, println, reg_cr0::CR0, reg_eflags, ASSERT};
 
 use crate::{console_println, interrupt, thread::{self, PcbPage, TaskStatus, TaskStruct}, thread_management};
 
@@ -39,14 +39,21 @@ pub fn schedule() {
     let pcb_ready_tag = thread_management::get_ready_thread().pop();
     // 找到那个要运行的task
     let task_to_run = unsafe { &mut *(TaskStruct::parse_by_general_tag(pcb_ready_tag)) };
+    
     task_to_run.set_status(TaskStatus::TaskRunning);
+
+    // 当前是内核程序，更换页表之前，可以使用输出语句
+    if cur_task.pgdir == ptr::null_mut() {
+        println!("switch from:{}, to:{}", cur_task.name as &str, task_to_run.name as &str);
+    }
 
     // 激活这个进程
     task_to_run.activate_process();
 
-    // if cur_task.name != "main" || task_to_run.name != "main" {
-    //     console_println!("{} left_ticks:{}, {} left_ticks:{}", cur_task.name, cur_task.left_ticks, task_to_run.name, task_to_run.left_ticks);
-    // }
+    // 要之前的程序是内核程序，更换页表后，才可以使用输出语句
+    if task_to_run.pgdir == ptr::null_mut() {
+        println!("switch from:{}, to:{}", cur_task.name as &str, task_to_run.name as &str);
+    }
 
     // 从当前的任务，切换到要运行的任务j
     unsafe { switch_to(cur_task, task_to_run) };

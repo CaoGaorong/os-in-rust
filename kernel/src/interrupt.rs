@@ -75,6 +75,17 @@ extern "x86-interrupt" fn general_protection_handler(frame: InterruptStackFrame,
  * 
  */
 pub extern "x86-interrupt" fn timer_handler(frame: InterruptStackFrame) {
+    // 保护上下文，主要是保护段寄存器
+    unsafe {
+        asm!(
+            "push ds",
+            "push es",
+            "push fs",
+            "push gs",
+            "pushad",
+        )
+    }
+
     pic::send_end_of_interrupt();
     let current_thread = thread::current_thread();
     let task_name = current_thread.task_struct.name;
@@ -92,6 +103,17 @@ pub extern "x86-interrupt" fn timer_handler(frame: InterruptStackFrame) {
         // 否则就切换其他线程
         scheduler::schedule();
         // println!("schedule finished");
+    }
+
+    // 恢复中断上下文，主要是恢复ds寄存器
+    unsafe {
+        asm!(
+            "popad",
+            "pop gs",
+            "pop fs",
+            "pop es",
+            "pop ds",
+        )
     }
 
     
