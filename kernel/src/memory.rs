@@ -1,6 +1,6 @@
 use core::{mem, ops::DerefMut, slice};
 
-use os_in_rust_common::{bitmap::MemoryError, paging::{self, PageTable}, pool::MemPool, racy_cell::RacyCell, ASSERT};
+use os_in_rust_common::{bitmap::MemoryError, paging::{self, PageTable}, pool::MemPool, println, racy_cell::RacyCell, ASSERT};
 
 use crate::{constants, mutex::Mutex, page_util};
 
@@ -41,7 +41,7 @@ pub fn mem_pool_init(all_mem: u32) {
     let available_page = available_mem_size / constants::PAGE_SIZE;
 
     // 每个池子，要映射的页数
-    let page_for_pool = available_page / 2;
+    let pages_for_pool = available_page / 2;
 
     // 位图自身所在的地址自身地址
     let mut bit_map_addr = constants::KERNEL_MEM_BITMAP_ADDR as usize;
@@ -53,7 +53,7 @@ pub fn mem_pool_init(all_mem: u32) {
         // 池子描述的内存起始地址。也就是可用内存之上
         used_mem, 
         // 该可以描述多少页内存空间
-        page_for_pool, 
+        pages_for_pool, 
         // 该池子位图自身所在的地址
         bit_map_addr
     );
@@ -65,8 +65,8 @@ pub fn mem_pool_init(all_mem: u32) {
     let mut user_mem_pool = unsafe { USER_MEM_POOL.get_mut().lock() };
     *user_mem_pool = compose_pool(
         // 池子描述的内存起始地址
-        used_mem + (page_for_pool * constants::PAGE_SIZE) as usize, 
-        page_for_pool, 
+        used_mem + (pages_for_pool * constants::PAGE_SIZE) as usize, 
+        pages_for_pool, 
         bit_map_addr
     );
     
@@ -79,21 +79,21 @@ pub fn mem_pool_init(all_mem: u32) {
         // 虚拟地址的开始。位于高端1G，再跨过1MB
         constants::KERNEL_ADDR_START + constants::REAL_MEMORY, 
         // 这个池子的大小。虚拟地址跟物理地址大小一致
-        page_for_pool, 
+        pages_for_pool, 
         // 这个池子的位图，位于上面两个池子的位图之上
         bit_map_addr
     );
 
-    // println!("kernel_mem_pool  addr_start: 0x{:x}", kernel_mem_pool.addr_start);
+    // println!("kernel_mem_pool  addr_start: 0x{:x}", kernel_mem_pool.addr_start as u32);
     // println!("kernel_mem_pool  bitmap addr: 0x{:x}", kernel_mem_pool.bitmap.map_ptr as u32);
     // println!("kernel_mem_pool  bitmap len: 0x{:x}", kernel_mem_pool.bitmap.size as u32);
 
 
-    // println!("user_mem_pool  addr_start: 0x{:x}", user_mem_pool.addr_start);
+    // println!("user_mem_pool  addr_start: 0x{:x}", user_mem_pool.addr_start as u32);
     // println!("user_mem_pool  bitmap addr: 0x{:x}", user_mem_pool.bitmap.map_ptr as u32);
     // println!("user_mem_pool  bitmap len: 0x{:x}", user_mem_pool.bitmap.size as u32);
 
-    // println!("kernel_addr_pool  addr_start: 0x{:x}", kernel_addr_pool.addr_start);
+    // println!("kernel_addr_pool  addr_start: 0x{:x}", kernel_addr_pool.addr_start  as u32);
     // println!("kernel_addr_pool  bitmap addr: 0x{:x}", kernel_addr_pool.bitmap.map_ptr as u32);
     // println!("kernel_addr_pool  bitmap len: 0x{:x}", kernel_addr_pool.bitmap.size as u32);
 
@@ -104,10 +104,10 @@ pub fn mem_pool_init(all_mem: u32) {
 /**
  * 构建一个内存池
  * addr_start: 该内存池描述的起始地址
- * pool_page: 该内存池描述的内存块页大小
+ * mem_page_num: 该内存池描述的内存块页数量
  * bitmap_base_addr: 该内存池位图自身所在的内存地址
  */
-fn compose_pool(addr_start: usize, pool_page: u32, bitmap_base_addr: usize) -> MemPool {
+fn compose_pool(addr_start: usize, mem_page_num: u32, bitmap_base_addr: usize) -> MemPool {
     let mut mem_pool = MemPool::empty();
     
     // 构建bitmap
@@ -116,7 +116,7 @@ fn compose_pool(addr_start: usize, pool_page: u32, bitmap_base_addr: usize) -> M
             // bitmap自身所在的地址
             bitmap_base_addr as *mut _,
             // bitmap需要的长度。
-            (pool_page / 8).try_into().unwrap(),
+            (mem_page_num / 8).try_into().unwrap(),
         )
     };
     mem_pool.init(addr_start, constants::PAGE_SIZE as usize, bitmap);
@@ -127,6 +127,7 @@ fn compose_pool(addr_start: usize, pool_page: u32, bitmap_base_addr: usize) -> M
  * 申请page_cnt个内核页。得到虚拟地址
  */
 pub fn malloc_kernel_page(page_cnt: usize) -> usize{ 
+    // println!("malloc kernel  {} page", page_cnt);
     malloc_page(unsafe { &mut KERNEL_ADDR_POOL.get_mut().lock()}, unsafe { &mut KERNEL_MEM_POOL.get_mut().lock() }, page_cnt)
 }
 

@@ -44,7 +44,7 @@ pub fn schedule() {
 
     // 当前是内核程序，更换页表之前，可以使用输出语句
     if cur_task.pgdir == ptr::null_mut() {
-        println!("switch from:{}, to:{}", cur_task.name as &str, task_to_run.name as &str);
+        // println!("switch from:{}, to:{}", cur_task.name as &str, task_to_run.name as &str);
     }
 
     // 激活这个进程
@@ -52,7 +52,7 @@ pub fn schedule() {
 
     // 要之前的程序是内核程序，更换页表后，才可以使用输出语句
     if task_to_run.pgdir == ptr::null_mut() {
-        println!("switch from:{}, to:{}", cur_task.name as &str, task_to_run.name as &str);
+        // println!("switch from:{}, to:{}", cur_task.name as &str, task_to_run.name as &str);
     }
 
     // 从当前的任务，切换到要运行的任务j

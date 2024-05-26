@@ -1,3 +1,5 @@
+use core::ops::{Add, Div, Sub};
+
 pub const fn bool_to_int(b: bool) -> u32 {
     if b {
         1
@@ -12,6 +14,16 @@ pub const fn bool_to_u8 (b: bool) -> u8 {
     } else {
         0
     }
+}
+
+/**
+ * 两个数相除，线上取整
+ */
+pub fn div_ceil<T: Div + Add + Sub + Into<f64>>(num1: T, num2:T) -> f64 {
+    let num1_f64:f64 = num1.into();
+    let num2_f64:f64 = num2.into();
+    let one_f64:f64 = 1 as f64;
+    (num1_f64 + num2_f64 - one_f64) / num2_f64
 }
 
 /**

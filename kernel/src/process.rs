@@ -1,6 +1,6 @@
 use core::{arch::{asm, global_asm}, mem::{self, size_of}, ptr::slice_from_raw_parts, slice};
 
-use os_in_rust_common::{bitmap::BitMap, constants, instruction, paging::{self, PageTable, PageTableEntry}, pool::MemPool, println};
+use os_in_rust_common::{bitmap::BitMap, constants, instruction, paging::{self, PageTable, PageTableEntry}, pool::MemPool, println, utils};
 
 use crate::{console_println, memory, page_util, thread::{self, TaskStruct, ThreadArg}, thread_management};
 
@@ -69,11 +69,11 @@ pub fn apply_user_addr_pool() -> MemPool {
     // 虚拟地址的长度。单位字节
     let virtual_addr_len = constants::KERNEL_ADDR_START - constants::USER_PROCESS_ADDR_START;
     // 位图的1位，代表一页虚拟地址。那么位图中一共需要bitmap_bit_len位
-    let bitmap_bit_len = virtual_addr_len / constants::PAGE_SIZE as usize;
+    let bitmap_bit_len = utils::div_ceil(virtual_addr_len as u32, constants::PAGE_SIZE as u32) as usize;
     // 位图中一共需要bitmap_byte_len个字节
-    let bitmap_byte_len = (bitmap_bit_len / 8) as usize;
+    let bitmap_byte_len = utils::div_ceil(bitmap_bit_len as u32, 8) as usize;
     // 该位图一共需要bitmap_page_cnt页
-    let bitmap_page_cnt =  bitmap_byte_len / constants::PAGE_SIZE as usize; 
+    let bitmap_page_cnt =  utils::div_ceil(bitmap_byte_len as u32, constants::PAGE_SIZE as u32) as usize; 
     
     /**** 2. 申请堆空间 */
     // 向堆空间申请空间

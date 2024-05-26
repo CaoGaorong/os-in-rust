@@ -1,9 +1,9 @@
-use core::mem::size_of;
+use core::{mem::size_of, ptr};
 
 
-use os_in_rust_common::{paging::{PageTable, PageTableEntry}, ASSERT};
+use os_in_rust_common::{paging::{PageTable, PageTableEntry}, print, println, ASSERT};
 
-use crate::memory;
+use crate::{memory, thread};
 
 /**
  * 页表工具
