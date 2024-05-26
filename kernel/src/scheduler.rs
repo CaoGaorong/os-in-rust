@@ -3,16 +3,16 @@ use core::{arch::{asm, global_asm}, ptr, task};
 
 use os_in_rust_common::{elem2entry, instruction, print, println, reg_cr0::CR0, reg_eflags, ASSERT};
 
-use crate::{console_println, interrupt, thread::{self, PcbPage, TaskStatus, TaskStruct}, thread_management};
+use crate::{console_println, interrupt, thread::{self, PcbPage, TaskStatus, TaskStruct, ThreadStack}, thread_management};
 
 
-global_asm!(include_str!("switch.s"));
+// 这里先不用汇编实现的切换线程的函数了
+// global_asm!(include_str!("switch.s"));
+// extern "C" {
+//     fn switch_to(cur_task: &mut TaskStruct, task_to_run: &mut TaskStruct);
+// }
 
-extern "C" {
-    fn switch_to(cur_task: &mut TaskStruct, task_to_run: &mut TaskStruct);
-}
-
-pub fn schedule() {
+pub  extern "C"  fn schedule() {
 
     // 确保没有被打断
     ASSERT!(!instruction::is_intr_on());
@@ -56,7 +56,7 @@ pub fn schedule() {
     }
 
     // 从当前的任务，切换到要运行的任务j
-    unsafe { switch_to(cur_task, task_to_run) };
+    switch_to(cur_task, task_to_run);
 
 }
 
@@ -68,46 +68,58 @@ pub fn schedule() {
  *      但是在实际情况中，却没法正常运行。
  *      主要是switch_to函数的返回语句，这个rust实现的switch_to，经过反汇编，发现返回语句使用的是 iret指令。但是当前并不希望使用iret指令
  */
-#[no_mangle]
-#[cfg(never)]
-extern "C" fn switch_to(cur_task: &mut TaskStruct, task_to_run: &mut TaskStruct) {
-    println!();
-    println!("from:{}, to:{}", cur_task.name, task_to_run.name);
-    println!("from: task addr:0x{:x}, task_stack_addr:0x{:x}", cur_task as *const TaskStruct as u32, cur_task.kernel_stack as u32);
-    println!("to: task addr:0x{:x}, task_stack_addr:0x{:x}", task_to_run as *const TaskStruct as u32, task_to_run.kernel_stack as u32);
 
+ #[inline(never)]
+extern "C" fn switch_to_wrapper(cur_task: &mut TaskStruct, task_to_run: &mut TaskStruct) {
+    switch_to(cur_task, task_to_run)
+}
+
+/**
+ * 线程切换
+ * #[no_mangle]和#[inline(never)]两个缺一不可
+ * - #[inline(never)]：如果不使用这个，那么switch_to函数就不会是以函数调用的形式调用，而是可能直接内联到上游了
+ * - #[no_mangle]：如果不使用这个，switch_to会被优化成jmp指令跳转，而不是call指令。jmp指令就不存在把eip压栈了
+ */
+#[no_mangle]
+#[inline(never)]
+extern "C" fn switch_to(cur_task: &mut TaskStruct, task_to_run: &mut TaskStruct) {
+
+    // 保存上下文。callee-saved register
+    // 如果不要线程栈的这几个寄存器，就可以不用保存了
+    // unsafe {
+    //     asm!(
+    //         "push esi",
+    //         "push edi",
+    //         "push ebx",
+    //         "push ebp",
+    //     )
+    // }
+    // 保存上下文（把当前esp的值保存到当前任务）
+    let mut cur_esp: u32;
     unsafe {
         asm!(
-            "push esi",
-            "push edi",
-            "push ebx",
-            "push ebp",
-        );
-        let mut esp: u32;
-        asm!(
-            "mov {0:e}, esp",
-            out(reg) esp
-        );
-
-        println!("current esp: 0x{:x}", esp);
-        // 把目前esp的值，保存到当前任务的PCB中
-        cur_task.kernel_stack = esp;
-
-        // 待运行任务的上下文中的esp
-        let new_esp = task_to_run.kernel_stack;
-        // 恢复上下文
-        asm!(
-            "mov esp, {0:e}",
-            in(reg) new_esp
-        );
-
-        asm!(
-            "pop ebp",
-            "pop ebx",
-            "pop edi",
-            "pop esi",
-            "ret"
-        );
-
+            "mov {:e}, esp",
+            out(reg) cur_esp
+        )
     }
+    cur_task.kernel_stack = cur_esp;
+
+    // 恢复上下文，把下一个任务的esp的值给恢复
+    let next_esp = task_to_run.kernel_stack;
+    unsafe {
+        asm!(
+            "mov esp, {:e}",
+            in(reg) next_esp
+        )
+    }
+
+    // 恢复上下文
+    // unsafe {
+    //     asm!(
+    //         "pop ebp",
+    //         "pop ebx",
+    //         "pop edi",
+    //         "pop esi"
+    //     )
+    // }
 }

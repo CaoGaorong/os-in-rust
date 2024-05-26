@@ -306,10 +306,10 @@ pub enum TaskStatus {
 #[derive(Clone, Copy)]
 pub struct ThreadStack {
     /*---C语言ABI的标准———— */
-    ebp: u32,
-    ebx: u32,
-    edi: u32,
-    esi: u32,
+    // ebp: u32,
+    // ebx: u32,
+    // edi: u32,
+    // esi: u32,
     /**
      * 利用ret指令，把这个要执行的函数地址，赋值给eip，从而实现“跳转执行”
      */
@@ -336,10 +336,10 @@ impl ThreadStack {
      */
     fn new(function: ThreadFunc, arg: ThreadArg) -> Self {
         Self {
-            ebp: 0,
-            ebx: 0,
-            edi: 0,
-            esi: 0,
+            // ebp: 0,
+            // ebx: 0,
+            // edi: 0,
+            // esi: 0,
             eip: kernel_thread,
             ret_addr: ptr::null(), // 占位用，没啥用
             function,
@@ -348,10 +348,10 @@ impl ThreadStack {
     }
     
     fn init(&mut self, function: ThreadFunc, arg: ThreadArg) {
-        self.ebp = 0;
-        self.ebx = 0;
-        self.edi = 0;
-        self.esi = 0;
+        // self.ebp = 0;
+        // self.ebx = 0;
+        // self.edi = 0;
+        // self.esi = 0;
         self.eip = kernel_thread;
         self.ret_addr = ptr::null();
         self.function = function;
@@ -361,15 +361,15 @@ impl ThreadStack {
 
 impl Display for ThreadStack {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        console_println!("ThreadStack(ebp:0x{:x}, ebx:0x{:x}, edi:0x{:x}, esi:0x{:x}, eip:0x{:x}, ret_addr:0x{:x}, function:0x{:x}, func_arg:0x{:x})", 
-        self.ebp as u32, 
-        self.ebx as u32, 
-        self.edi as u32, 
-        self.esi as u32, 
-        self.eip as u32, 
-        self.ret_addr as u32, 
-        self.function as u32, 
-        self.func_arg as u32);
+        // console_println!("ThreadStack(ebp:0x{:x}, ebx:0x{:x}, edi:0x{:x}, esi:0x{:x}, eip:0x{:x}, ret_addr:0x{:x}, function:0x{:x}, func_arg:0x{:x})", 
+        // self.ebp as u32, 
+        // self.ebx as u32, 
+        // self.edi as u32, 
+        // self.esi as u32, 
+        // self.eip as u32, 
+        // self.ret_addr as u32, 
+        // self.function as u32, 
+        // self.func_arg as u32);
         Result::Ok(())
     }
 }
