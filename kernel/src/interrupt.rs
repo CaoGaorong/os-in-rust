@@ -3,7 +3,7 @@ use core::{arch::asm, ptr::addr_of};
 
 use os_in_rust_common::{constants, idt::{self, HandlerFunc, InterruptStackFrame, InterruptTypeEnum}, instruction, pic, pit, port::Port, print, println, ASSERT};
 
-use crate::{interrupt, keyboard::{self, ScanCodeCombinator}, scheduler, thread};
+use crate::{interrupt, keyboard::{self, ScanCodeCombinator}, scheduler, sys_call::{self, HandlerType}, thread};
 
 pub fn init() {
     
@@ -16,12 +16,9 @@ pub fn init() {
     // 初始化键盘中断
     unsafe { idt::IDT.get_mut().set_handler(InterruptTypeEnum::Keyboard, keyboard_handler) }
     
-
-    unsafe {
-        
-        idt::IDT.get_mut().set_error_code_handler(InterruptTypeEnum::DoubleFault, general_handler_with_error_code);
-        idt::IDT.get_mut().set_error_code_handler(InterruptTypeEnum::SegmentNotPresent, general_handler_with_error_code);
-    }
+    // 系统调用中断
+    unsafe { idt::IDT.get_mut().set_handler(InterruptTypeEnum::SystemCall, system_call_handler) }
+    
 
     idt::idt_init();
 
@@ -40,6 +37,63 @@ pub fn init() {
 extern "x86-interrupt" fn general_handler(frame: InterruptStackFrame) {
     print!(".");
     pic::send_end_of_interrupt();
+}
+
+/**
+ * 通用的中断处理程序
+ */
+extern "x86-interrupt" fn system_call_handler(frame: InterruptStackFrame) {
+    // 保存中断上下文
+    stash_intr_stack();
+
+    // 取出系统调用中的所有参数
+    let sys_no: u32;
+    let param1: u32;
+    let param2: u32;
+    let param3: u32;
+    unsafe {
+        asm!(
+            "mov eax, eax",
+            "mov ebx, ebx",
+            "mov ecx, ecx",
+            "mov edx, edx",
+            out("eax") sys_no,
+            out("ebx") param1,
+            out("ecx") param2,
+            out("edx") param3,
+        )
+    }
+
+    // println!("no :0x{:x}, p1: 0x{:x}, p2: 0x{:x}, p3: 0x{:x}", sys_no, param1, param2, param3);
+
+    let sys_handler = sys_call::get_handler(sys_no);
+    let res = match sys_handler {
+        HandlerType::NoneParam(func) => {
+            func()
+        },
+        HandlerType::OneParam(func) => {
+            func(param1)
+        },
+        HandlerType::TwoParams(func) => {
+            func(param1, param2)
+        },
+        HandlerType::ThreeParams(func) => {
+            func(param1, param2, param3)
+        },
+    };
+    
+    let esp: u32;
+    unsafe {
+        asm!(
+            "mov {:e}, esp",
+            out(reg) esp
+        )
+    }
+    let intr_stack = unsafe { &mut *(esp as *mut thread::InterruptStack) };
+    intr_stack.eax = res;
+    
+    // 恢复中断上下文
+    pop_intr_stack();
 }
 
 
@@ -71,20 +125,11 @@ extern "x86-interrupt" fn general_protection_handler(frame: InterruptStackFrame,
     println!("!!!!general protection exception occur!!!");
     loop {}
 }
-/**
- * 
- */
+
 pub extern "x86-interrupt" fn timer_handler(frame: InterruptStackFrame) {
-    // 保护上下文，主要是保护段寄存器
-    unsafe {
-        asm!(
-            "push ds",
-            "push es",
-            "push fs",
-            "push gs",
-            "pushad",
-        )
-    }
+
+    // 进入中断
+    stash_intr_stack();
 
     pic::send_end_of_interrupt();
     let current_thread = thread::current_thread();
@@ -105,7 +150,34 @@ pub extern "x86-interrupt" fn timer_handler(frame: InterruptStackFrame) {
         // println!("schedule finished");
     }
 
-    // 恢复中断上下文，主要是恢复ds寄存器
+    // 中断退出
+    pop_intr_stack();
+    
+}
+
+
+/**
+ * 保存中断上下文
+ */
+#[inline(always)]
+fn stash_intr_stack() {
+    // 保护上下文，主要是保护段寄存器
+    unsafe {
+        asm!(
+            "push ds",
+            "push es",
+            "push fs",
+            "push gs",
+            "pushad",
+        )
+    }
+}
+
+/**
+ * 恢复中断上下文
+ */
+#[inline(always)]
+fn pop_intr_stack() {
     unsafe {
         asm!(
             "popad",
@@ -115,9 +187,20 @@ pub extern "x86-interrupt" fn timer_handler(frame: InterruptStackFrame) {
             "pop ds",
         )
     }
+}
 
-    
- }
+/**
+ * 退出中断；恢复手动上下文 + iretd
+ */
+#[inline(always)]
+pub fn intr_exit() {
+    // 恢复手动入栈的上下文
+    pop_intr_stack();
+    // 在使用iret恢复CPU入栈的上下文
+    unsafe {
+        asm!("iretd")
+    }
+}
 
 
 

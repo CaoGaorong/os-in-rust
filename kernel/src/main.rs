@@ -19,6 +19,8 @@ pub mod memory;
 pub mod page_util;
 pub mod process;
 mod thread;
+mod sys_call;
+mod pid_allocator;
 
 
 use core::{arch::asm, mem, panic::PanicInfo, ptr, sync::atomic::{AtomicU8, Ordering}};
@@ -26,6 +28,7 @@ use lazy_static::lazy_static;
 use os_in_rust_common::{constants, context::BootContext, instruction::{self, disable_interrupt, enable_interrupt}, print, println, queue::Queue, racy_cell::RacyCell};
 use sync::Lock;
 use mutex::Mutex;
+use thread::ThreadArg;
 
 use crate::blocking_queue::{ArrayBlockingQueue, BlockingQueue};
 
@@ -41,17 +44,11 @@ pub extern "C" fn _start(boot_info: &BootContext) {
     // 打印线程信息
     thread_management::print_thread();
 
-    // 这里创建子线程，特意把priority设置为1，而main线程的priority设置的是5
-    // thread_management::thread_start("thread_a", 1, keycode_consumer, "!");
-
+    thread_management::thread_start("thread_a", 5, kernel_thread, 0);
     process::process_execute(PROCESS_NAME, u_prog_a);
 
     enable_interrupt();
-
-    loop {
-        println!("{}", unsafe { NUM.get_mut() }.load(Ordering::Acquire));
-        dummy_sleep(10000000);
-    }
+    loop {}
 }
 
 static NUM: RacyCell<AtomicU8> = RacyCell::new(AtomicU8::new(0));
@@ -63,7 +60,6 @@ extern "C" fn u_prog_a() {
         
         // 用户进程不能调用内核程序，不能直接输出
         // println!("user process");
-
     }
  }
 
@@ -77,6 +73,31 @@ fn dummy_sleep(instruction_cnt: u32) {
     }
 }
 
+
+extern "C" fn kernel_thread(arg: ThreadArg) {
+    // print_pid();
+    // let task = &thread::current_thread().task_struct;
+    // println!("task name: {}, task pid: {}", task.name as &str, task.pid as u8);
+
+    loop {
+        println!("{}", unsafe { NUM.get_mut() }.load(Ordering::Acquire));
+        dummy_sleep(10000000);
+    }
+}
+
+#[inline(never)]
+fn print_pid() {
+    let mut pid: u32;
+    unsafe {
+        asm!(
+            "mov eax, 0x0",
+            "int 0x80",
+            "mov eax, eax",
+            out("eax") pid,
+        )
+    }
+    println!("pid:{}", pid);
+}
 
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {

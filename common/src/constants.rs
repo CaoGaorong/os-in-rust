@@ -124,3 +124,8 @@ pub const USER_STACK_BASE_ADDR: usize = 0xc0000000;
  * 用户进程的栈地址(虚拟地址)
  */
 pub const USER_STACK_TOP_ADDR: usize = USER_STACK_BASE_ADDR - 0x1000;
+
+/**
+ * 系统调用的函数数量
+ */
+pub const SYSTEM_CALL_HANDLER_CNT: usize = 100;

@@ -2,13 +2,7 @@ use core::{arch::{asm, global_asm}, mem::{self, size_of}, ptr::slice_from_raw_pa
 
 use os_in_rust_common::{bitmap::BitMap, constants, instruction, paging::{self, PageTable, PageTableEntry}, pool::MemPool, println, utils};
 
-use crate::{console_println, memory, page_util, thread::{self, TaskStruct, ThreadArg}, thread_management};
-
-global_asm!(include_str!("intr_exit.s"));
-
-extern "C" {
-    fn intr_exit(stack_addr: u32);
-}
+use crate::{console_println, interrupt, memory, page_util, thread::{self, TaskStruct, ThreadArg}, thread_management};
 
 /**
  * 用户进程的实现
@@ -25,11 +19,16 @@ pub extern "C" fn start_process(func_addr: ThreadArg) {
     let pcb_intr_stack_addr = &(pcb_page.interrupt_stack) as *const _ as u32;
     pcb_page.task_struct.kernel_stack = pcb_intr_stack_addr;
     
-    // println!("page addr:0x{:x}", pcb_page as *const _ as u32);
 
-    // 利用iretd指令退出中断
-    // 退出中断
-    unsafe { intr_exit(pcb_intr_stack_addr) };
+    // 把栈顶，指向中断栈的低地址处，准备恢复中断栈的上下文
+    unsafe {
+        asm!(
+            "mov esp, {:e}",
+            in(reg) pcb_intr_stack_addr
+        )
+    }
+    // 退出中断，恢复上下文数据
+    interrupt::intr_exit();
 }
 
 

@@ -2,7 +2,7 @@ use core::{arch::asm, fmt::{write, Display, Pointer}, mem::size_of, ptr};
 
 use os_in_rust_common::{constants, elem2entry, instruction::{self, enable_interrupt}, linked_list::LinkedNode, paging::{self, PageTable}, pool::MemPool, println, reg_cr3::{self, CR3}, reg_eflags::{self, EFlags, FlagEnum}, selector::SegmentSelector};
 
-use crate::{console_println, page_util, tss};
+use crate::{console_println, page_util, pid_allocator, tss};
 
 
 /**
@@ -133,6 +133,10 @@ impl Display for PcbPage {
 #[repr(C, packed)]
 pub struct TaskStruct {
     /**
+     * pid
+     */
+    pub pid: u8,
+    /**
      * PCB内核栈地址
      */
     pub kernel_stack: u32,
@@ -198,6 +202,7 @@ impl Display for TaskStruct {
 impl TaskStruct {
     pub fn new(name: &'static str, priority: u8) -> Self {
         Self {
+            pid: pid_allocator::allocate(),
             kernel_stack: 0,
             name,
             priority,
@@ -214,6 +219,7 @@ impl TaskStruct {
     }
 
     fn init(&mut self, name: &'static str, priority: u8, kernel_stack: u32, pcb_page_addr: u32) {
+        self.pid = pid_allocator::allocate();
         self.kernel_stack = kernel_stack;
         self.name = name;
         self.task_status = TaskStatus::TaskReady;
@@ -385,7 +391,7 @@ pub struct InterruptStack {
     ebx: u32,
     edx: u32,
     ecx: u32,
-    eax: u32,
+    pub eax: u32,
     gs: u16,
     fs: u16,
     es: u16,
