@@ -17,7 +17,7 @@ pub fn init() {
     unsafe { idt::IDT.get_mut().set_handler(InterruptTypeEnum::Keyboard, keyboard_handler) }
     
     // 系统调用中断
-    unsafe { idt::IDT.get_mut().set_handler(InterruptTypeEnum::SystemCall, system_call_handler) }
+    unsafe { idt::IDT.get_mut().set_raw_handler(InterruptTypeEnum::SystemCall, system_call_handler) }
     
 
     idt::idt_init();
@@ -39,62 +39,7 @@ extern "x86-interrupt" fn general_handler(frame: InterruptStackFrame) {
     pic::send_end_of_interrupt();
 }
 
-/**
- * 通用的中断处理程序
- */
-extern "x86-interrupt" fn system_call_handler(frame: InterruptStackFrame) {
-    // 保存中断上下文
-    stash_intr_stack();
 
-    // 取出系统调用中的所有参数
-    let sys_no: u32;
-    let param1: u32;
-    let param2: u32;
-    let param3: u32;
-    unsafe {
-        asm!(
-            "mov eax, eax",
-            "mov ebx, ebx",
-            "mov ecx, ecx",
-            "mov edx, edx",
-            out("eax") sys_no,
-            out("ebx") param1,
-            out("ecx") param2,
-            out("edx") param3,
-        )
-    }
-
-    // println!("no :0x{:x}, p1: 0x{:x}, p2: 0x{:x}, p3: 0x{:x}", sys_no, param1, param2, param3);
-
-    let sys_handler = sys_call::get_handler(sys_no);
-    let res = match sys_handler {
-        HandlerType::NoneParam(func) => {
-            func()
-        },
-        HandlerType::OneParam(func) => {
-            func(param1)
-        },
-        HandlerType::TwoParams(func) => {
-            func(param1, param2)
-        },
-        HandlerType::ThreeParams(func) => {
-            func(param1, param2, param3)
-        },
-    };
-    
-    let esp: u32;
-    unsafe {
-        asm!(
-            "mov {:e}, esp",
-            out(reg) esp
-        )
-    }
-    let intr_stack = unsafe { &mut *(esp as *mut thread::InterruptStack) };
-    intr_stack.eax = res;
-    
-    // 恢复中断上下文
-    pop_intr_stack();
-}
 
 
 /**
@@ -127,34 +72,91 @@ extern "x86-interrupt" fn general_protection_handler(frame: InterruptStackFrame,
 }
 
 pub extern "x86-interrupt" fn timer_handler(frame: InterruptStackFrame) {
-
     // 进入中断
     stash_intr_stack();
 
     pic::send_end_of_interrupt();
-    let current_thread = thread::current_thread();
-    let task_name = current_thread.task_struct.name;
-    // 确保栈没有溢出
-    ASSERT!(current_thread.task_struct.stack_magic == constants::TASK_STRUCT_STACK_MAGIC);
-    let task_struct = &mut current_thread.task_struct;
 
-    // 该进程运行的tick数+1
-    task_struct.elapsed_ticks += 1;
-
-    // 如果剩余的时间片还有，那就减少
-    if task_struct.left_ticks > 0 {
-        task_struct.left_ticks -= 1;
-    } else {
-        // 否则就切换其他线程
-        scheduler::schedule();
-        // println!("schedule finished");
-    }
+    // 检查任务的调度。时间片耗尽则调度
+    scheduler::check_task_schedule();
 
     // 中断退出
     pop_intr_stack();
-    
 }
 
+
+
+/**
+ * 系统调用；中断处理程序
+ * 由于实现系统调用，需要在用户程序和中断处理程序「之间」传递参数（通过寄存器传递），因此我们不能直接保存和恢复上下文，反而要修改上下文。
+ * 所以我们必须要知道中断发生到退出具体栈中的上下文数据的变化，因此 **不能使用任何调用约定**（因为使用调用约定我们就不知道栈内的数据情况了）
+ */
+#[naked]
+fn system_call_handler() {
+    unsafe {
+        asm!(
+            // 保存上下文
+            "push ds",
+            "push es",
+            "push fs",
+            "push gs",
+            "pushad",
+
+            // 传递参数
+            "push edx",
+            "push ecx",
+            "push ebx",
+            "push eax",
+
+            // 调用 系统调用分发器，不同的中断号，分发给不同的系统函数
+            "call system_call_dispatcher",
+
+            // 回收参数的栈空间
+            "add esp, 16",
+
+            // 把栈中eax的地方，修改值。到时候直接恢复到eax寄存器
+            "mov [esp + 7*4], eax",
+
+            // 恢复栈的上下文
+            "jmp intr_exit",
+            options(noreturn),
+        )
+    }
+}
+
+/**
+ *  系统调用分发器，根据用户程序传递给寄存器的数值，来分发到不同的系统调用函数
+ *
+ *  **注意，这个函数是给汇编程序调用的，请不要随意修改函数名称**
+ */
+#[no_mangle]
+extern "C" fn system_call_dispatcher(eax: u32, ebx: u32, ecx: u32, edx: u32) -> u32 {
+
+    // 根据系统调用号，找到系统调用函数
+    let sys_handler = sys_call::get_handler(eax);
+
+    // 匹配系统调用函数的参数个数，进行调用
+    let res = match sys_handler {
+        // 无参数的
+        HandlerType::NoneParam(func) => {
+            func()
+        },
+        // 1个参数的
+        HandlerType::OneParam(func) => {
+            func(ebx)
+        },
+        // 2个参数的
+        HandlerType::TwoParams(func) => {
+            func(ebx, ecx)
+        },
+        // 3个参数的
+        HandlerType::ThreeParams(func) => {
+            func(ebx, ecx, edx)
+        },
+    };
+    // 参数返回，由于是C调用约定，因此该参数放在eax寄存器中
+    res
+}
 
 /**
  * 保存中断上下文
@@ -177,6 +179,7 @@ fn stash_intr_stack() {
  * 恢复中断上下文
  */
 #[inline(always)]
+#[no_mangle]
 fn pop_intr_stack() {
     unsafe {
         asm!(
@@ -191,8 +194,10 @@ fn pop_intr_stack() {
 
 /**
  * 退出中断；恢复手动上下文 + iretd
+ * 这个函数给汇编程序调用，不要改名
  */
 #[inline(always)]
+#[no_mangle]
 pub fn intr_exit() {
     // 恢复手动入栈的上下文
     pop_intr_stack();

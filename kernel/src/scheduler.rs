@@ -1,18 +1,36 @@
 #![feature(global_asm)]
 use core::{arch::{asm, global_asm}, ptr, task};
 
-use os_in_rust_common::{elem2entry, instruction, print, println, reg_cr0::CR0, reg_eflags, ASSERT};
+use os_in_rust_common::{constants, elem2entry, instruction, print, println, reg_cr0::CR0, reg_eflags, ASSERT};
 
 use crate::{console_println, interrupt, thread::{self, PcbPage, TaskStatus, TaskStruct, ThreadStack}, thread_management};
 
 
-// 这里先不用汇编实现的切换线程的函数了
-// global_asm!(include_str!("switch.s"));
-// extern "C" {
-//     fn switch_to(cur_task: &mut TaskStruct, task_to_run: &mut TaskStruct);
-// }
 
-pub  extern "C"  fn schedule() {
+/**
+ * 检查任务的调度
+ */
+pub fn check_task_schedule() {
+    // 当前任务
+    let current_thread = thread::current_thread();
+    // 确保栈没有溢出
+    ASSERT!(current_thread.task_struct.stack_magic == constants::TASK_STRUCT_STACK_MAGIC);
+    let task_struct = &mut current_thread.task_struct;
+
+    // 该进程运行的tick数+1
+    task_struct.elapsed_ticks += 1;
+
+    // 如果剩余的时间片还有，那就减少
+    if task_struct.left_ticks > 0 {
+        task_struct.left_ticks -= 1;
+    } else {
+        // 否则就切换其他线程
+        schedule();
+    }
+}
+
+
+pub fn schedule() {
 
     // 确保没有被打断
     ASSERT!(!instruction::is_intr_on());

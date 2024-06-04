@@ -2,6 +2,7 @@
 #![no_main]
 #![feature(abi_x86_interrupt)]
 #![feature(const_mut_refs)]
+#![feature(naked_functions)]
 
 mod interrupt;
 mod init;
@@ -75,7 +76,7 @@ fn dummy_sleep(instruction_cnt: u32) {
 
 
 extern "C" fn kernel_thread(arg: ThreadArg) {
-    // print_pid();
+    print_pid();
     // let task = &thread::current_thread().task_struct;
     // println!("task name: {}, task pid: {}", task.name as &str, task.pid as u8);
 

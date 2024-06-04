@@ -205,6 +205,11 @@ impl InterruptDescriptorTable {
         self.set_interrupt(interrupt_type, id);
     }
 
+    pub fn set_raw_handler(&'static mut self, interrupt_type: InterruptTypeEnum, handler: fn()) {
+        let id = InterruptDescriptor::new(SegmentSelector::Code0Selector, handler as *const() as u32, true, SegmentDPL::LEVEL0);
+        self.set_interrupt(interrupt_type, id);
+    }
+
     /**
      * 设置有错误码的中断处理函数
      *   interrupt_type: 中断的类型
