@@ -1,7 +1,7 @@
 
 use core::{arch::asm, ptr::addr_of};
 
-use os_in_rust_common::{constants, idt::{self, HandlerFunc, InterruptStackFrame, InterruptTypeEnum}, instruction, pic, pit, port::Port, print, println, ASSERT};
+use os_in_rust_common::{constants, idt::{self, HandlerFunc, InterruptStackFrame, InterruptTypeEnum}, instruction, pic, pit, port::Port, print, println, sd::SegmentDPL, ASSERT};
 
 use crate::{interrupt, keyboard::{self, ScanCodeCombinator}, scheduler, sys_call::{self, HandlerType}, thread};
 
@@ -17,7 +17,7 @@ pub fn init() {
     unsafe { idt::IDT.get_mut().set_handler(InterruptTypeEnum::Keyboard, keyboard_handler) }
     
     // 系统调用中断
-    unsafe { idt::IDT.get_mut().set_raw_handler(InterruptTypeEnum::SystemCall, system_call_handler) }
+    unsafe { idt::IDT.get_mut().set_raw_handler(InterruptTypeEnum::SystemCall, system_call_handler, SegmentDPL::LEVEL3) }
     
 
     idt::idt_init();
@@ -131,6 +131,8 @@ fn system_call_handler() {
  */
 #[no_mangle]
 extern "C" fn system_call_dispatcher(eax: u32, ebx: u32, ecx: u32, edx: u32) -> u32 {
+
+    // println!("eax:{}, ebx:{}, ecx:{}, edx:{}", eax, ebx, ecx, edx);
 
     // 根据系统调用号，找到系统调用函数
     let sys_handler = sys_call::get_handler(eax);

@@ -19,7 +19,7 @@ use volatile::Volatile;
 use crate::utils::bool_to_int;
 use crate::racy_cell::RacyCell;
 #[no_mangle]
-pub static WRITER: RacyCell<Writer> = RacyCell::new(Writer::new(0xb8000, CharAttr::new(Color::White, Color::Black, false)));
+pub static WRITER: RacyCell<Writer> = RacyCell::new(Writer::new(0xC00b8000, CharAttr::new(Color::White, Color::Black, false)));
 // pub static WRITER: Writer = Writer::new(0xb8000, CharAttr::new(Color::White, Color::Black, false));
 
 #[macro_export]

@@ -156,7 +156,7 @@ impl GlobalDescriptorTable {
 
         // 数据段
         let video_segment = SegmentDescriptor::new(
-            0xb8000,
+            0xC00B8000, 
             0x7,
             granularity,
             SegmentDPL::LEVEL0,

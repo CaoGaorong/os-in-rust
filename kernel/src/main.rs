@@ -22,6 +22,8 @@ pub mod process;
 mod thread;
 mod sys_call;
 mod pid_allocator;
+mod sys_call_api;
+mod sys_call_proxy;
 
 
 use core::{arch::asm, mem, panic::PanicInfo, ptr, sync::atomic::{AtomicU8, Ordering}};
@@ -45,22 +47,21 @@ pub extern "C" fn _start(boot_info: &BootContext) {
     // 打印线程信息
     thread_management::print_thread();
 
-    thread_management::thread_start("thread_a", 5, kernel_thread, 0);
     process::process_execute(PROCESS_NAME, u_prog_a);
+    thread_management::thread_start("thread_a", 5, kernel_thread, 0);
 
     enable_interrupt();
     loop {}
 }
 
-static NUM: RacyCell<AtomicU8> = RacyCell::new(AtomicU8::new(0));
+static USER_PID: RacyCell<u8> = RacyCell::new(0);
 
 extern "C" fn u_prog_a() {
+    let pid = sys_call_proxy::get_pid();
+    unsafe { *USER_PID.get_mut() = pid };
+    sys_call_proxy::write("fuck");
+    
     loop {
-        unsafe { NUM.get_mut() }.fetch_add(1, Ordering::Release);
-        dummy_sleep(10000000);
-        
-        // 用户进程不能调用内核程序，不能直接输出
-        // println!("user process");
     }
  }
 
@@ -76,29 +77,14 @@ fn dummy_sleep(instruction_cnt: u32) {
 
 
 extern "C" fn kernel_thread(arg: ThreadArg) {
-    print_pid();
-    // let task = &thread::current_thread().task_struct;
-    // println!("task name: {}, task pid: {}", task.name as &str, task.pid as u8);
+    let pid = sys_call_proxy::get_pid();
+    println!("current pid:{}", pid);
 
-    loop {
-        println!("{}", unsafe { NUM.get_mut() }.load(Ordering::Acquire));
-        dummy_sleep(10000000);
-    }
+    println!("user process pid:{}", unsafe {USER_PID.get_mut()});
+
+    loop {}
 }
 
-#[inline(never)]
-fn print_pid() {
-    let mut pid: u32;
-    unsafe {
-        asm!(
-            "mov eax, 0x0",
-            "int 0x80",
-            "mov eax, eax",
-            out("eax") pid,
-        )
-    }
-    println!("pid:{}", pid);
-}
 
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {

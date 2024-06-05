@@ -205,8 +205,8 @@ impl InterruptDescriptorTable {
         self.set_interrupt(interrupt_type, id);
     }
 
-    pub fn set_raw_handler(&'static mut self, interrupt_type: InterruptTypeEnum, handler: fn()) {
-        let id = InterruptDescriptor::new(SegmentSelector::Code0Selector, handler as *const() as u32, true, SegmentDPL::LEVEL0);
+    pub fn set_raw_handler(&'static mut self, interrupt_type: InterruptTypeEnum, handler: fn(), dpl: SegmentDPL) {
+        let id = InterruptDescriptor::new(SegmentSelector::Code0Selector, handler as *const() as u32, true, dpl);
         self.set_interrupt(interrupt_type, id);
     }
 
