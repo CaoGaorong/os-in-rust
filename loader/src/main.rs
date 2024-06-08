@@ -3,7 +3,7 @@
 
 use core::{arch::asm, panic::PanicInfo};
 mod protect_mode;
-use os_in_rust_common::{bios_mem, constants, context::{self, BootContext}, dap, disk, instruction, println, racy_cell::RacyCell, selector::SegmentSelector};
+use os_in_rust_common::{bios_mem, constants, context::{self, BootContext}, dap, disk, instruction, printkln, racy_cell::RacyCell, selector::SegmentSelector};
 
 
 static BOOT_CONTEXT: RacyCell<BootContext> = RacyCell::new(BootContext::empty());

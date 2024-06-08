@@ -1,7 +1,7 @@
 #![feature(abi_x86_interrupt)]
 
 
-use os_in_rust_common::{bios_mem::{ARDSType, AddressRangeDescriptorStructure}, context::BootContext, println, ASSERT};
+use os_in_rust_common::{bios_mem::{ARDSType, AddressRangeDescriptorStructure}, context::BootContext, printkln, ASSERT};
 
 use crate::{interrupt, memory, sys_call, sys_call_api, thread_management, tss};
 
@@ -34,7 +34,7 @@ pub fn init_all(boot_info: &BootContext) {
 
     // 申请一个内核页
     let addr = memory::malloc_kernel_page(1);
-    println!("malloc addr: 0x{:x}", addr);
+    printkln!("malloc addr: 0x{:x}", addr);
 
     thread_management::thread_init();
 

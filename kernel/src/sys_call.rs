@@ -11,20 +11,20 @@ use crate::{sys_call_api, thread};
 /**
  * 系统调用函数数组
  */
-pub static SYSTEM_CALL_TABLE: RacyCell<[HandlerType; constants::SYSTEM_CALL_HANDLER_CNT]> = RacyCell::new([HandlerType::NoneParam(||0); constants::SYSTEM_CALL_HANDLER_CNT]);
+pub static SYSTEM_CALL_TABLE: RacyCell<[Option<HandlerType>; constants::SYSTEM_CALL_HANDLER_CNT]> = RacyCell::new([Option::None; constants::SYSTEM_CALL_HANDLER_CNT]);
 
 /**
  * 注册系统调用函数
  */
 pub fn register_handler(sys_call_no: SystemCallNo, handler: HandlerType) {
     let system_call_table = unsafe { SYSTEM_CALL_TABLE.get_mut() };
-    system_call_table[sys_call_no as usize] = handler;
+    system_call_table[sys_call_no as usize] = Option::Some(handler);
 }
 
 /**
  * 根据系统调用号，得到系统调用的函数
  */
-pub fn get_handler(sys_call_no: u32) -> HandlerType {
+pub fn get_handler(sys_call_no: u32) -> Option<HandlerType> {
     let system_call_table = unsafe { SYSTEM_CALL_TABLE.get_mut() };
     system_call_table[sys_call_no as usize]
 }
@@ -42,6 +42,11 @@ pub enum SystemCallNo {
      * I/O写入数据
      */
     Write = 0x01,
+
+    /**
+     * 打印字符
+     */
+    Print = 0x02,
 }
 
 /**

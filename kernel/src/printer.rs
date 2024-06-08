@@ -1,4 +1,4 @@
-use os_in_rust_common::{print, println, racy_cell::RacyCell, vga::print};
+use os_in_rust_common::{printk, printkln, racy_cell::RacyCell, vga::print};
 
 use crate::{console, console_print, scancode::{Key, KeyCode, ScanCodeType}};
 

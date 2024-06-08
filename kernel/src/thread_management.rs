@@ -1,7 +1,7 @@
 use core::mem::size_of;
 
 use os_in_rust_common::{
-    constants, elem2entry, instruction, linked_list::LinkedList, println, racy_cell::RacyCell, ASSERT
+    constants, elem2entry, instruction, linked_list::LinkedList, printkln, racy_cell::RacyCell, ASSERT
 };
 
 use lazy_static::lazy_static;
@@ -64,13 +64,13 @@ pub fn make_thread_main() {
 
 
 pub fn print_thread() {
-    println!("all thread:");
+    printkln!("all thread:");
     unsafe {
         ALL_THREAD_LIST.get_mut().iter().for_each(|node| {
             let task_struct = elem2entry!(TaskStruct, all_tag, node);
-            println!("thread name: {}", unsafe { (&*task_struct).name });
-            println!("task struct addr:0x{:x}", task_struct as u32);
-            println!("task struct stack addr:0x{:x}", (&*task_struct).kernel_stack as u32);
+            printkln!("thread name: {}", unsafe { (&*task_struct).name });
+            printkln!("task struct addr:0x{:x}", task_struct as u32);
+            printkln!("task struct stack addr:0x{:x}", (&*task_struct).kernel_stack as u32);
         })
     };
     

@@ -1,4 +1,4 @@
-use os_in_rust_common::{println, queue::{ArrayQueue, Queue, QueueError}};
+use os_in_rust_common::{printkln, queue::{ArrayQueue, Queue, QueueError}};
 
 use crate::{mutex::Mutex, sync::{Lock, Semaphore}, thread_management, thread};
 

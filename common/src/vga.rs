@@ -23,14 +23,14 @@ pub static WRITER: RacyCell<Writer> = RacyCell::new(Writer::new(0xC00b8000, Char
 // pub static WRITER: Writer = Writer::new(0xb8000, CharAttr::new(Color::White, Color::Black, false));
 
 #[macro_export]
-macro_rules! print {
+macro_rules! printk {
     ($($arg:tt)*) => ($crate::vga::print(format_args!($($arg)*)));
 }
 
 #[macro_export]
-macro_rules! println {
-    () => ($crate::print!("\n"));
-    ($($arg:tt)*) => ($crate::print!("{}\n", format_args!($($arg)*)));
+macro_rules! printkln {
+    () => ($crate::printk!("\n"));
+    ($($arg:tt)*) => ($crate::printk!("{}\n", format_args!($($arg)*)));
 }
 
 #[no_mangle]

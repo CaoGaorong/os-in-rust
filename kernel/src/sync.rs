@@ -1,7 +1,7 @@
 use core::ptr;
 
 
-use os_in_rust_common::{linked_list::LinkedList, println, ASSERT};
+use os_in_rust_common::{linked_list::LinkedList, printkln, ASSERT};
 
 use crate::{console_println, instruction, thread::{self, TaskStruct}, thread_management};
 

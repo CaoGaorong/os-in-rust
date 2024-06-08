@@ -1,4 +1,4 @@
-use os_in_rust_common::{println, racy_cell::RacyCell};
+use os_in_rust_common::{printkln, racy_cell::RacyCell};
 
 use crate::{blocking_queue::{ArrayBlockingQueue, BlockingQueue}, printer, scancode::{self, KeyCode, ScanCodeType}};
 

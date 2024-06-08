@@ -1,7 +1,7 @@
 
 use core::{arch::asm, ptr::addr_of};
 
-use os_in_rust_common::{constants, idt::{self, HandlerFunc, InterruptStackFrame, InterruptTypeEnum}, instruction, pic, pit, port::Port, print, println, sd::SegmentDPL, ASSERT};
+use os_in_rust_common::{constants, idt::{self, HandlerFunc, InterruptStackFrame, InterruptTypeEnum}, instruction, pic, pit, port::Port, printk, printkln, sd::SegmentDPL, ASSERT, MY_PANIC};
 
 use crate::{interrupt, keyboard::{self, ScanCodeCombinator}, scheduler, sys_call::{self, HandlerType}, thread};
 
@@ -35,7 +35,7 @@ pub fn init() {
  * 通用的中断处理程序
  */
 extern "x86-interrupt" fn general_handler(frame: InterruptStackFrame) {
-    print!(".");
+    printk!(".");
     pic::send_end_of_interrupt();
 }
 
@@ -47,7 +47,7 @@ extern "x86-interrupt" fn general_handler(frame: InterruptStackFrame) {
  */
 extern "x86-interrupt" fn general_handler_with_error_code(frame: InterruptStackFrame, error_code: u32) {
     pic::send_end_of_interrupt();
-    println!("!!!!general error code exception occur!!!");
+    printkln!("!!!!general error code exception occur!!!");
     loop {}
 }
 
@@ -67,7 +67,7 @@ extern "x86-interrupt" fn keyboard_handler(frame: InterruptStackFrame) {
  */
 extern "x86-interrupt" fn general_protection_handler(frame: InterruptStackFrame, error_code: u32) {
     pic::send_end_of_interrupt();
-    println!("!!!!general protection exception occur!!!");
+    printkln!("!!!!general protection exception occur!!!");
     loop {}
 }
 
@@ -135,7 +135,12 @@ extern "C" fn system_call_dispatcher(eax: u32, ebx: u32, ecx: u32, edx: u32) -> 
     // println!("eax:{}, ebx:{}, ecx:{}, edx:{}", eax, ebx, ecx, edx);
 
     // 根据系统调用号，找到系统调用函数
-    let sys_handler = sys_call::get_handler(eax);
+    let handler_opt = sys_call::get_handler(eax);
+    if handler_opt.is_none() {
+        MY_PANIC!("system call invoke error, no handler found");
+    }
+    
+    let sys_handler = handler_opt.unwrap();
 
     // 匹配系统调用函数的参数个数，进行调用
     let res = match sys_handler {

@@ -1,5 +1,5 @@
 use core::{ptr, sync::atomic::{AtomicBool, Ordering}};
-use crate::{println, ASSERT};
+use crate::{printkln, ASSERT};
 
 /**
  * 定义一个链表的节点

@@ -1,5 +1,5 @@
 
-use crate::{constants, idt::InterruptTypeEnum, port::Port, println, utils};
+use crate::{constants, idt::InterruptTypeEnum, port::Port, printkln, utils};
 // 设置起始的中断号
 static  START_REQ_NO:u8 = constants::INTERRUPT_NO_START;
 // 设置级联在主片的索引，也就是REQ_NO

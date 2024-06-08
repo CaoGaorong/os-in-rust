@@ -1,12 +1,12 @@
-use crate::{instruction, println};
+use crate::{instruction, printkln};
 
 
 // #[track_caller]
 pub fn _panic_spin(file: &str, line: u32, col: u32, condition: &str) {
     // 把中断关闭
     instruction::disable_interrupt();
-    println!("!!!!!PANIC!!!!");
-    println!("Panic in {} at {}:{}: {}", file, line, col, condition);
+    printkln!("!!!!!PANIC!!!!");
+    printkln!("Panic in {} at {}:{}: {}", file, line, col, condition);
     loop {}
 }
 

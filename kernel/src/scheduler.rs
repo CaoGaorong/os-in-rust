@@ -1,7 +1,7 @@
 #![feature(global_asm)]
 use core::{arch::{asm, global_asm}, ptr, task};
 
-use os_in_rust_common::{constants, elem2entry, instruction, print, println, reg_cr0::CR0, reg_eflags, ASSERT};
+use os_in_rust_common::{constants, elem2entry, instruction, printk, printkln, reg_cr0::CR0, reg_eflags, ASSERT};
 
 use crate::{console_println, interrupt, thread::{self, PcbPage, TaskStatus, TaskStruct, ThreadStack}, thread_management};
 

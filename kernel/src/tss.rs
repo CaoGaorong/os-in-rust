@@ -1,6 +1,6 @@
 use core::{arch::asm, mem::size_of};
 
-use os_in_rust_common::{gdt::{self, DescriptorType}, println, racy_cell::RacyCell, sd::{Granularity, GranularityEnum, SegmentDPL, SegmentDescriptor, SegmentType}, selector::SegmentSelector};
+use os_in_rust_common::{gdt::{self, DescriptorType}, printkln, racy_cell::RacyCell, sd::{Granularity, GranularityEnum, SegmentDPL, SegmentDescriptor, SegmentType}, selector::SegmentSelector};
 
 /**
  * TSS的结构：<https://wiki.osdev.org/Task_State_Segment>

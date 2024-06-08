@@ -4,7 +4,7 @@ use core::arch::asm;
  * 寄存器结构：<https://wiki.osdev.org/CPU_Registers_x86>
  */
 
-use crate::{paging::PageTable, println};
+use crate::{paging::PageTable, printkln};
 
  /**
   * cr3寄存器的长度32位

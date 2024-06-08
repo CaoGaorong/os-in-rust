@@ -1,6 +1,6 @@
 use core::{arch::{asm, global_asm}, mem::{self, size_of}, ptr::slice_from_raw_parts, slice};
 
-use os_in_rust_common::{bitmap::BitMap, constants, instruction, paging::{self, PageTable, PageTableEntry}, pool::MemPool, println, utils};
+use os_in_rust_common::{bitmap::BitMap, constants, instruction, paging::{self, PageTable, PageTableEntry}, pool::MemPool, printkln, utils};
 
 use crate::{console_println, interrupt, memory, page_util, thread::{self, TaskStruct, ThreadArg}, thread_management};
 

@@ -1,6 +1,6 @@
 use core::{mem, ops::DerefMut, slice};
 
-use os_in_rust_common::{bitmap::MemoryError, paging::{self, PageTable}, pool::MemPool, println, racy_cell::RacyCell, ASSERT};
+use os_in_rust_common::{bitmap::MemoryError, paging::{self, PageTable}, pool::MemPool, printkln, racy_cell::RacyCell, ASSERT};
 
 use crate::{constants, mutex::Mutex, page_util};
 

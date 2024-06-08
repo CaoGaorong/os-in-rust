@@ -1,7 +1,7 @@
 use core::fmt;
 
 use lazy_static::lazy_static;
-use os_in_rust_common::{print, println, racy_cell::RacyCell, vga};
+use os_in_rust_common::{printk, printkln, racy_cell::RacyCell, vga};
 
 use crate::mutex::Mutex;
 

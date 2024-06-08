@@ -1,7 +1,7 @@
 use core::{mem::size_of, ptr};
 
 
-use os_in_rust_common::{paging::{PageTable, PageTableEntry}, print, println, ASSERT};
+use os_in_rust_common::{paging::{PageTable, PageTableEntry}, printk, printkln, ASSERT};
 
 use crate::{memory, thread};
 
