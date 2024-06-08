@@ -1,8 +1,8 @@
-use core::{mem, ops::DerefMut, slice};
+use core::{mem::{self, size_of}, ops::DerefMut, ptr::{self, null_mut}, slice};
 
-use os_in_rust_common::{bitmap::MemoryError, paging::{self, PageTable}, pool::MemPool, printkln, racy_cell::RacyCell, ASSERT};
+use os_in_rust_common::{bitmap::MemoryError, constants, paging::{self, PageTable}, pool::MemPool, printkln, racy_cell::RacyCell, utils, ASSERT};
 
-use crate::{constants, mutex::Mutex, page_util};
+use crate::{mem_block::{self, Arena, MemBlockAllocator}, mutex::Mutex, page_util, thread::{self}};
 
 /**
  * 内核物理内存池
@@ -121,6 +121,78 @@ fn compose_pool(addr_start: usize, mem_page_num: u32, bitmap_base_addr: usize) -
     };
     mem_pool.init(addr_start, constants::PAGE_SIZE as usize, bitmap);
     mem_pool
+}
+
+
+/**
+ * 在内核空间申请bytes字节的空间
+ */
+pub fn malloc(bytes: usize) -> usize {
+    // 当前任务
+    let task = &mut thread::current_thread().task_struct;
+
+    // 找出物理内存池。内核程序或者用户程序
+    if task.pgdir == null_mut() {
+        malloc_bytes(unsafe { &mut KERNEL_ADDR_POOL.get_mut().lock()}, unsafe { &mut KERNEL_MEM_POOL.get_mut().lock() }, mem_block::get_kernel_mem_block_allocator(), bytes)
+    } else {
+        malloc_bytes(&mut task.vaddr_pool, unsafe { &mut USER_MEM_POOL.get_mut().lock() }, &mut task.mem_block_allocator, bytes)
+    }
+}
+
+/**
+ * 在某个Task中，从堆内存中分配bytes个字节
+ */
+pub fn malloc_bytes(vaddr_pool: &mut MemPool, phy_mem_pool: &mut MemPool, allocator: &'static mut MemBlockAllocator, bytes: usize) -> usize {
+    // 如果申请很大量的字节空间，直接分配整页
+    if bytes > 1024 {
+        // 计算需要申请多少个页
+        let pages = utils::div_ceil((size_of::<Arena>() + bytes) as u32, constants::PAGE_SIZE) as usize;
+        // 开始申请页
+        let page_addr = malloc_page(vaddr_pool, phy_mem_pool, pages as usize);
+        // 申请到的页，转成一个Arena
+        let arena = unsafe { &mut *(page_addr as *mut Arena) };
+        // 初始化arena
+        arena.init(ptr::null_mut(), pages * constants::PAGE_SIZE as usize - size_of::<Arena>(), 0);
+        // 申请到的空间，跳过arena的大小。那么就是可用mem_block的地址
+        return page_addr + size_of::<Arena>();
+    }
+
+    // 先根据要申请的字节数量，找到匹配的容器
+    let container = allocator.match_container(bytes);
+    
+    // 上锁
+    container.lock.lock();
+
+    // 从这个容器中申请一个内存块
+    let mem_block_apply = container.apply();
+
+    // 如果有可用的内存块
+    if mem_block_apply.is_some() {
+        // 申请到的内存块地址
+        let mem_block = mem_block_apply.unwrap();
+        // arena - 1
+        let arena  = mem_block.arena_addr();
+        arena.apply_one();
+        return mem_block as *const _ as usize;
+    }
+
+    // 如果已经没有可用的块了，那么需要申请1页
+    let page_addr = malloc_page(vaddr_pool, phy_mem_pool, 1);
+    // 申请到的页，转成一个Arena
+    let arena = unsafe { &mut *(page_addr as *mut Arena) };
+
+    // 内存块的数量
+    let blocks_cnt = (constants::PAGE_SIZE as usize - size_of::<Arena>())  / container.block_size();
+    // 初始化arena
+    arena.init(container as *mut _, container.block_size(), blocks_cnt);
+    arena.apply_one();
+    // arena中第一个可用内存块的地址
+    let first_block_addr = page_addr + size_of::<Arena>();
+
+    // 把申请到的这一页空间剩余的空间，剁碎了，放入到容器中
+    container.smash(first_block_addr + arena.block_size, arena.left_block_cnt);
+    container.lock.unlock();
+    return first_block_addr;
 }
 
 /**

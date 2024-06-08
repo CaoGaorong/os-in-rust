@@ -1,9 +1,9 @@
 use core::ptr;
 
 
-use os_in_rust_common::{linked_list::LinkedList, printkln, ASSERT};
+use os_in_rust_common::{instruction, linked_list::LinkedList, printkln, ASSERT};
 
-use crate::{console_println, instruction, thread::{self, TaskStruct}, thread_management};
+use crate::{console_println, thread::{self, TaskStruct}, thread_management};
 
 /**
  * 定义一个信号量

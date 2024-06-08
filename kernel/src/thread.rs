@@ -2,7 +2,7 @@ use core::{arch::asm, fmt::{write, Display, Pointer}, mem::size_of, ptr};
 
 use os_in_rust_common::{constants, elem2entry, instruction::{self, enable_interrupt}, linked_list::LinkedNode, paging::{self, PageTable}, pool::MemPool, printkln, reg_cr3::{self, CR3}, reg_eflags::{self, EFlags, FlagEnum}, selector::SegmentSelector};
 
-use crate::{console_println, page_util, pid_allocator, tss};
+use crate::{console_println, mem_block::{self, MemBlockAllocator}, page_util, pid_allocator, tss};
 
 
 /**
@@ -44,7 +44,7 @@ const PCB_PAGE_BLANK_SIZE: usize = constants::PAGE_SIZE as usize
 /**
  * 一个PCB页的结构（保证是一个物理页占用4KB）
  */
-#[repr(C, packed)]
+#[repr(C)]
 pub struct PcbPage {
     /**
      * 开始部分是PCB
@@ -130,7 +130,7 @@ impl Display for PcbPage {
 /**
  * PCB的结构
 */
-#[repr(C, packed)]
+#[repr(C)]
 pub struct TaskStruct {
     /**
      * pid
@@ -187,6 +187,11 @@ pub struct TaskStruct {
     pub pcb_page_addr: u32,
 
     /**
+     * 内存块分配器。支持分配多种规格的内存块
+     */
+    pub mem_block_allocator: MemBlockAllocator,
+
+    /**
      * 栈边界的魔数
      */
     pub stack_magic: u32,
@@ -215,6 +220,7 @@ impl TaskStruct {
             vaddr_pool: MemPool::empty(),
             stack_magic: constants::TASK_STRUCT_STACK_MAGIC,
             pcb_page_addr: 0,
+            mem_block_allocator: MemBlockAllocator::new(),
         }
     }
 

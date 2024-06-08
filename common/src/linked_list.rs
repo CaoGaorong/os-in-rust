@@ -135,17 +135,13 @@ impl LinkedList {
             (e as u32) == (node as *const _ as u32)
         })
     }
-    pub fn iter(&mut self) -> LinkedNodeIterator {
-        self.init();
-        ASSERT!(self.initialized);
+    pub fn iter(&self) -> LinkedNodeIterator {
         LinkedNodeIterator {
             current: self.head.next,
             reversed: false,
         }
     }
-    pub fn iter_reversed(&mut self) -> LinkedNodeIterator {
-        self.init();
-        ASSERT!(self.initialized);
+    pub fn iter_reversed(&self) -> LinkedNodeIterator {
         LinkedNodeIterator {
             current: self.tail.pre,
             reversed: true,

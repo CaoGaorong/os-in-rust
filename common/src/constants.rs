@@ -129,3 +129,14 @@ pub const USER_STACK_TOP_ADDR: usize = USER_STACK_BASE_ADDR - 0x1000;
  * 系统调用的函数数量
  */
 pub const SYSTEM_CALL_HANDLER_CNT: usize = 100;
+
+
+/**
+ * 内存块容器的规格种类。7种
+ */
+pub const MEM_BLOCK_CONTAINER_CNT: usize = 7;
+
+/**
+ * 最小的内存块的大小
+ */
+pub const MINIMAL_BLOCK_SIZE: usize = 16;
