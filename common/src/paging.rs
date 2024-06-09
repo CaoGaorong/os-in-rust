@@ -125,6 +125,14 @@ use crate::{constants, utils};
      pub fn present(&self) -> bool {
          self.data & 0x00000001 == 0x1
      }
+
+     pub fn set_present(&mut self, present: bool) {
+        if present {
+            self.data |= 0x1;
+        } else {
+            self.data &= !0x1;
+        }
+     }
      pub fn get_data(&self) -> u32 {
          self.data
      }

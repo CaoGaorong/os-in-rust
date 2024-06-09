@@ -2,7 +2,7 @@ use core::{arch::{asm, global_asm}, mem::{self, size_of}, ptr::slice_from_raw_pa
 
 use os_in_rust_common::{bitmap::BitMap, constants, instruction, paging::{self, PageTable, PageTableEntry}, pool::MemPool, printkln, utils};
 
-use crate::{console_println, interrupt, mem_block, memory, mutex::Mutex, page_util, thread::{self, TaskStruct, ThreadArg}, thread_management};
+use crate::{console_println, interrupt, memory, mutex::Mutex, page_util, thread::{self, TaskStruct, ThreadArg}, thread_management};
 
 /**
  * 用户进程的实现
@@ -103,7 +103,7 @@ pub fn process_execute(process_name: &'static str, func: extern "C" fn()) {
     pcb_page.task_struct.pgdir = create_page_dir();
 
     // 用户进程有单独的内存块分配器
-    pcb_page.task_struct.mem_block_allocator = mem_block::MemBlockAllocator::new();
+    pcb_page.task_struct.mem_block_allocator = memory::mem_block::MemBlockAllocator::new();
 
 
     let old_status = instruction::disable_interrupt();

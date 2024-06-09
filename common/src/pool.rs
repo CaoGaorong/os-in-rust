@@ -78,4 +78,34 @@ impl MemPool {
     pub fn apply_one(&mut self) -> Result<usize, MemoryError> {
         self.apply(1)
     }
+
+    /**
+     * 判断某个地址，是否在这个池子中
+     */
+    pub fn in_pool(&self, addr: usize) -> bool {
+        // 如果这个地址小于该地址池的开始地址，那么放回失败
+        if addr < self.addr_start {
+            return false;
+        }
+        // 如果这个地址超过地址池的最大地址，那么也放回失败
+        if addr > self.addr_start + self.bitmap.bits_len() * self.granularity {
+            return false;
+        }
+        return true;
+    }
+
+    /**
+     * 把某个地址返回池子中
+     * - addr: 要放回的地址
+     * return: 是否放回成功
+     */
+    pub fn restore(&mut self, addr: usize) -> bool {
+        if !self.in_pool(addr) {
+            return false;
+        }
+        // 改地址在位图的位下标
+        let bit_idx = (addr - self.addr_start) / self.granularity;
+        self.bitmap.set_bit(bit_idx, false);
+        return true;
+    }
 }

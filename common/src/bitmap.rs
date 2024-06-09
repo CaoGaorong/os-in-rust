@@ -88,6 +88,13 @@ impl BitMap {
         }
     }
 
+    /**
+     * 该位图中，一共位的长度
+     */
+    pub fn bits_len(&self) -> usize {
+        self.size * 8
+    }
+
 
 }
 

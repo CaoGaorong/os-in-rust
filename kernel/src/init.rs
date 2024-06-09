@@ -3,7 +3,7 @@
 
 use os_in_rust_common::{bios_mem::{ARDSType, AddressRangeDescriptorStructure}, context::BootContext, printkln, ASSERT};
 
-use crate::{interrupt, mem_block, memory, sys_call, sys_call_api, thread_management, tss};
+use crate::{interrupt, memory, sys_call, sys_call_api, thread_management, tss};
 
 pub fn init_all(boot_info: &BootContext) {
     // 初始化中断描述符和中断控制器
@@ -31,9 +31,6 @@ pub fn init_all(boot_info: &BootContext) {
     .unwrap();
     
     memory::mem_pool_init(os_memory_size);
-
-    // 打印内存块容器的信息
-    mem_block::get_kernel_mem_block_allocator().print_container();
 
     thread_management::thread_init();
 

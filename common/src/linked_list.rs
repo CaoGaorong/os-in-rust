@@ -128,12 +128,35 @@ impl LinkedList {
     }
 
     /**
+     * 移除链表中的某一个节点
+     * 比如head <-> A <-> B <-> C <-> tail，要移除B
+     *     pre: A节点；next: C节点
+     *     head <-> A <-> C <-> tail
+     */
+    pub fn remove(&mut self, node: &LinkedNode) {
+        if !self.contains(node) {
+            return;
+        }
+        // 该节点的上一个节点
+        let pre = unsafe { &mut *node.pre };
+        // 该节点的下一个节点
+        let next = unsafe { &mut *node.next };
+        
+        pre.next = next as *mut _;
+        next.pre = pre as *mut _;
+    }
+
+    /**
      * 是否包含
      */
     pub fn contains(&mut self, node: &LinkedNode) -> bool {
         self.iter().any(|e| {
             (e as u32) == (node as *const _ as u32)
         })
+    }
+
+    pub fn size(&self) -> usize {
+        self.iter().count()
     }
     pub fn iter(&self) -> LinkedNodeIterator {
         LinkedNodeIterator {

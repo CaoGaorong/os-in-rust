@@ -16,19 +16,18 @@ mod scancode;
 mod printer;
 pub mod blocking_queue;
 pub mod tss;
-pub mod memory;
-pub mod page_util;
+mod memory;
 pub mod process;
 mod thread;
 mod sys_call;
 mod pid_allocator;
 mod sys_call_api;
 mod sys_call_proxy;
-mod mem_block;
+mod page_util;
 
 
 use core::{arch::asm, mem::{self, size_of}, panic::PanicInfo};
-use mem_block::Arena;
+use memory::mem_block::{Arena, MemBlock};
 use os_in_rust_common::{constants, context::BootContext, instruction::enable_interrupt, printk, printkln};
 use mutex::Mutex;
 use thread::ThreadArg;
@@ -46,11 +45,14 @@ pub extern "C" fn _start(boot_info: &BootContext) {
     // 打印线程信息
     // thread_management::print_thread();
 
-    process::process_execute(PROCESS_NAME, u_prog_a);
-    thread_management::thread_start("thread_a", 5, kernel_thread, 0);
+    // process::process_execute(PROCESS_NAME, u_prog_a);
+    // thread_management::thread_start("thread_a", 5, kernel_thread, 0);
 
     printkln!("-----system started-----");
     printkln!();
+
+    // 测试一样空间的分配和释放
+    test_malloc_free();
 
     enable_interrupt();
     loop {}
@@ -72,7 +74,7 @@ extern "C" fn kernel_thread(arg: ThreadArg) {
 
     // 分配1块，新页
     let addr2 = memory::malloc(33);
-    printkln!("addr: 0x{:x}, {}", addr2, addr2 == addr1 + size_of::<mem_block::Arena>() + page_size);
+    printkln!("addr: 0x{:x}, {}", addr2, addr2 == addr1 + size_of::<Arena>() + page_size);
 
     // 分配1块，新页
     let addr3 = memory::malloc(12);
@@ -90,12 +92,65 @@ extern "C" fn kernel_thread(arg: ThreadArg) {
     let addr6 = memory::malloc(33);
     printkln!("addr: 0x{:x}, {}", addr6, addr6 == addr2 + 64);
 
-    mem_block::get_kernel_mem_block_allocator().print_container();
+    printk!("size: ");
+    memory::mem_block::get_kernel_mem_block_allocator().print_container_size();
+
+
+    memory::free(addr2);
+    printk!("size: ");
+    memory::mem_block::get_kernel_mem_block_allocator().print_container_size();
+
+    memory::free(addr6);
+    
+    printk!("size: ");
+    memory::mem_block::get_kernel_mem_block_allocator().print_container_size();
+
+    // memory::mem_block::get_kernel_mem_block_allocator().print_container();
 
     loop {
         // console_print!("k");
         // dummy_sleep(10000);
     }
+}
+
+pub fn test_malloc_free() {
+
+    // 申请10个字节的空间
+    let addr1 = memory::malloc(10);
+    let container = memory::mem_block::get_kernel_mem_block_allocator().match_container(10);
+    let total_size = constants::PAGE_SIZE as usize / container.block_size() - 1;
+    assert_true(container.size() ==  total_size - 1, "malloc error");
+    
+    // 再申请一个10字节
+    let addr2 = memory::malloc(10);
+    assert_true(container.size() ==  total_size- 2, "malloc error");
+
+    // 释放addr1
+    memory::free(addr1);
+    assert_true(container.size() ==  total_size - 1, "free error");
+    
+    // 释放addr2
+    memory::free(addr2);
+    // 这一页都释放了
+    assert_true(container.size() ==  0, "free error");
+
+    // 两个都释放了，那么按理说PTE的P位应该已经清除了
+    let arena = unsafe { & *(addr2 as *const MemBlock) }.arena_addr();
+    let pde = unsafe { &*page_util::addr_to_pde(arena as *const _ as usize) };
+    let pte = unsafe { &*page_util::addr_to_pte(arena as *const _ as usize) };
+
+    // 确保PDE存在
+    assert_true(pde.present(), "SYSTEM ERROR, PDE ERROR");
+    // 确保PTE不存在
+    assert_true(!pte.present(), "ERROR: PTE should be expelled");
+
+}
+
+fn assert_true(condition: bool, msg: &str) {
+    if condition {
+        return;
+    }
+    printkln!("{}", msg);
 }
 
 /**
@@ -109,7 +164,7 @@ extern "C" fn u_prog_a() {
         // print!("u");
         // dummy_sleep(10000);
     }
- }
+}
 
 /**
  * 做一个假的sleep

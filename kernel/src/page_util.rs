@@ -3,7 +3,8 @@ use core::{mem::size_of, ptr};
 
 use os_in_rust_common::{paging::{PageTable, PageTableEntry}, printk, printkln, ASSERT};
 
-use crate::{memory, thread};
+use crate::memory;
+
 
 /**
  * 页表工具
@@ -32,11 +33,20 @@ pub fn add_page_connection(virtual_addr: usize, physical_addr: usize) {
     }
 
     // 如果PDE没有赋值，从内核内存池中申请1页
-    let kernel_page_table_addr = unsafe { memory::KERNEL_MEM_POOL.get_mut() }.apply_one().unwrap();
+    let kernel_page_table_addr =  memory::memory_poll::get_kernel_mem_pool().apply_one().unwrap();
     // 把页表的地址，赋值给这个页目录项
     unsafe { *pde_addr = PageTableEntry::new_default(kernel_page_table_addr) };
     // 然后把我们的物理地址，赋值给这个新页表的这一项
     unsafe { *pte_addr = PageTableEntry::new_default(physical_addr) };
+}
+
+/**
+ * 已知当前的虚拟地址，把该虚拟地址在当前PTE中的连接取消
+ * （页表项的P位设置为0）
+ */
+pub fn unset_pte(virtual_addr: usize) {
+    let pte = addr_to_pte(virtual_addr);
+    (unsafe { &mut *pte }).set_present(false);
 }
 
 /**
@@ -60,7 +70,7 @@ pub fn addr_to_pde(virtual_addr: usize) -> *mut PageTableEntry {
 /**
  * 构建一个虚拟地址，可以访问到该虚拟地址经过的页表项自身
  */
-fn addr_to_pte(virtual_addr: usize) -> *mut PageTableEntry {
+pub fn addr_to_pte(virtual_addr: usize) -> *mut PageTableEntry {
     // 取虚拟地址的中间10位，就是pte所在页表的下标
     let pte_idx = (virtual_addr & 0x003ff000) >> 12;
     // 构造一个地址。高10位是1，中间10位是该地址的高10位，然后地址的中间10位作为下标
