@@ -3,7 +3,7 @@
 
 use os_in_rust_common::{bios_mem::{ARDSType, AddressRangeDescriptorStructure}, context::BootContext, printkln, ASSERT};
 
-use crate::{interrupt, memory, sys_call, sys_call_api, thread_management, tss};
+use crate::{interrupt, memory, sys_call, thread_management, tss};
 
 pub fn init_all(boot_info: &BootContext) {
     // 初始化中断描述符和中断控制器
@@ -38,6 +38,6 @@ pub fn init_all(boot_info: &BootContext) {
     tss::tss_init();
 
     // 注册系统调用函数
-    sys_call_api::init();
+    sys_call::sys_call_api::init();
 
 }

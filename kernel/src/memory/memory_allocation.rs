@@ -17,7 +17,7 @@ use super::{mem_block::{self, Arena, MemBlockAllocator}, memory_poll::{self, get
 /**
  * 在内核空间申请bytes字节的空间
  */
-pub fn malloc(bytes: usize) -> usize {
+pub fn sys_malloc(bytes: usize) -> usize {
     // 当前任务
     let task = &mut thread::current_thread().task_struct;
 

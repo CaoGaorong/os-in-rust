@@ -3,7 +3,7 @@ use core::{arch::asm, ptr::addr_of};
 
 use os_in_rust_common::{constants, idt::{self, HandlerFunc, InterruptStackFrame, InterruptTypeEnum}, instruction, pic, pit, port::Port, printk, printkln, sd::SegmentDPL, ASSERT, MY_PANIC};
 
-use crate::{interrupt, keyboard::{self, ScanCodeCombinator}, scheduler, sys_call::{self, HandlerType}, thread};
+use crate::{interrupt, keyboard::{self, ScanCodeCombinator}, scheduler, sys_call::sys_call::{self, HandlerType}, thread};
 
 pub fn init() {
     

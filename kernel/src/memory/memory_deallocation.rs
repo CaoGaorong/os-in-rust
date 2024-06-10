@@ -4,7 +4,7 @@ use core::ptr;
 
 use os_in_rust_common::{constants, pool::MemPool, printk, printkln, ASSERT};
 
-use crate::{page_util, println, thread};
+use crate::{page_util, thread};
 
 use super::{mem_block::{Arena, MemBlock, MemBlockAllocator}, memory_poll::{get_kernel_addr_pool, get_kernel_mem_pool, get_user_mem_pool}};
 
@@ -20,7 +20,7 @@ use super::{mem_block::{Arena, MemBlock, MemBlockAllocator}, memory_poll::{get_k
  * 是否某一块空间
  *  - vaddr_to_free: 要释放的空间的地址
  */
-pub fn free(vaddr_to_free: usize) {
+pub fn sys_free(vaddr_to_free: usize) {
     // 当前任务
     let task = &mut thread::current_thread().task_struct;
     // 找出物理内存池。内核程序或者用户程序

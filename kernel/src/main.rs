@@ -21,8 +21,6 @@ pub mod process;
 mod thread;
 mod sys_call;
 mod pid_allocator;
-mod sys_call_api;
-mod sys_call_proxy;
 mod page_util;
 
 
@@ -45,14 +43,14 @@ pub extern "C" fn _start(boot_info: &BootContext) {
     // 打印线程信息
     // thread_management::print_thread();
 
-    // process::process_execute(PROCESS_NAME, u_prog_a);
+    process::process_execute(PROCESS_NAME, u_prog_a);
     // thread_management::thread_start("thread_a", 5, kernel_thread, 0);
 
     printkln!("-----system started-----");
     printkln!();
 
-    // 测试一样空间的分配和释放
-    test_malloc_free();
+    // // 测试一样空间的分配和释放
+    // test_malloc_free();
 
     enable_interrupt();
     loop {}
@@ -63,7 +61,7 @@ pub extern "C" fn _start(boot_info: &BootContext) {
  * 内核线程
  */
 extern "C" fn kernel_thread(arg: ThreadArg) {
-    let pid = sys_call_proxy::get_pid();
+    let pid = sys_call::get_pid();
     printkln!("kernel thread pid:{}", pid);
 
     printkln!("size of: 0x{:x}", size_of::<Arena>());
@@ -73,34 +71,34 @@ extern "C" fn kernel_thread(arg: ThreadArg) {
     printkln!("page addr: 0x{:x}", addr1);
 
     // 分配1块，新页
-    let addr2 = memory::malloc(33);
+    let addr2 = memory::sys_malloc(33);
     printkln!("addr: 0x{:x}, {}", addr2, addr2 == addr1 + size_of::<Arena>() + page_size);
 
     // 分配1块，新页
-    let addr3 = memory::malloc(12);
+    let addr3 = memory::sys_malloc(12);
     printkln!("addr: 0x{:x}, {}", addr3, addr3 == addr2 + page_size);
     
     // 分配2页。新页
-    let addr4 = memory::malloc(4096);
+    let addr4 = memory::sys_malloc(4096);
     printkln!("addr: 0x{:x}, {}", addr4, addr4 == addr3 +  page_size);
     
     // 分配1块，新页
-    let addr5 = memory::malloc(129);
+    let addr5 = memory::sys_malloc(129);
     printkln!("addr: 0x{:x}, {}", addr5,  addr5 == addr4 + 2 * page_size);
 
     // 分配1块，旧页
-    let addr6 = memory::malloc(33);
+    let addr6 = memory::sys_malloc(33);
     printkln!("addr: 0x{:x}, {}", addr6, addr6 == addr2 + 64);
 
     printk!("size: ");
     memory::mem_block::get_kernel_mem_block_allocator().print_container_size();
 
 
-    memory::free(addr2);
+    memory::sys_free(addr2);
     printk!("size: ");
     memory::mem_block::get_kernel_mem_block_allocator().print_container_size();
 
-    memory::free(addr6);
+    memory::sys_free(addr6);
     
     printk!("size: ");
     memory::mem_block::get_kernel_mem_block_allocator().print_container_size();
@@ -116,21 +114,21 @@ extern "C" fn kernel_thread(arg: ThreadArg) {
 pub fn test_malloc_free() {
 
     // 申请10个字节的空间
-    let addr1 = memory::malloc(10);
+    let addr1 = memory::sys_malloc(10);
     let container = memory::mem_block::get_kernel_mem_block_allocator().match_container(10);
     let total_size = constants::PAGE_SIZE as usize / container.block_size() - 1;
     assert_true(container.size() ==  total_size - 1, "malloc error");
     
     // 再申请一个10字节
-    let addr2 = memory::malloc(10);
+    let addr2 = memory::sys_malloc(10);
     assert_true(container.size() ==  total_size- 2, "malloc error");
 
     // 释放addr1
-    memory::free(addr1);
+    memory::sys_free(addr1);
     assert_true(container.size() ==  total_size - 1, "free error");
     
     // 释放addr2
-    memory::free(addr2);
+    memory::sys_free(addr2);
     // 这一页都释放了
     assert_true(container.size() ==  0, "free error");
 
@@ -153,13 +151,31 @@ fn assert_true(condition: bool, msg: &str) {
     printkln!("{}", msg);
 }
 
+#[derive(Debug)]
+struct MyStruct {
+    id: u32,
+    age: u8
+}
 /**
  * 用户进程
  */
 extern "C" fn u_prog_a() {
-    let pid = sys_call_proxy::get_pid();
+    let pid = sys_call::get_pid();
     println!("user process pid: {}", pid);
     
+    // 发起系统调用，申请内存空间
+    let my_struct_ptr: *mut MyStruct = sys_call::malloc(size_of::<MyStruct>());
+    let my_struct:&mut MyStruct =  unsafe { &mut *my_struct_ptr };
+    my_struct.id = 10;
+    my_struct.age = 18;
+
+    println!("{:?}", my_struct); // 正常打印
+
+    // 释放内存空间
+    sys_call::free(my_struct_ptr);
+    
+    println!("{:?}", my_struct); // 得到垃圾值
+
     loop {
         // print!("u");
         // dummy_sleep(10000);
