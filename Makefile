@@ -3,6 +3,9 @@
 hd60M.img:
 	cp emtpy60M.img build/hd60M.img
 
+hd80M.img:
+	cp empty80M.img build/hd80M.img
+
 mbr.bin:
 	cd mbr && \
 	cargo build --release && \
@@ -28,7 +31,7 @@ kernel.bin:
 	x86_64-linux-gnu-objcopy -I elf64-x86-64 -O binary target/kernel/release/kernel build/kernel.bin
 
 
-hd: hd60M.img mbr.bin loader.bin loader2.bin kernel.bin
+hd: hd60M.img mbr.bin loader.bin loader2.bin kernel.bin hd80M.img
 	dd if=build/mbr.bin  of=build/hd60M.img bs=512 count=1 conv=notrunc && \
 	dd if=build/loader.bin of=build/hd60M.img bs=512 count=1 seek=2 conv=notrunc && \
 	dd if=build/loader2.bin of=build/hd60M.img bs=512 count=4 seek=3 conv=notrunc && \

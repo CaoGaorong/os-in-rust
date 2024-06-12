@@ -140,3 +140,21 @@ pub const MEM_BLOCK_CONTAINER_CNT: usize = 7;
  * 最小的内存块的大小
  */
 pub const MINIMAL_BLOCK_SIZE: usize = 16;
+
+
+/**
+ * IDE通道名称的长度。10个字节
+ */
+pub const IDE_CHANNEL_NAME_LEN: usize = 10;
+
+pub const DISK_NAME_LEN: usize = 10;
+
+/**
+ * 硬盘逻辑分区的数量限制。理论上一个硬盘无限个逻辑分区，但是这里还是要限制一下
+ */
+pub const DISK_LOGICAL_PARTITION_CNT: usize = 10;
+
+/**
+ * 硬盘的数量。BIOS把硬盘数量写入到了这个地址
+ */
+pub const DISK_LOCATION_IN_MEMORY: usize = 0x475;

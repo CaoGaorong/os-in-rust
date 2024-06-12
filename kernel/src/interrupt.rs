@@ -9,7 +9,7 @@ pub fn init() {
     
     unsafe { idt::IDT.get_mut().set_error_code_handler(InterruptTypeEnum::GeneralProtectionFault, general_protection_handler) }
     unsafe { idt::IDT.get_mut().set_error_code_handler(InterruptTypeEnum::DoubleFault, general_protection_handler) }
-    unsafe { idt::IDT.get_mut().set_error_code_handler(InterruptTypeEnum::PageFault, general_protection_handler) }
+    unsafe { idt::IDT.get_mut().set_error_code_handler(InterruptTypeEnum::PageFault, page_fault_handler) }
 
     // 初始化时钟中断
     unsafe { idt::IDT.get_mut().set_handler(InterruptTypeEnum::Timer, timer_handler) }
@@ -68,6 +68,16 @@ extern "x86-interrupt" fn keyboard_handler(frame: InterruptStackFrame) {
 extern "x86-interrupt" fn general_protection_handler(frame: InterruptStackFrame, error_code: u32) {
     pic::send_end_of_interrupt();
     printkln!("!!!!general protection exception occur!!!");
+    loop {}
+}
+
+
+/**
+ * 通用的中断处理程序
+ */
+extern "x86-interrupt" fn page_fault_handler(frame: InterruptStackFrame, error_code: u32) {
+    pic::send_end_of_interrupt();
+    printkln!("!!!!page fault exception occur!!!");
     loop {}
 }
 

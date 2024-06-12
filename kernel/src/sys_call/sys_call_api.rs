@@ -70,7 +70,7 @@ fn malloc(bytes: u32) -> u32 {
 /**
  * 释放某个地址的内存空间
  */
-pub fn free(addr_to_free: u32) -> u32 {
+fn free(addr_to_free: u32) -> u32 {
     memory::sys_free(addr_to_free.try_into().unwrap());
     0
 }
