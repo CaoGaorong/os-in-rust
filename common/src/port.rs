@@ -74,3 +74,28 @@ impl PortWrite for u16 {
         }
     }
 }
+
+
+/**
+ * 从port中连续读取word_cnt个字的数据到buf_addr地址处的内存中
+ */
+#[inline(never)]
+pub fn read_words(port: u16, word_cnt: u32, buf_addr: u32) {
+    
+    /*
+     * 利用insw指令。insw指令需要两个参数：
+     * - dx: 要读取数据的端口号
+     * - es:di: 将要把数据写入的内存地址
+     * 
+     * 而rep指令是循环，需要ecx作为循环次数
+     */
+    unsafe {
+        asm!(
+            "cld",
+            "rep insw",
+            in("dx") port,
+            in("di") buf_addr,
+            in("ecx") word_cnt
+        );
+    }
+}

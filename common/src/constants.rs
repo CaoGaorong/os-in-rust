@@ -24,7 +24,7 @@ pub const KERNEL_MEM_BITMAP_ADDR: u32 = 0xc009a000;
 /**
  * 自定义开始的中断号
  */
-pub static INTERRUPT_NO_START: u8 = 0x20;
+pub const INTERRUPT_NO_START: u8 = 0x20;
 
 /**
  * 计数器的脉冲频率（8253的默认值）
@@ -158,3 +158,13 @@ pub const DISK_LOGICAL_PARTITION_CNT: usize = 10;
  * 硬盘的数量。BIOS把硬盘数量写入到了这个地址
  */
 pub const DISK_LOCATION_IN_MEMORY: usize = 0x475;
+
+/**
+ * 硬盘的最大容量（单位字节）80MB
+ */
+pub const DISK_MAX_SIZE: u64 = 80 * 1024 * 1024;
+
+/**
+ * 硬盘中一个扇区的大小。512字节
+ */
+pub const DISK_SECTOR_SIZE: usize = 512;

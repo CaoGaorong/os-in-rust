@@ -1,6 +1,6 @@
 use core::{arch::asm, mem::size_of};
 
-use crate::{gdt::DescriptorType, racy_cell::RacyCell, sd::SegmentDPL, selector::SegmentSelector, utils};
+use crate::{constants, gdt::DescriptorType, racy_cell::RacyCell, sd::SegmentDPL, selector::SegmentSelector, utils};
 
 
 /**
@@ -61,7 +61,12 @@ pub enum InterruptTypeEnum {
     // 时钟中断
     Timer = 0x20,
     // 键盘中断
-    Keyboard,
+    Keyboard = 0x21,
+
+    // 硬盘ATA的主通道，中断号
+    PrimaryChannel = (constants::INTERRUPT_NO_START + 14) as isize,
+    // 硬盘ATA的次通道，中断号
+    SecondaryChannel = (constants::INTERRUPT_NO_START + 15) as isize,
 
 
     SystemCall = 0x80,

@@ -22,7 +22,7 @@ mod thread;
 mod sys_call;
 mod pid_allocator;
 mod page_util;
-mod filesystem;
+mod device;
 
 
 use core::{arch::asm, mem::{self, size_of}, panic::PanicInfo};

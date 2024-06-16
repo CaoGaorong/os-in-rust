@@ -16,6 +16,11 @@ pub fn init() {
     // 初始化键盘中断
     unsafe { idt::IDT.get_mut().set_handler(InterruptTypeEnum::Keyboard, keyboard_handler) }
     
+    // 初始化主通道硬盘中断
+    unsafe { idt::IDT.get_mut().set_handler(InterruptTypeEnum::PrimaryChannel, primary_channel_handler) }
+    // 初始化次通道硬盘中断
+    unsafe { idt::IDT.get_mut().set_handler(InterruptTypeEnum::SecondaryChannel, secondary_channel_handler) }
+
     // 系统调用中断
     unsafe { idt::IDT.get_mut().set_raw_handler(InterruptTypeEnum::SystemCall, system_call_handler, SegmentDPL::LEVEL3) }
     
@@ -95,6 +100,19 @@ pub extern "x86-interrupt" fn timer_handler(frame: InterruptStackFrame) {
 }
 
 
+/**
+ * ATA primary channel 的中断
+ */
+pub extern "x86-interrupt" fn primary_channel_handler(frame: InterruptStackFrame) {
+    
+}
+
+/**
+ * ATA secondary channel 的中断
+ */
+pub extern "x86-interrupt" fn secondary_channel_handler(frame: InterruptStackFrame) {
+
+}
 
 /**
  * 系统调用；中断处理程序
