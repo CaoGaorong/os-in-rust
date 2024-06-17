@@ -1,5 +1,7 @@
 mod constant;
 pub mod ata;
-pub mod ata_init;
+pub mod init;
 pub mod pio;
 pub mod drive;
+
+pub use init::ata_init;

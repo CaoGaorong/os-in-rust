@@ -1,4 +1,7 @@
+use core::fmt;
+use core::fmt::Write;
 use core::ops::{Add, Div, Sub};
+use crate::{ASSERT, printkln};
 
 pub const fn bool_to_int(b: bool) -> u32 {
     if b {
@@ -75,3 +78,49 @@ macro_rules! elem2entry {
         }
     };
 }
+
+
+/**
+ * 把一个字符串（格式化）写入到缓冲区中
+ * 例如：
+ *  /**定义一个缓冲区 **/
+ *  let mut buf = [u8; 20];
+ *
+ *  /** 把字符串格式化后，写入到缓冲区**/
+ *  sprintf(&mut buf, "Name: {}", "Jackson");
+ *
+ *  /**从缓冲区中取出字符串**/
+ *  let name = core::str::from_utf8(&buf).unwrap();
+ * 
+ */
+#[macro_export]
+macro_rules! sprintf {
+    ($buf:expr, $($arg:tt)*) => ($crate::sprintf($buf, format_args!($($arg)*)));
+}
+
+#[no_mangle]
+fn sprintf<'a>(buf: &'a mut [u8], args: fmt::Arguments) -> &'a str {
+    let mut buffer = BufferWriter::new(buf);
+    let res = buffer.write_fmt(args);
+    ASSERT!(res.is_ok());
+    core::str::from_utf8(&buf).unwrap()
+}
+
+struct BufferWriter<'a> {
+    buffer: &'a mut [u8],
+}
+impl <'a>BufferWriter<'a> {
+    pub fn new(buf: &'a mut [u8]) -> Self {
+        Self {
+            buffer: buf,
+        }
+    }
+}
+impl Write for BufferWriter<'_> {
+    fn write_str(&mut self, s: &str) -> core::fmt::Result {
+        let b = &mut self.buffer[0 .. s.len()];
+        b.copy_from_slice(s.as_bytes());
+        Result::Ok(())
+    }
+}
+

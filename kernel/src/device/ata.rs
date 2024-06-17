@@ -22,18 +22,18 @@ pub struct ATAChannel {
     /**
      * IDE通道名称
      */
-    name: [u8; constants::IDE_CHANNEL_NAME_LEN],
+    pub name: [u8; constants::IDE_CHANNEL_NAME_LEN],
     /**
      * 本通道的起始端口号
      * 通道用到的硬盘控制器的寄存器，都是根据这个起始端口号递增的，
      * 详情见：<https://wiki.osdev.org/ATA_PIO_Mode#Registers>
      */
-    port_base: u16,
+    pub port_base: u16,
 
     /**
      * 该通道用的中断号。1个通道占据一个中断端口，有一个中断号
      */
-    irq_no: u8, 
+    pub irq_no: u8,
 
     /**
      * 是否正在等待中断
@@ -63,16 +63,17 @@ pub struct Disk {
     /**
      * 硬盘的名称
      */
-    name: [u8; constants::DISK_NAME_LEN],
+    pub name: [u8; constants::DISK_NAME_LEN],
     /**
      * 该硬盘归属的通道
      */
-    from_channel: *mut ATAChannel,
+    // from_channel: Option<&'static mut ATAChannel>,
+    pub from_channel: * mut ATAChannel,
 
     /**
      * 是否是主硬盘
      */
-    primary: bool,
+    pub primary: bool,
 
     /**
      * 一个硬盘最多4个主分区
@@ -88,23 +89,23 @@ pub struct Disk {
 /**
  * 硬盘中的分区结构（逻辑结构）
  */
-pub struct Partition<'a> {
+pub struct Partition {
     /**
      * 分区名称
      */
-    name: [u8; constants::DISK_NAME_LEN],
+    pub name: [u8; constants::DISK_NAME_LEN],
     /**
      * 该分区位于硬盘的起始扇区数
      */
-    lba_start: u32, 
+    pub lba_start: u32,
     /**
      * 该分区占用的扇区数量
      */
-    sec_cnt: u32,
+    pub sec_cnt: u32,
     /**
      * 该分区归属的硬盘
      */
-    from_disk: Option<&'a Disk>,
+    pub from_disk: *const Disk,
     /**
      * 组成链表的tag
      */
@@ -160,6 +161,7 @@ pub enum ChannelIrqNoEnum {
 
 impl ATAChannel {
     pub const fn empty() -> Self {
+        const EMPTY_DISK: Disk = Disk::empty();
         Self {
             name: [0; constants::IDE_CHANNEL_NAME_LEN],
             port_base: 0,
@@ -167,46 +169,35 @@ impl ATAChannel {
             expecting_intr: false,
             lock: Lock::new(),
             disk_done: Semaphore::new(0),
-            disks: [Disk::empty(); 2],
+            disks: [EMPTY_DISK; 2],
         }
-    }
-
-    /**
-     * 初始化一个通道
-     *  - name: 通道名称
-     *  - port_base: 通道起始
-     */
-    pub fn init(&mut self, name: &str, port_base: ChannelPortBaseEnum, irq_no: ChannelIrqNoEnum) {
-        self.name.copy_from_slice(name.as_bytes());
-        self.port_base = port_base as u16;
-        self.irq_no = irq_no as u8;
     }
 
 }
 
 impl Disk {
     pub const fn empty() -> Self {
+        const EMPTY_PART: Partition = Partition::empty();
         Self {
             name:  [0; constants::DISK_NAME_LEN],
             from_channel: ptr::null_mut(),
             primary: false,
-            primary_parts: [Partition::empty(); 4],
-            logical_parts: [Partition::empty(); constants::DISK_LOGICAL_PARTITION_CNT],
+            primary_parts: [EMPTY_PART; 4],
+            logical_parts: [EMPTY_PART; constants::DISK_LOGICAL_PARTITION_CNT],
         }
     }
 
-    pub fn init(&mut self, name: &str, primary: bool, from_channel: &mut ATAChannel) {
+    pub fn init(&mut self, name: &str, primary: bool, from_channel: *mut ATAChannel) {
         self.name.copy_from_slice(name.as_bytes());
         self.primary = primary;
-        self.from_channel = from_channel as *mut _;
+        self.from_channel = from_channel;
     }
 
-    pub fn get_name(&'a self) -> &'a str {
+    pub fn get_name(&self) -> &str {
         core::str::from_utf8(&self.name).expect("get ata channel name error")
     }
-    pub fn identify(&self) {
+    pub fn identify(&mut self) {
         // 该硬盘归属的通道
-        let ata_channel = unsafe { &mut *self.from_channel };
         self.select_disk();
         // 发送identify 命令
         self.set_command(PIOCommand::Identify);
@@ -216,23 +207,23 @@ impl Disk {
 
          // 检查硬盘是否准备好了
          if !self.ready_for_read() {
-            printkln!("failed to read disk. disk not ready, lba:{}, sec_once:{}", lba, sec_once);
+            printkln!("failed to read disk. disk not ready, disk name: {}", self.get_name());
             MY_PANIC!("disk status error");
         }
 
         // 读取出数据
-        let buf = [u8; constants::DISK_SECTOR_SIZE];
+        let buf = [0; constants::DISK_SECTOR_SIZE];
         self.read_bytes(&buf, constants::DISK_SECTOR_SIZE.try_into().unwrap());
 
         // 把读取到的结果，转成固定格式
-        let identify_res =  unsafe { &*(&buf as *const _ as *const DiskIdentifyContent) }
+        let identify_res =  unsafe { &*(&buf as *const _ as *const DiskIdentifyContent) };
 
         let disk_name = core::str::from_utf8(&self.name).expect("invalid disk name");
         let sn_name = core::str::from_utf8(&identify_res.sn).expect("Invalid name");
         let module_name = core::str::from_utf8(&identify_res.module).expect("invalid moduel name");
         printkln!("disk info: {},  sn: {}", disk_name, sn_name);
         printkln!("module: {}", module_name);
-        printkln!("disk sector count: {}", identify_res.sec_cnt);
+        printkln!("disk sector count: {}", identify_res.sec_cnt as u32);
     }
     
 
@@ -329,7 +320,7 @@ impl Disk {
     }
 
     fn select_disk(&self) {
-        let ata_channel = unsafe { &mut *self.from_channel };
+        let ata_channel = unsafe { &*self.from_channel };
         let port_base = ata_channel.port_base as u8;
         
         // device寄存器
@@ -344,11 +335,7 @@ impl Disk {
      */
     fn set_op_sector(&self, lba: u32, sector_cnt: u16) {
         // 得到ATA bus通道
-        let ata_channel = self.from_channel;
-        if ata_channel == ptr::null_mut() {
-            MY_PANIC!("ata channel disk not initialized");
-        }
-        let ata_channel = unsafe { &mut *ata_channel };
+        let ata_channel = unsafe { &*self.from_channel };
         let port_base = ata_channel.port_base as u8;
 
         // lba地址[0, 8)位
@@ -372,11 +359,7 @@ impl Disk {
      */
     fn set_command(&self, command: pio::PIOCommand) {
         // 得到ATA bus通道
-        let ata_channel = self.from_channel;
-        if ata_channel == ptr::null_mut() {
-            MY_PANIC!("ata channel disk not initialized");
-        }
-        let ata_channel = unsafe { &mut *ata_channel };
+        let ata_channel = unsafe { &*self.from_channel };
         let port_base = ata_channel.port_base;
         
         // 往命令寄存器写入操作的命令。读或者写
@@ -388,12 +371,7 @@ impl Disk {
      */
     fn ready_for_read(&self) -> bool {
         // 得到ATA bus通道
-        let ata_channel = self.from_channel;
-        if ata_channel == ptr::null_mut() {
-            MY_PANIC!("ata channel disk not initialized");
-        }
-        // 得到该通道，起始的io端口
-        let ata_channel = unsafe { &mut *ata_channel };
+        let ata_channel = unsafe { &*self.from_channel };
         let port_base = ata_channel.port_base;
 
         let mut status_register = StatusRegister::empty();
@@ -414,12 +392,7 @@ impl Disk {
      */
     fn read_bytes(&self, buf: &[u8], bytes: u32) {
         // 得到ATA bus通道
-        let ata_channel = self.from_channel;
-        if ata_channel == ptr::null_mut() {
-            MY_PANIC!("ata channel disk not initialized");
-        }
-        // 得到该通道，起始的io端口
-        let ata_channel = unsafe { &mut *ata_channel };
+        let ata_channel = unsafe { &*self.from_channel };
         let port_base = ata_channel.port_base;
 
         // 从data寄存器中读取出数据，放到buf地址处的空间中
@@ -431,12 +404,7 @@ impl Disk {
      */
     fn write_bytes(&self, buf: &[u8], bytes: u32) {
         // 得到ATA bus通道
-        let ata_channel = self.from_channel;
-        if ata_channel == ptr::null_mut() {
-            MY_PANIC!("ata channel disk not initialized");
-        }
-        // 得到该通道，起始的io端口
-        let ata_channel = unsafe { &mut *ata_channel };
+        let ata_channel = unsafe { &*self.from_channel };
         let port_base = ata_channel.port_base;
 
         // 逐个字（2个字节）读取
@@ -451,7 +419,7 @@ impl Disk {
     /**
      * 给该硬盘所属的通道加锁
      */
-    fn lock_channel(&self) {
+    fn lock_channel(&mut self) {
         let ata_channel = unsafe { &mut *self.from_channel };
         ata_channel.lock.lock();
     }
@@ -485,7 +453,7 @@ impl Partition {
             name: [0; constants::DISK_NAME_LEN],
             lba_start: 0,
             sec_cnt: 0,
-            from_disk: Option::None,
+            from_disk: ptr::null(),
             tag: LinkedNode::new(),
             super_block: Option::None,
             block_bitmap: BitMap::empty(),
@@ -493,11 +461,11 @@ impl Partition {
             open_inodes: LinkedList::new(),
         }
     }
-    pub fn init(&mut self, name: &str, lba_start: u32, sec_cnt: u32, from_disk: &Disk) {
+    pub fn init(&mut self, name: &str, lba_start: u32, sec_cnt: u32, from_disk: *const Disk) {
         self.name.copy_from_slice(name.as_bytes());
         self.lba_start = lba_start;
         self.sec_cnt = sec_cnt;
-        self.from_disk = Option::Some(from_disk);
+        self.from_disk = from_disk;
     }
 }
 

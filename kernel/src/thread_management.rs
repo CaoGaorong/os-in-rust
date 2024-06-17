@@ -5,7 +5,7 @@ use os_in_rust_common::{
 };
 
 use lazy_static::lazy_static;
-use crate::{memory, scheduler, thread::{self, PcbPage, TaskStatus, TaskStruct, ThreadArg, ThreadFunc},};
+use crate::{memory, scheduler, sync::Lock, thread::{self, PcbPage, TaskStatus, TaskStruct, ThreadArg, ThreadFunc}};
 
 
 lazy_static! {
@@ -60,6 +60,10 @@ pub fn make_thread_main() {
     // 添加到所有的进程中
     let all_tag = &mut pcb_page.task_struct.all_tag;
     all_thread_list.append(all_tag);
+}
+
+pub fn idle_thread() {
+
 }
 
 
@@ -159,6 +163,28 @@ pub fn wake_thread(task: &mut TaskStruct)  {
     task.task_status = TaskStatus::TaskReady;
     // 放入就绪队列
     get_ready_thread().append(&mut task.general_tag);
+
+    // 恢复中断
+    instruction::set_interrupt(old_status);
+}
+
+/**
+ * 让当前任务让出CPU，重新进入就绪队列
+ */
+pub fn thread_yield() {
+    let pcb_page = thread::current_thread();
+    let cur_task = &mut pcb_page.task_struct;
+
+    // 关闭中断。防止该线程重复加入就绪队列
+    let old_status = instruction::disable_interrupt();
+    ASSERT!(!get_ready_thread().contains(&cur_task.general_tag));
+    
+    // 当前线程加入就绪队列
+    get_ready_thread().append(&mut cur_task.general_tag);
+    cur_task.set_status(TaskStatus::TaskReady);
+
+    // 切换到其他线程执行
+    scheduler::schedule();
 
     // 恢复中断
     instruction::set_interrupt(old_status);
