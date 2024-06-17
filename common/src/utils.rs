@@ -95,15 +95,14 @@ macro_rules! elem2entry {
  */
 #[macro_export]
 macro_rules! sprintf {
-    ($buf:expr, $($arg:tt)*) => ($crate::sprintf($buf, format_args!($($arg)*)));
+    ($buf:expr, $($arg:tt)*) => ($crate::utils::sprintf_fn($buf, format_args!($($arg)*)));
 }
 
 #[no_mangle]
-fn sprintf<'a>(buf: &'a mut [u8], args: fmt::Arguments) -> &'a str {
+pub fn sprintf_fn<'a>(buf: &'a mut [u8], args: fmt::Arguments) {
     let mut buffer = BufferWriter::new(buf);
     let res = buffer.write_fmt(args);
     ASSERT!(res.is_ok());
-    core::str::from_utf8(&buf).unwrap()
 }
 
 struct BufferWriter<'a> {

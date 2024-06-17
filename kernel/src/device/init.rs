@@ -2,9 +2,8 @@ use core::{borrow::{Borrow, BorrowMut}, mem::size_of, sync::atomic::AtomicU32};
 
 use lazy_static::lazy_static;
 use os_in_rust_common::{constants, linked_list::LinkedList, racy_cell::RacyCell, utils, ASSERT, printkln, sprintf};
-use os_in_rust_common::utils::sprintf;
 
-use crate::{init, memory};
+use crate::{init, memory, println};
 use crate::device::ata::Partition;
 
 use super::{
@@ -67,19 +66,15 @@ pub fn ata_init() {
         // 当前通道
         let channel = get_ata_channel(channel_idx);
 
-
-
         let (port_base, irq_no) = if channel_idx == 0 {
             (ChannelPortBaseEnum::Primary, ChannelIrqNoEnum::Primary)
         } else {
             (ChannelPortBaseEnum::Secondary, ChannelIrqNoEnum::Secondary)
         };
-        {
-            // 初始化基本信息
-            sprintf!(&mut channel.name, "ata{}", channel_idx);
-            channel.port_base = port_base as u16;
-            channel.irq_no = irq_no as u8;
-        }
+        // 初始化基本信息
+        sprintf!(&mut channel.name, "ata{}", channel_idx);
+        channel.port_base = port_base as u16;
+        channel.irq_no = irq_no as u8;
 
         let channel_ptr = channel as *mut _;
         // 初始化该通道下的两个硬盘
@@ -102,31 +97,42 @@ pub fn ata_init() {
  */
 pub fn main_part_init(disk: &'static mut Disk) {
     let disk_ptr = disk as *const _;
+
     // 申请内存。为了防止栈溢出，因此不使用局部变量
     let boot_sec_addr = memory::sys_malloc(size_of::<BootSector>());
     let buf = unsafe { core::slice::from_raw_parts_mut(boot_sec_addr as *mut u8, size_of::<BootSector>()) };
+
+    printkln!("before read sectors");
     // 读取该分区的第一个扇区，启动记录
     disk.read_sectors(0, 1, buf);
+    printkln!("after read sectors");
     let boot_sector = unsafe { &*(boot_sec_addr as *const BootSector) };
 
     // 得到分区表
     let part_table = &boot_sector.part_table;
 
+    printkln!("iterate disk partition");
     for (idx, part_entry) in part_table.iter().enumerate() {
         // 空分区。忽略
         if part_entry.is_empty() {
+            printkln!("part is empty, part entry idx:{}", idx);
             continue;
         }
         // 非扩展分区，是 有数据的主分区
         if !part_entry.is_extended() {
             // 填充该主分区的信息
             let primary_part = &mut disk.primary_parts[idx];
-            sprintf!(&mut primary_part.name, "{}{}", disk.get_name(), idx);
+            let disk_name = core::str::from_utf8(&disk.name).expect("get ata channel name error");
+            printkln!("partition idx:{}, name: {}", idx, disk_name);
+
+            sprintf!(&mut primary_part.name, "{}{}",disk_name, idx);
             primary_part.lba_start = part_entry.start_lba;
             primary_part.sec_cnt = part_entry.sec_cnt;
             primary_part.from_disk = disk_ptr;
+            
             // 放到队列中
             get_all_partition().append(&mut primary_part.tag);
+            
             continue;
         }
         // 如果是扩展分区，那么需要进入扫描扩展分区
@@ -147,6 +153,7 @@ pub fn main_part_init(disk: &'static mut Disk) {
  *  - logic_part_no: 在该扩展分区中，逻辑分区起始的编号
  */
 pub fn extended_part_init(disk: &mut Disk, main_ext_lba: usize, mut logic_part_no: usize) {
+    
     let disk_ptr = disk as *const _;
     // 申请内存。为了防止栈溢出，因此不使用局部变量
     let boot_sec_addr = memory::sys_malloc(size_of::<BootSector>());
@@ -165,20 +172,17 @@ pub fn extended_part_init(disk: &mut Disk, main_ext_lba: usize, mut logic_part_n
         if !part_entry.is_extended() {
 
             let logical_part = &mut disk.logical_parts[logic_part_no];
-            sprintf!(&mut logical_part.name, "{}{}", disk.get_name(), idx);
+            let disk_name = core::str::from_utf8(&disk.name).expect("get ata channel name error");
+            sprintf!(&mut logical_part.name, "{}{}", disk_name, idx);
             logical_part.lba_start = part_entry.start_lba;
             logical_part.sec_cnt = part_entry.sec_cnt;
             logical_part.from_disk = disk_ptr;
-            logical_part.init(
-                part_name,
-                part_entry.start_lba,
-                part_entry.sec_cnt,
-                disk_ptr,
-            );
+            
             logic_part_no += 1;
-
+            
             // 把该逻辑分区加入队列
-            get_all_partition().append(&mut disk.logical_parts[logic_part_no].tag);
+            get_all_partition().append(&mut logical_part.tag);
+            
             continue;
         }
 

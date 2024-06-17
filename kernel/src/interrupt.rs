@@ -3,7 +3,7 @@ use core::{arch::asm, ptr::addr_of};
 
 use os_in_rust_common::{constants, idt::{self, HandlerFunc, InterruptStackFrame, InterruptTypeEnum}, instruction, pic, pit, port::Port, printk, printkln, sd::SegmentDPL, ASSERT, MY_PANIC};
 
-use crate::{interrupt, keyboard::{self, ScanCodeCombinator}, scheduler, sys_call::sys_call::{self, HandlerType}, thread};
+use crate::{device::{self, ata::{self, ChannelIrqNoEnum}, drive, pio::{self, CommandBlockRegister, StatusRegister}}, interrupt, keyboard::{self, ScanCodeCombinator}, scheduler, sys_call::sys_call::{self, HandlerType}, thread};
 
 pub fn init() {
     
@@ -104,14 +104,24 @@ pub extern "x86-interrupt" fn timer_handler(frame: InterruptStackFrame) {
  * ATA primary channel 的中断
  */
 pub extern "x86-interrupt" fn primary_channel_handler(frame: InterruptStackFrame) {
-    
+    printk!("primary channel interrupt");
+    pic::send_end_of_interrupt();
+    let primary_channel = device::get_ata_channel(0);
+    ASSERT!(primary_channel.irq_no == ChannelIrqNoEnum::Primary as u8);
+    // 该通道就绪了
+    primary_channel.channel_ready();
 }
 
 /**
  * ATA secondary channel 的中断
  */
 pub extern "x86-interrupt" fn secondary_channel_handler(frame: InterruptStackFrame) {
-
+    printk!("secondary channel interrupt");
+    pic::send_end_of_interrupt();
+    let primary_channel = device::get_ata_channel(1);
+    ASSERT!(primary_channel.irq_no == ChannelIrqNoEnum::Secondary as u8);
+    // 该通道就绪了
+    primary_channel.channel_ready();
 }
 
 /**

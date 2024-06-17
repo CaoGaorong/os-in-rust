@@ -38,7 +38,7 @@ pub struct ATAChannel {
     /**
      * 是否正在等待中断
      */
-    expecting_intr: bool,
+    pub expecting_intr: bool,
 
     /**
      * 同步锁
@@ -48,7 +48,7 @@ pub struct ATAChannel {
     /**
      * 使用信号量阻塞自己。当硬盘完成中断后产生的中断唤醒自己
      */
-    disk_done: Semaphore,
+    pub disk_done: Semaphore,
 
     /**
      * 一个通道可以挂在两个硬盘
@@ -173,6 +173,17 @@ impl ATAChannel {
         }
     }
 
+    pub fn channel_ready(&mut self) {
+        if !self.expecting_intr {
+            return;
+        }
+        self.expecting_intr = false;
+        // 唤醒等待的线程
+        self.disk_done.up();
+        let mut status_register = StatusRegister::empty();
+        pio::read_from_register(self.port_base as u8, CommandBlockRegister::RegularStatus(&mut status_register));
+    }
+
 }
 
 impl Disk {
@@ -185,12 +196,6 @@ impl Disk {
             primary_parts: [EMPTY_PART; 4],
             logical_parts: [EMPTY_PART; constants::DISK_LOGICAL_PARTITION_CNT],
         }
-    }
-
-    pub fn init(&mut self, name: &str, primary: bool, from_channel: *mut ATAChannel) {
-        self.name.copy_from_slice(name.as_bytes());
-        self.primary = primary;
-        self.from_channel = from_channel;
     }
 
     pub fn get_name(&self) -> &str {
@@ -254,6 +259,8 @@ impl Disk {
                 step.try_into().unwrap()
             };
 
+            printkln!("read sector");
+            printkln!("lba:{}, sec_once:{}", lba, sec_once);
             // 设置好要读取的扇区
             self.set_op_sector(lba.try_into().unwrap(), sec_once);
 
