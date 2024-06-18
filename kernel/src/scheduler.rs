@@ -53,6 +53,12 @@ pub fn schedule() {
     } else {
 
     }
+    if thread_management::get_ready_thread().is_empty() {
+        let idle_thread = unsafe { thread_management::IDLE_THREAD.get_mut() };
+        ASSERT!(idle_thread.is_some());
+        let thread = idle_thread.unwrap();
+        thread_management::wake_thread()
+    }
     ASSERT!(!thread_management::get_ready_thread().is_empty());
     let pcb_ready_tag = thread_management::get_ready_thread().pop();
     // 找到那个要运行的task

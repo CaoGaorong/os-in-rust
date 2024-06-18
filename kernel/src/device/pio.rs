@@ -15,42 +15,42 @@ use super::constant;
 /**
  * 从某一个把数据写入以port_base为端口起始的某个命令寄存器
  */
-pub fn write_to_register(port_base: u8, register: CommandBlockRegister) {
+pub fn write_to_register(port_base: u16, register: CommandBlockRegister) {
     
     match register {
         CommandBlockRegister::Data(buf, _) => {
             let port = constant::DATA_REGISTER_OFFSET + port_base;
             // 从缓冲区中，取出16字节的数据
             let data = unsafe { *(buf as *const _ as *const u16) };
-            Port::<u16>::new(port as u16).write(data);
+            Port::<u16>::new(port).write(data);
         },
         CommandBlockRegister::Feature(feature) => {
             let port = constant::FEATURE_REGISTER_OFFSET + port_base;
-            Port::<u8>::new(port as u16).write(feature);
+            Port::<u8>::new(port).write(feature);
         },
         CommandBlockRegister::SectorCount(sector_cnt) => {
             let port = constant::SECTOR_COUNT_REGISTER_OFFSET + port_base;
-            Port::<u8>::new(port as u16).write(sector_cnt);
+            Port::<u8>::new(port).write(sector_cnt);
         },
         CommandBlockRegister::LBALow(lba_low) => {
             let port = constant::LBA_LOW_REGISTER_OFFSET + port_base;
-            Port::<u8>::new(port as u16).write(lba_low);
+            Port::<u8>::new(port).write(lba_low);
         },
         CommandBlockRegister::LBAMid(lba_mid) => {
             let port = constant::LBA_MID_REGISTER_OFFSET + port_base;
-            Port::<u8>::new(port as u16).write(lba_mid);
+            Port::<u8>::new(port).write(lba_mid);
         },
         CommandBlockRegister::LBAHigh(lba_high) => {
             let port = constant::LBA_HIGH_REGISTER_OFFSET + port_base;
-            Port::<u8>::new(port as u16).write(lba_high);
+            Port::<u8>::new(port).write(lba_high);
         },
         CommandBlockRegister::Device(device) => {
             let port = constant::DEVICE_REGISTER_OFFSET + port_base;
-            Port::<u8>::new(port as u16).write(device.data);
+            Port::<u8>::new(port).write(device.data);
         },
         CommandBlockRegister::Command(command) => {
             let port = constant::COMMAND_REGISTER_OFFSET + port_base;
-            Port::<u8>::new(port as u16).write(command.data);
+            Port::<u8>::new(port).write(command.data);
         },
         _ => {
             printkln!("{:?} register could not to write", register);
@@ -62,21 +62,21 @@ pub fn write_to_register(port_base: u8, register: CommandBlockRegister) {
 /**
  * 从某个以port_base为起始端口的寄存器中读取数据
  */
-pub fn read_from_register(port_base: u8, register: CommandBlockRegister) {
+pub fn read_from_register(port_base: u16, register: CommandBlockRegister) {
     match register {
         CommandBlockRegister::Data(buf, bytes) => {
             let port = constant::DATA_REGISTER_OFFSET + port_base;
             // 开始批量读取。字节转成字。1字 = 2字节
-            port::read_words(port as u16, bytes / 2, buf.as_ptr() as u32)
+            port::read_words(port, bytes / 2, buf.as_ptr() as u32)
         },
         CommandBlockRegister::Error(mut error) => {
             let port = constant::ERROR_REGISTER_OFFSET + port_base;
-            let data = Port::<u8>::new(port as u16).read();
+            let data = Port::<u8>::new(port).read();
             error.data = data;
         },
         CommandBlockRegister::RegularStatus(status) => {
             let port = constant::STATUS_REGISTER_OFFSET + port_base;
-            let data = Port::<u8>::new(port as u16).read();
+            let data = Port::<u8>::new(port).read();
             status.data = data;
         },
         _ => {

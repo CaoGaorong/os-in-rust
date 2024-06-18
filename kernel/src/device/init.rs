@@ -74,6 +74,7 @@ pub fn ata_init() {
         // 初始化基本信息
         sprintf!(&mut channel.name, "ata{}", channel_idx);
         channel.port_base = port_base as u16;
+        printkln!("port base:0x{:x}", channel.port_base);
         channel.irq_no = irq_no as u8;
 
         let channel_ptr = channel as *mut _;
@@ -102,7 +103,7 @@ pub fn main_part_init(disk: &'static mut Disk) {
     let boot_sec_addr = memory::sys_malloc(size_of::<BootSector>());
     let buf = unsafe { core::slice::from_raw_parts_mut(boot_sec_addr as *mut u8, size_of::<BootSector>()) };
 
-    printkln!("before read sectors");
+    printkln!("sector size:{}", size_of::<BootSector>());
     // 读取该分区的第一个扇区，启动记录
     disk.read_sectors(0, 1, buf);
     printkln!("after read sectors");

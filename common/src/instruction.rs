@@ -59,3 +59,15 @@ pub fn load_esp() -> u32 {
     cur_esp
 }
 
+
+/**
+ * 执行hlt指令
+ */
+pub fn halt() {
+    unsafe {
+        asm!(
+            "sti",
+            "hlt"
+        )
+    }
+}

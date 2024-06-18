@@ -168,3 +168,8 @@ pub const DISK_MAX_SIZE: u64 = 80 * 1024 * 1024;
  * 硬盘中一个扇区的大小。512字节
  */
 pub const DISK_SECTOR_SIZE: usize = 512;
+
+/**
+ * idle线程的名称
+ */
+pub static IDLE_THREAD_NAME: &str = "idle";

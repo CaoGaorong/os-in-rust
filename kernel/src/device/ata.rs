@@ -1,6 +1,7 @@
 use core::{ptr, slice};
 
 use os_in_rust_common::{bitmap::BitMap, constants, linked_list::{LinkedList, LinkedNode}, printkln, MY_PANIC};
+use crate::println;
 
 use crate::sync::{Lock, Semaphore};
 
@@ -181,7 +182,7 @@ impl ATAChannel {
         // 唤醒等待的线程
         self.disk_done.up();
         let mut status_register = StatusRegister::empty();
-        pio::read_from_register(self.port_base as u8, CommandBlockRegister::RegularStatus(&mut status_register));
+        pio::read_from_register(self.port_base, CommandBlockRegister::RegularStatus(&mut status_register));
     }
 
 }
@@ -259,8 +260,6 @@ impl Disk {
                 step.try_into().unwrap()
             };
 
-            printkln!("read sector");
-            printkln!("lba:{}, sec_once:{}", lba, sec_once);
             // 设置好要读取的扇区
             self.set_op_sector(lba.try_into().unwrap(), sec_once);
 
@@ -269,7 +268,7 @@ impl Disk {
 
             // 然后进入阻塞。等待硬盘就绪的中断信号
             self.block();
-            
+
             // 检查硬盘是否准备好了
             if !self.ready_for_read() {
                 printkln!("failed to read disk. disk not ready, lba:{}, sec_once:{}", lba, sec_once);
@@ -328,7 +327,7 @@ impl Disk {
 
     fn select_disk(&self) {
         let ata_channel = unsafe { &*self.from_channel };
-        let port_base = ata_channel.port_base as u8;
+        let port_base = ata_channel.port_base;
         
         // device寄存器
         let device_register = CommandBlockRegister::Device(DeviceRegister::new(0, self.primary, true));
@@ -343,7 +342,9 @@ impl Disk {
     fn set_op_sector(&self, lba: u32, sector_cnt: u16) {
         // 得到ATA bus通道
         let ata_channel = unsafe { &*self.from_channel };
-        let port_base = ata_channel.port_base as u8;
+        let port_base = ata_channel.port_base;
+
+        println!("port_base:0x{:x}", port_base);
 
         // lba地址[0, 8)位
         pio::write_to_register(port_base, CommandBlockRegister::LBALow(lba as u8));
@@ -385,7 +386,7 @@ impl Disk {
         loop {
             let regular_status = CommandBlockRegister::RegularStatus(&mut status_register);
             // 读取status寄存器
-            pio::read_from_register(port_base as u8, regular_status);
+            pio::read_from_register(port_base, regular_status);
             // 不忙且可以数据请求
             if !status_register.busy() && status_register.data_request() {
                 break;
@@ -403,7 +404,7 @@ impl Disk {
         let port_base = ata_channel.port_base;
 
         // 从data寄存器中读取出数据，放到buf地址处的空间中
-        pio::read_from_register(port_base as u8, CommandBlockRegister::Data(buf, bytes));
+        pio::read_from_register(port_base, CommandBlockRegister::Data(buf, bytes));
     }
 
     /**
@@ -417,7 +418,7 @@ impl Disk {
         // 逐个字（2个字节）读取
         for start_byte in (0 .. bytes).step_by(2) {
             let register = CommandBlockRegister::Data(&buf[start_byte as usize ..], 2);
-            pio::write_to_register(port_base as u8, register);
+            pio::write_to_register(port_base, register);
 
             // 刷新一下，再写入
             self.set_command(PIOCommand::Flush);
