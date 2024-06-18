@@ -1,4 +1,4 @@
-use core::mem::size_of;
+use core::{mem::size_of, ptr, task};
 
 use os_in_rust_common::{
     constants, elem2entry, instruction, linked_list::LinkedList, printkln, racy_cell::RacyCell, ASSERT
@@ -18,10 +18,19 @@ pub static ALL_THREAD_LIST: RacyCell<LinkedList> = RacyCell::new(LinkedList::new
  */
 pub static READY_THREAD_LIST: RacyCell<LinkedList> = RacyCell::new(LinkedList::new());
 
-/**
- * idle 线程
- */
-pub static IDLE_THREAD: RacyCell<Option<&'static mut TaskStruct>> = RacyCell::new(Option::None);
+lazy_static! {
+    /**
+     * idle 线程
+     */
+    // pub static ref IDLE_TASK: &TaskStruct = (&thread_start(constants::IDLE_THREAD_NAME, constants::TASK_DEFAULT_PRIORITY, idle_thread, 0).task_struct);
+    pub static ref IDLE_TASK_ADDR: RacyCell<u32> = RacyCell::new((&thread_start(constants::IDLE_THREAD_NAME, constants::TASK_DEFAULT_PRIORITY, idle_thread, 0).task_struct) as *const TaskStruct as u32);
+    // pub static ref IDLE_TASK_ADDR: RacyCell<usize> = RacyCell::new(IDLE_TASK_ADDR);
+    // pub static ref IDLE_THREAD: &'static mut TaskStruct = unsafe {&mut IDLE_TASK};
+}
+
+// pub static IDLE_THREAD: RacyCell<*mut TaskStruct> = RacyCell::new(ptr::null_mut());
+// pub static IDLE_THREAD: Mute<&'static mut TaskStruct> = Option::None;
+
 
 pub fn get_all_thread() -> &'static mut LinkedList{
     unsafe { ALL_THREAD_LIST.get_mut() }
@@ -33,13 +42,12 @@ pub fn get_ready_thread() -> &'static mut LinkedList{
 }
 
 
-pub fn get_idle_thread() -> Option<&'static mut TaskStruct> {
-    let idle_thread = unsafe { IDLE_THREAD.get_mut() };
-    if idle_thread.is_none() {
-        return Option::None
-    }
-    let idle_thread = idle_thread.take();
-
+pub fn get_idle_thread() -> &'static mut TaskStruct {
+    // let task_pcb = unsafe { IDLE_TASK_PCB.get_mut() };
+    // &mut task_pcb.task_struct
+    let task_addr = unsafe { IDLE_TASK_ADDR.get_mut() };
+    unsafe { &mut *(*task_addr as *mut TaskStruct) }
+    
 }
 
 /**
@@ -76,8 +84,9 @@ pub fn make_thread_main() {
 }
 
 pub fn make_idle_thread() {
-    let idle_task = thread_start(constants::IDLE_THREAD_NAME, constants::TASK_DEFAULT_PRIORITY, idle_thread, 0);
-    unsafe { *IDLE_THREAD.get_mut() = Option::Some(&mut idle_task.task_struct) };
+    let idle_task = &mut thread_start(constants::IDLE_THREAD_NAME, constants::TASK_DEFAULT_PRIORITY, idle_thread, 0).task_struct;
+    let mut global_idle_thread = get_idle_thread();
+    global_idle_thread = idle_task;
 }
 
 /**

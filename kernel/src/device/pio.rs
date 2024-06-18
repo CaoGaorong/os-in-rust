@@ -22,34 +22,42 @@ pub fn write_to_register(port_base: u16, register: CommandBlockRegister) {
             let port = constant::DATA_REGISTER_OFFSET + port_base;
             // 从缓冲区中，取出16字节的数据
             let data = unsafe { *(buf as *const _ as *const u16) };
+            // printkln!("write to port: 0x{:x}, data: 0b{:b}", port, data);
             Port::<u16>::new(port).write(data);
         },
         CommandBlockRegister::Feature(feature) => {
             let port = constant::FEATURE_REGISTER_OFFSET + port_base;
+            // printkln!("write to port: 0x{:x}, feature: 0b{:b}", port, feature);
             Port::<u8>::new(port).write(feature);
         },
         CommandBlockRegister::SectorCount(sector_cnt) => {
             let port = constant::SECTOR_COUNT_REGISTER_OFFSET + port_base;
+            // printkln!("write to port: 0x{:x}, sector_cnt: 0b{:b}", port, sector_cnt);
             Port::<u8>::new(port).write(sector_cnt);
         },
         CommandBlockRegister::LBALow(lba_low) => {
             let port = constant::LBA_LOW_REGISTER_OFFSET + port_base;
+            // printkln!("write to port: 0x{:x}, lba_low: 0b{:b}", port, lba_low);
             Port::<u8>::new(port).write(lba_low);
         },
         CommandBlockRegister::LBAMid(lba_mid) => {
             let port = constant::LBA_MID_REGISTER_OFFSET + port_base;
+            // printkln!("write to port: 0x{:x}, lba_mid: 0b{:b}", port, lba_mid);
             Port::<u8>::new(port).write(lba_mid);
         },
         CommandBlockRegister::LBAHigh(lba_high) => {
             let port = constant::LBA_HIGH_REGISTER_OFFSET + port_base;
+            // printkln!("write to port: 0x{:x}, lba_high: 0b{:b}", port, lba_high);
             Port::<u8>::new(port).write(lba_high);
         },
         CommandBlockRegister::Device(device) => {
             let port = constant::DEVICE_REGISTER_OFFSET + port_base;
+            // printkln!("write to port: 0x{:x}, device.data: 0b{:b}", port, device.data);
             Port::<u8>::new(port).write(device.data);
         },
         CommandBlockRegister::Command(command) => {
             let port = constant::COMMAND_REGISTER_OFFSET + port_base;
+            // printkln!("write to port: 0x{:x}, command.data: 0x{:x}", port, command.data);
             Port::<u8>::new(port).write(command.data);
         },
         _ => {
@@ -100,7 +108,7 @@ pub enum CommandBlockRegister<'a> {
     /**
      * error寄存器数据 ，port base + 1
      */
-    Error(ErrorRegister),
+    Error(&'a mut ErrorRegister),
     /**
      * feature寄存器数据 ，port base + 1
      */
@@ -138,7 +146,14 @@ pub enum CommandBlockRegister<'a> {
 #[derive(Debug)]
 #[repr(transparent)]
 pub struct ErrorRegister {
-    data: u8,
+    pub data: u8,
+}
+impl ErrorRegister {
+    pub fn empty() -> Self {
+        Self {
+            data: 0,
+        }
+    }
 }
 
 /**
@@ -207,7 +222,7 @@ enum StatusRegisterBitEnum {
 #[derive(Debug)]
 #[repr(transparent)]
 pub struct StatusRegister {
-    data: u8
+    pub data: u8
 }
 impl StatusRegister {
     pub fn empty() -> Self {
@@ -235,7 +250,7 @@ impl StatusRegister {
      */
     fn is_set(&self, bit_enum: StatusRegisterBitEnum) -> bool {
         let idx = bit_enum as u8;
-        self.data & (1 << idx) >> idx  == 0x1
+        (self.data & (1 << idx)) >> idx  == 0x1
     }
 
 }

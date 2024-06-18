@@ -1,7 +1,7 @@
 use core::cell::UnsafeCell;
 
 #[repr(transparent)]
-pub struct RacyCell<T>(UnsafeCell<T>);
+pub struct RacyCell<T:  ?Sized>(UnsafeCell<T>);
 
 impl<T> RacyCell<T> {
     pub const fn new(v: T) -> Self {
@@ -18,5 +18,6 @@ impl<T> RacyCell<T> {
     }
 }
 
-unsafe impl<T> Send for RacyCell<T> where T: Send {}
-unsafe impl<T: Sync> Sync for RacyCell<T> {}
+unsafe impl<T: ?Sized> Send for RacyCell<T> where T: Send {}
+
+unsafe impl<T: Sync + ?Sized> Sync for RacyCell<T> {}

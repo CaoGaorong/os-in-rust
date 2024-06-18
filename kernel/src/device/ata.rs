@@ -1,7 +1,7 @@
 use core::{ptr, slice};
 
-use os_in_rust_common::{bitmap::BitMap, constants, linked_list::{LinkedList, LinkedNode}, printkln, MY_PANIC};
-use crate::println;
+use os_in_rust_common::{bitmap::BitMap, constants, linked_list::{LinkedList, LinkedNode}, printk, printkln, MY_PANIC};
+use crate::{device::pio::ErrorRegister, println};
 
 use crate::sync::{Lock, Semaphore};
 
@@ -176,13 +176,16 @@ impl ATAChannel {
 
     pub fn channel_ready(&mut self) {
         if !self.expecting_intr {
+            printkln!("inter ignored");
             return;
         }
         self.expecting_intr = false;
+        printkln!("disk up");
         // 唤醒等待的线程
         self.disk_done.up();
         let mut status_register = StatusRegister::empty();
         pio::read_from_register(self.port_base, CommandBlockRegister::RegularStatus(&mut status_register));
+
     }
 
 }
@@ -202,6 +205,7 @@ impl Disk {
     pub fn get_name(&self) -> &str {
         core::str::from_utf8(&self.name).expect("get ata channel name error")
     }
+
     pub fn identify(&mut self) {
         // 该硬盘归属的通道
         self.select_disk();
@@ -286,7 +290,7 @@ impl Disk {
     /**
      * 把buf的数据写入到lba_start起始的地址 的连续 sec_cnt个扇区中
      */
-    pub fn write_sector(&self, buf: &[u8], lba_start: usize, sec_cnt: usize) {
+    pub fn write_sector(&mut self, buf: &[u8], lba_start: usize, sec_cnt: usize) {
         let lba_end = lba_start + sec_cnt;
         if lba_end > (constants::DISK_MAX_SIZE / constants::DISK_SECTOR_SIZE as u64) as usize {
             printkln!("error to read sector. exceed maximum sector. lba:{}, sec_cnt:{}", lba_start, sec_cnt);
@@ -365,13 +369,14 @@ impl Disk {
     /**
      * 设置要操作的命令，读或者写
      */
-    fn set_command(&self, command: pio::PIOCommand) {
+    fn set_command(&mut self, command: pio::PIOCommand) {
         // 得到ATA bus通道
-        let ata_channel = unsafe { &*self.from_channel };
+        let ata_channel = unsafe { &mut *self.from_channel };
         let port_base = ata_channel.port_base;
         
         // 往命令寄存器写入操作的命令。读或者写
-        pio::write_to_register(port_base.try_into().unwrap(), CommandBlockRegister::Command(CommandRegister::new(command)))
+        pio::write_to_register(port_base.try_into().unwrap(), CommandBlockRegister::Command(CommandRegister::new(command)));
+        ata_channel.expecting_intr = true;
     }
 
     /**
@@ -388,9 +393,13 @@ impl Disk {
             // 读取status寄存器
             pio::read_from_register(port_base, regular_status);
             // 不忙且可以数据请求
-            if !status_register.busy() && status_register.data_request() {
-                break;
+            if !status_register.busy() {
+                if  status_register.data_request() {
+                    return true;
+                }
+                return false;
             }
+            printk!("status:0b{:b}, not ready", status_register.data);
         }
         return true;
     }
@@ -410,7 +419,7 @@ impl Disk {
     /**
      * 把buf寄存器中bytes个字节的数据，写入到该通道的data寄存器中
      */
-    fn write_bytes(&self, buf: &[u8], bytes: u32) {
+    fn write_bytes(&mut self, buf: &[u8], bytes: u32) {
         // 得到ATA bus通道
         let ata_channel = unsafe { &*self.from_channel };
         let port_base = ata_channel.port_base;

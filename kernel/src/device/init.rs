@@ -74,7 +74,6 @@ pub fn ata_init() {
         // 初始化基本信息
         sprintf!(&mut channel.name, "ata{}", channel_idx);
         channel.port_base = port_base as u16;
-        printkln!("port base:0x{:x}", channel.port_base);
         channel.irq_no = irq_no as u8;
 
         let channel_ptr = channel as *mut _;
@@ -86,6 +85,9 @@ pub fn ata_init() {
             disk.primary = disk_primary;
             disk.from_channel = channel_ptr;
             disk_start += 1;
+            
+            // 识别硬盘
+            disk.identify();
 
             // 开始扫描该硬盘下的分区
             main_part_init(disk);
@@ -116,7 +118,6 @@ pub fn main_part_init(disk: &'static mut Disk) {
     for (idx, part_entry) in part_table.iter().enumerate() {
         // 空分区。忽略
         if part_entry.is_empty() {
-            printkln!("part is empty, part entry idx:{}", idx);
             continue;
         }
         // 非扩展分区，是 有数据的主分区

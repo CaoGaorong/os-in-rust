@@ -53,11 +53,10 @@ pub fn schedule() {
     } else {
 
     }
+    // 如果没有就绪任务，那么就执行idle线程
     if thread_management::get_ready_thread().is_empty() {
-        let idle_thread = unsafe { thread_management::IDLE_THREAD.get_mut() };
-        ASSERT!(idle_thread.is_some());
-        let thread = idle_thread.unwrap();
-        thread_management::wake_thread()
+        let idle_thread = thread_management::get_idle_thread();
+        thread_management::wake_thread(idle_thread);
     }
     ASSERT!(!thread_management::get_ready_thread().is_empty());
     let pcb_ready_tag = thread_management::get_ready_thread().pop();
@@ -74,10 +73,7 @@ pub fn schedule() {
     // 激活这个进程
     task_to_run.activate_process();
 
-    // 要之前的程序是内核程序，更换页表后，才可以使用输出语句
-    if task_to_run.pgdir == ptr::null_mut() {
-        // println!("switch from:{}, to:{}", cur_task.name as &str, task_to_run.name as &str);
-    }
+    // printkln!("switch from:{}, to:{}", cur_task.name as &str, task_to_run.name as &str);
 
     // 从当前的任务，切换到要运行的任务j
     switch_to(cur_task, task_to_run);

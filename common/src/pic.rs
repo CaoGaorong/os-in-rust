@@ -115,10 +115,10 @@ impl ChainedPics {
         self.secondary.data_port.write(icw4.data);
 
         // 主片，打开时钟中断、键盘中断、以及从片的中断
-        self.primary.data_port.write(OCW1::new(0b11111100).data);
+        self.primary.data_port.write(OCW1::new(0b11111000).data);
         wait();
         // 打开从片的硬盘中断
-        self.secondary.data_port.write(OCW1::new(0b11111111).data);
+        self.secondary.data_port.write(OCW1::new(0b10111111).data);
         wait();
 
         // self.primary.data_port.write(primary_mask);
