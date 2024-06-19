@@ -5,7 +5,7 @@ mod page_table;
 
 use core::{arch::asm, panic::PanicInfo};
 
-use os_in_rust_common::{context::BootContext, disk, gdt::{self, GlobalDescriptorTable}, paging::PageTable, racy_cell::RacyCell, reg_cr0::{self, CR0}, reg_cr3::CR3};
+use os_in_rust_common::{context::BootContext, disk, gdt::{self, GlobalDescriptorTable}, paging::PageTable, printkln, racy_cell::RacyCell, reg_cr0::{self, CR0}, reg_cr3::CR3};
 
 
 static BOOT_CONTEXT: RacyCell<BootContext> = RacyCell::new(BootContext {
@@ -45,24 +45,64 @@ pub extern "C" fn _start(boot_info: &BootContext) {
     // 加载内核
     disk::read_disk(7, 200, 0xc0001500);
 
-    unsafe {
-        // 跳转，使用ATT风格
-        asm!("jmp $0x8, $2f", "2:", options(att_syntax));
-        asm!(
-            ".code32",
-            "mov esp, 0xc009f000",
-            "push {0:e}",
-            "push 0xc0001500",
-            "pop {1:e}",
-            "call {1:e}",
-            in(reg) boot_info,
-            out(reg) _,
+    // unsafe {
+    //     asm!(
+    //         "push eax",
+    //         "add dword ptr [ebp-0x0C],01",
+    //         "mov eax,[ebp-0x0C]",
+
+    //         "ret", in("eax") enter_kernel,
+    //     )
+    // }
+    // hello();
+    enter_kernel(boot_info);
+
+    // unsafe {
+    //     // 跳转，使用ATT风格
+    //     asm!("jmp $0x8, $2f", "2:", options(att_syntax));
+    //     asm!(
+    //         ".code32",
+    //         "mov esp, 0xc009f000",
+    //         "push {0:e}",
+    //         "push 0xc0001500",
+    //         "pop {1:e}",
+    //         "call {1:e}",
+    //         in(reg) boot_info,
+    //         out(reg) _,
            
-        );
-    }
+    //     );
+    // }
     // loop {}
 }
 
+#[no_mangle]
+#[inline(always)]
+fn enter_kernel(boot_info: &BootContext) {
+    let boot_info_addr = boot_info as *const _ as usize;
+    unsafe {
+        asm!(
+            "mov esp, 0xc009f000",
+            "push {0:e}",
+            "push 0xffffffff",
+            "jmp 0x8, 0xc0001500",
+            in(reg) boot_info_addr
+
+        )
+    }
+}
+
+fn hello() {
+    let hello = b"Hello, World";
+    let vga_buffer = 0xb8000 as *mut u8;
+
+    for (i, &e) in hello.iter().enumerate() {
+        unsafe {
+            *vga_buffer.offset(i as isize * 2) = e;
+            *vga_buffer.offset(i as isize * 2 + 1) = 0xb;
+        }
+    }
+    loop {}
+}
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
     loop {}

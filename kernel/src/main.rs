@@ -37,6 +37,7 @@ static PROCESS_NAME: &str = "user process";
 #[no_mangle]
 #[link_section = ".start"]
 pub extern "C" fn _start(boot_info: &BootContext) {
+    // hello();
     printkln!("I'm Kernel!");
     
     init::init_all(boot_info);
@@ -57,6 +58,19 @@ pub extern "C" fn _start(boot_info: &BootContext) {
     loop {}
 }
 
+
+fn hello() {
+    let hello = b"Hello, World";
+    let vga_buffer = 0xC00b8000 as *mut u8;
+
+    for (i, &e) in hello.iter().enumerate() {
+        unsafe {
+            *vga_buffer.offset(i as isize * 2) = e;
+            *vga_buffer.offset(i as isize * 2 + 1) = 0xb;
+        }
+    }
+    loop {}
+}
 
 /**
  * 内核线程

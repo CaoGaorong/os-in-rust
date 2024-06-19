@@ -41,6 +41,6 @@ pub fn init_all(boot_info: &BootContext) {
     sys_call::sys_call_api::init();
 
     // 初始化硬盘ATA通道
-    device::ata_init();
+    // device::ata_init();
 
 }
