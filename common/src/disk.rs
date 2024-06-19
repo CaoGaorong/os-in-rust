@@ -60,6 +60,16 @@ enum CommandRegister {
  * mem_addr: 要加载到的内存地址
  */
 pub fn read_disk(lba: u32, num_sec: u8, mem_addr: u32) {
+    // 为了减缓速度，因此逐个扇区读取。否则因为qemu太快了，从而无法正常读取到数据
+    for sec_idx in 0..=num_sec {
+        read_disk_wrap(lba + sec_idx as u32, 1, mem_addr + (sec_idx as u32 * 512));
+    }
+}
+
+/**
+ * 读取磁盘。这里是直接读取的
+ */
+fn read_disk_wrap(lba: u32, num_sec: u8, mem_addr: u32) {
     // 先写入读磁盘的命令
     read_disk_command(lba, num_sec);
     // 查看磁盘准备好了没有

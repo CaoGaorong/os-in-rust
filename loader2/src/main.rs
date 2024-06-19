@@ -5,7 +5,7 @@ mod page_table;
 
 use core::{arch::asm, panic::PanicInfo};
 
-use os_in_rust_common::{context::BootContext, disk, gdt::{self, GlobalDescriptorTable}, paging::PageTable, printkln, racy_cell::RacyCell, reg_cr0::{self, CR0}, reg_cr3::CR3};
+use os_in_rust_common::{constants, context::BootContext, disk, gdt::{self, GlobalDescriptorTable}, instruction, paging::PageTable, racy_cell::RacyCell, reg_cr0::{self, CR0}, reg_cr3::CR3};
 
 
 static BOOT_CONTEXT: RacyCell<BootContext> = RacyCell::new(BootContext {
@@ -43,66 +43,41 @@ pub extern "C" fn _start(boot_info: &BootContext) {
     gdt::load_gdtr_by_addr(new_gdt_addr as *const GlobalDescriptorTable);
 
     // 加载内核
-    disk::read_disk(7, 200, 0xc0001500);
+    disk::read_disk(7, 200, constants::KERNEL_ADDR);
 
-    // unsafe {
-    //     asm!(
-    //         "push eax",
-    //         "add dword ptr [ebp-0x0C],01",
-    //         "mov eax,[ebp-0x0C]",
+    instruction::disable_interrupt();
 
-    //         "ret", in("eax") enter_kernel,
-    //     )
-    // }
-    // hello();
-    enter_kernel(boot_info);
-
-    // unsafe {
-    //     // 跳转，使用ATT风格
-    //     asm!("jmp $0x8, $2f", "2:", options(att_syntax));
-    //     asm!(
-    //         ".code32",
-    //         "mov esp, 0xc009f000",
-    //         "push {0:e}",
-    //         "push 0xc0001500",
-    //         "pop {1:e}",
-    //         "call {1:e}",
-    //         in(reg) boot_info,
-    //         out(reg) _,
-           
-    //     );
-    // }
-    // loop {}
+    // 使用jmp指令，跳转到内核
+    jump_to_kernel(boot_info);
 }
 
-#[no_mangle]
+
+/**
+ * 跳转进入内核。
+ *  - 先设置内核栈顶的地址
+ *  - 把内核入口需要的参数入栈
+ *  - 使用jmp指令跳转，刷新选择子
+ */
 #[inline(always)]
-fn enter_kernel(boot_info: &BootContext) {
-    let boot_info_addr = boot_info as *const _ as usize;
+fn jump_to_kernel(boot_info: &BootContext) {
     unsafe {
         asm!(
-            "mov esp, 0xc009f000",
-            "push {0:e}",
-            "push 0xffffffff",
+            // 设定栈顶地址
+            "mov esp, {0:e}",
+            // 把内核入口需要的参数传递
+            "push {1:e}",
+            // 这里是使用jmp指令模拟call指令，因此这里传入一个无用的值
+            // 进入到内核代码后，会认为栈顶是返回地址，栈顶 + 1 是入参
+            // 因此这样保证 boot_info 是作为参数传递的
+            "push 0x0",
             "jmp 0x8, 0xc0001500",
-            in(reg) boot_info_addr
+            in(reg) 0xc009f000u32,
+            in(reg) boot_info
 
         )
     }
 }
 
-fn hello() {
-    let hello = b"Hello, World";
-    let vga_buffer = 0xb8000 as *mut u8;
-
-    for (i, &e) in hello.iter().enumerate() {
-        unsafe {
-            *vga_buffer.offset(i as isize * 2) = e;
-            *vga_buffer.offset(i as isize * 2 + 1) = 0xb;
-        }
-    }
-    loop {}
-}
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
     loop {}
