@@ -25,10 +25,9 @@ mod page_util;
 mod device;
 
 
-use core::{arch::asm, mem::{self, size_of}, panic::PanicInfo};
+use core::{arch::asm, mem::size_of, panic::PanicInfo};
 use memory::mem_block::{Arena, MemBlock};
 use os_in_rust_common::{constants, context::BootContext, instruction::enable_interrupt, printk, printkln};
-use mutex::Mutex;
 use thread::ThreadArg;
 
 

@@ -53,6 +53,7 @@ fn main_extended_lba_base() -> &'static mut u32 {
 /**
  * ATA通道初始化
  */
+#[inline(never)]
 pub fn ata_init() {
     // 读取内存，得到硬盘的数量
     let disk_cnt = unsafe { *(constants::DISK_LOCATION_IN_MEMORY as *const u8) };
