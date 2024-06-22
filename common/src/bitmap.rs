@@ -3,6 +3,7 @@ use core::{fmt::Display, ptr};
 
 use crate::{printkln, ASSERT};
 
+#[derive(Debug)]
 #[repr(C, packed)]
 pub struct BitMap {
     /**

@@ -272,6 +272,7 @@ impl CommandRegister {
 }
 
 
+#[derive(Debug)]
 pub enum PIOCommand {
     // 识别硬盘命令
     Identify = 0xEC,

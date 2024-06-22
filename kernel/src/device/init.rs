@@ -158,7 +158,6 @@ pub fn extended_part_init(disk: &mut Disk, main_ext_lba: usize, mut logic_part_n
     let boot_sec_addr = memory::sys_malloc(size_of::<BootSector>());
     let buf = unsafe { core::slice::from_raw_parts_mut(boot_sec_addr as *mut u8, size_of::<BootSector>()) };
     // 读取该分区的第一个扇区，启动记录
-    printkln!("read main ext");
     disk.read_sectors(main_ext_lba, 1, buf);
     let boot_sector = unsafe { &*(boot_sec_addr as *const BootSector) };
 

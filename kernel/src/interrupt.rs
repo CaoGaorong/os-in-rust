@@ -104,7 +104,6 @@ pub extern "x86-interrupt" fn timer_handler(frame: InterruptStackFrame) {
  * ATA primary channel 的中断
  */
 pub extern "x86-interrupt" fn primary_channel_handler(frame: InterruptStackFrame) {
-    printk!("primary channel interrupt");
     pic::send_end_of_interrupt();
     let primary_channel = device::get_ata_channel(0);
     ASSERT!(primary_channel.irq_no == ChannelIrqNoEnum::Primary as u8);
@@ -116,7 +115,6 @@ pub extern "x86-interrupt" fn primary_channel_handler(frame: InterruptStackFrame
  * ATA secondary channel 的中断
  */
 pub extern "x86-interrupt" fn secondary_channel_handler(frame: InterruptStackFrame) {
-    printk!("secondary channel interrupt");
     pic::send_end_of_interrupt();
     let primary_channel = device::get_ata_channel(1);
     ASSERT!(primary_channel.irq_no == ChannelIrqNoEnum::Secondary as u8);

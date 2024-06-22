@@ -1,7 +1,7 @@
 
 use core::{mem::size_of, ptr};
 
-use os_in_rust_common::{constants, pool::MemPool, utils, ASSERT};
+use os_in_rust_common::{constants, pool::MemPool, printk, printkln, utils, ASSERT};
 
 use crate::{page_util, thread};
 
@@ -49,6 +49,8 @@ fn malloc_bytes(vaddr_pool: &mut MemPool, phy_mem_pool: &mut MemPool, allocator:
 
     // 先根据要申请的字节数量，找到匹配的容器
     let container = allocator.match_container(bytes);
+    let addr = container as *const _ as usize;
+    // printkln!("container addr: 0x{:x}", addr);
     
     // 上锁
     container.lock.lock();
@@ -63,6 +65,7 @@ fn malloc_bytes(vaddr_pool: &mut MemPool, phy_mem_pool: &mut MemPool, allocator:
         // arena - 1
         let arena  = mem_block.arena_addr();
         arena.apply_one();
+        container.lock.unlock();
         return mem_block as *const _ as usize;
     }
 

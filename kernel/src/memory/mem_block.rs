@@ -53,9 +53,10 @@ impl MemBlockAllocator {
     /**
      * 根据要分配的空间大小，找出大小匹配的容器
      */
+    #[inline(never)]
     pub fn match_container(&'static mut self, bytes: usize) -> &'static mut MemBlockContainer {
-        let container = &mut self.containers;
-        for container in container.iter_mut() {
+        let containers = &mut self.containers;
+        for container in containers.iter_mut() {
             if bytes <= container.block_size {
                 return container;
             }
@@ -147,7 +148,6 @@ impl MemBlockContainer {
         // 首先确保arena没有被用过
         ASSERT!(!arena.in_use());
 
-        println!("smash");
         // 这块空间可以碎成blocks块
         // 遍历每一块
         for block_idx in 0 .. arena.left_blocks() {
@@ -247,7 +247,7 @@ impl Arena {
      * 根据内存块的下标，在当前Arena中找到这个内存块
      */
     pub fn find_mem_block(&self, block_idx: usize) -> &'static mut MemBlock {
-        let mem_addr = (self as *const _ as usize) + size_of::<Arena>() + block_idx * size_of::<MemBlock>();
+        let mem_addr = (self as *const _ as usize) + size_of::<Arena>() + block_idx * self.block_size;
         unsafe { &mut *(mem_addr as *mut MemBlock) }
     }
     

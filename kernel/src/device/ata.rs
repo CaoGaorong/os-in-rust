@@ -19,6 +19,7 @@ use super::pio::{self, CommandBlockRegister, CommandRegister, DeviceRegister, PI
  * 
  * 一个机器可以挂在2个通道（主从），每个通道可以挂在2个硬盘（主从）。每个通道占据一个8259的中断端口
  */
+#[derive(Debug)]
 pub struct ATAChannel {
     /**
      * IDE通道名称
@@ -60,6 +61,7 @@ pub struct ATAChannel {
 /**
  * 一个硬盘的结构
  */
+#[derive(Debug)]
 pub struct Disk {
     /**
      * 硬盘的名称
@@ -90,6 +92,7 @@ pub struct Disk {
 /**
  * 硬盘中的分区结构（逻辑结构）
  */
+#[derive(Debug)]
 pub struct Partition {
     /**
      * 分区名称
@@ -131,6 +134,7 @@ pub struct Partition {
      */
     open_inodes: LinkedList,
 }
+#[derive(Debug)]
 pub struct SuperBlock {
 
 }
@@ -180,7 +184,6 @@ impl ATAChannel {
             return;
         }
         self.expecting_intr = false;
-        printkln!("disk up");
         // 唤醒等待的线程
         self.disk_done.up();
         let mut status_register = StatusRegister::empty();
@@ -347,8 +350,6 @@ impl Disk {
         // 得到ATA bus通道
         let ata_channel = unsafe { &*self.from_channel };
         let port_base = ata_channel.port_base;
-
-        println!("port_base:0x{:x}", port_base);
 
         // lba地址[0, 8)位
         pio::write_to_register(port_base, CommandBlockRegister::LBALow(lba as u8));

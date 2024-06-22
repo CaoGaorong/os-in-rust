@@ -40,8 +40,10 @@ hd: hd60M.img mbr.bin loader.bin loader2.bin kernel.bin hd80M.img
 build: hd mbr.bin loader.bin loader2.bin kernel.bin
 
 run: build
-	qemu-system-x86_64 \
-	-drive format=raw,file=build/hd60M.img \
+	qemu-system-i386 \
+	-hda build/hd60M.img \
+	-hdb build/hd80M.img \
+	--full-screen
 
 
 debug: build

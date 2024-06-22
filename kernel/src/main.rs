@@ -49,8 +49,15 @@ pub extern "C" fn _start(boot_info: &BootContext) {
     // thread_management::thread_start("thread_a", 5, kernel_thread, 0);
 
     printkln!("-----system started-----");
-    printkln!();
-
+    // 主通道。挂在2个硬盘
+    let primary = device::init::get_ata_channel(0);
+    
+    // 次通道。没硬盘
+    let secondary = device::init::get_ata_channel(1);
+    
+    // printkln!("{:?}", primary);
+    // printkln!("{:?}", secondary);
+    
     // // 测试一样空间的分配和释放
     // test_malloc_free();
 

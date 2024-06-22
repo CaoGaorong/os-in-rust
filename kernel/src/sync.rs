@@ -11,6 +11,7 @@ use crate::{console_println, thread::{self, TaskStruct}, thread_management};
  *      - 成功获取到信号量(value > 0)，则把value -= 1，直接成功
  *      - 如果信号量的值已经不够用(value <= 0)，那么当前线程就会进入阻塞队列（等待持有信号量的线程释放信号量后来唤醒），切换到其他就绪线程来执行
  */
+#[derive(Debug)]
 pub struct Semaphore {
     /**
      * 信号量的值
@@ -90,7 +91,8 @@ impl Semaphore {
  *      - holder: 锁的持有者。为了实现可重入锁
  *      - repeat: 锁重入次数。为了实现可重入锁
  */
-pub struct Lock {
+#[derive(Debug)]
+ pub struct Lock {
     /**
      * 信号量。锁本质是一个二元信号量。lock和unlock
      */
