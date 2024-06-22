@@ -1,9 +1,10 @@
 use core::{ptr, sync::atomic::{AtomicBool, Ordering}};
-use crate::{printkln, ASSERT};
+use crate::{printkln, ASSERT, MY_PANIC, printk};
 
 /**
  * 定义一个链表的节点
  */
+#[derive(Debug)]
 #[repr(C, packed)]
 pub struct LinkedNode {
     pub next: *mut LinkedNode,
@@ -16,98 +17,123 @@ impl LinkedNode {
             pre: ptr::null_mut(),
         }
     }
+    pub const fn init(&mut self) {
+        self.pre = ptr::null_mut();
+        self.next = ptr::null_mut();
+    }
 }
 unsafe impl Send for LinkedNode {}
 unsafe impl Sync for LinkedNode {}
 /**
- * 定义一个链表。有头链表。头结点和尾节点不是数据节点
+ * 定义一个链表。无头链表
  */
+#[derive(Debug)]
 pub struct LinkedList {
-    head: LinkedNode,
-    tail: LinkedNode,
-    initialized: bool,
-    cas: AtomicBool,
+    head: *mut LinkedNode,
+    tail: *mut LinkedNode,
+    lock: AtomicBool,
 }
+
+// 自己保证并发问题
+unsafe impl Send for LinkedList {}
+unsafe impl Sync for LinkedList {}
+
 impl LinkedList {
 
     pub const fn new() -> Self {
         Self {
-            head: LinkedNode::new(),
-            tail: LinkedNode::new(),
-            initialized: false,
-            cas: AtomicBool::new(false)
-        }
-    }
-
-    /**
-     * 这个方法没法使用const修饰。
-     * 并且这个方法没法放到new()里面，因为：
-     *  - 当前的LinkedList成员head和tail都是结构体，赋值的时候会把栈数据按位拷贝，并且所有权转移
-     *  - 而这里操作head.next和tail.pre指针，当在new()函数里面操作这个指针的话，那么指针指向的是局部变量的地址(栈内地址)
-     *  - 当new()函数返回后，head和tail已经按位拷贝赋值给返回值并且转移所有权了，但是指针指向的地址已经释放了。这就是悬挂指针
-     * 
-     * 所以这个方法只能在程序运行期间调用，不能在编译期间调用，因此不能设定为const
-     */
-    fn init(&mut self) {
-        // 如果已经初始化了，那就不用初始化了
-        if self.initialized {
-            return;
-        }
-        loop {
-            // 如果获取锁失败，重试。自旋
-            if !self.cas.compare_exchange(false, true, Ordering::Acquire, Ordering::Relaxed).is_ok() {
-                continue;
-            }
-            // 已经初始化了，不用初始化了 double check
-            if self.initialized {
-                return;
-            }
-            // 开始初始化
-            self.head.next = &mut self.tail;
-            self.tail.pre = &mut self.head;
-            // 设置为已经初始化
-            self.initialized = true;
-            // 释放乐观锁
-            self.cas.store(false, Ordering::Release);
-            return;
+            head: ptr::null_mut(),
+            tail: ptr::null_mut(),
+            lock: AtomicBool::new(false)
         }
     }
 
     /**
      * 该链表是否为空
      */
-    pub fn is_empty(&mut self) -> bool {
-        if self.head.next.is_null() || self.tail.pre.is_null() {
-            return true;
-        }
-        if self.head.next as u32 == &mut self.tail as *const _ as u32 {
+    pub fn is_empty(&self) -> bool {
+        if self.head == ptr::null_mut() || self.tail == ptr::null_mut() {
             return true;
         }
         return false;
     }
+
+    /**
+     * 自旋锁
+     */
+    fn lock(&self) {
+        loop {
+            // 获取到锁了
+            if self.lock.compare_exchange(false, true, Ordering::Acquire, Ordering::Relaxed).is_ok() {
+                return
+            }
+        }
+    }
+    fn unlock(&self) {
+        self.lock.store(false, Ordering::Release);
+    }
     /**
      * 往头部插入一个节点
-     * head <-> A <-> B <-> tail。往A的前面插入一个节点
+     * A <-> B。往A的前面插入一个节点
+     * |     |
+     * head tail
      */
     pub fn push(&mut self, node: &mut LinkedNode) {
-        self.init();
-        ASSERT!(self.initialized);
-        node.next = self.head.next;
-        node.pre = &mut self.head;
-        (unsafe { &mut *self.head.next }).pre = node;
-        self.head.next = node;
+        // 初始化，清空数据
+        node.init();
+
+        self.lock();
+        // 如果链表为空，
+        if self.is_empty() {
+            // 链表的头和尾都是该节点
+            self.head = node;
+            self.tail = node;
+            self.unlock();
+            return;
+        }
+
+        // 原先的头结点
+        let first_node = unsafe { &mut *self.head };
+
+        // node -> exist_node
+        node.next = first_node;
+        // node <- exist_node
+        first_node.pre = node;
+
+        // 设置为头结点
+        self.head = node;
+
+        self.unlock();
     }
     /**
      * 往尾部插入一个节点
-     * head <-> A <-> B <-> tail。往B的后面插入一个节点
+     * A <-> B。往B的后面插入一个节点
+     * |     |
+     * head tail
      */
     pub fn append(&mut self, node: &mut LinkedNode) {
-        self.init();
-        ASSERT!(self.initialized);
-        node.next = &mut self.tail;
-        node.pre = self.tail.pre;
-        (unsafe { &mut *self.tail.pre }).next = node;
-        self.tail.pre = node;
+        // 初始化，清空数据
+        node.init();
+
+        self.lock();
+
+        if self.is_empty() {
+            // 链表的头和尾都是该节点
+            self.head = node;
+            self.tail = node;
+            self.unlock();
+            return;
+        }
+        // 原先排最后的节点
+        let last_node =  unsafe { &mut *self.tail };
+
+        // 现在这个节点最后了
+        node.pre = last_node;
+        last_node.next = node;
+
+        self.tail = node;
+
+        self.unlock();
     }
 
     /**
@@ -115,16 +141,18 @@ impl LinkedList {
      * head <-> A <-> B <-> tail。A节点弹出
      */
     pub fn pop(&mut self) -> &mut LinkedNode {
-        self.init();
-        ASSERT!(self.initialized);
+        self.lock();
+        ASSERT!(!self.is_empty());
         // 要弹出的节点
-        let target_node = self.head.next;
-        // 弹出节点右边的接口
-        let right_node = unsafe { &mut *(&mut *target_node).next };
-        self.head.next = right_node;
-        right_node.pre = &mut self.head;
-        
-        unsafe { &mut *target_node }
+        let target_node = unsafe { &mut *self.head };
+        // 下一个节点变成了头节点
+        self.head = target_node.next;
+
+        self.refresh();
+        self.unlock();
+        target_node.pre == ptr::null_mut();
+        target_node.next == ptr::null_mut();
+        target_node
     }
 
     /**
@@ -134,16 +162,24 @@ impl LinkedList {
      *     head <-> A <-> C <-> tail
      */
     pub fn remove(&mut self, node: &LinkedNode) {
+        self.lock();
         if !self.contains(node) {
+            self.unlock();
             return;
         }
         // 该节点的上一个节点
         let pre = unsafe { &mut *node.pre };
         // 该节点的下一个节点
         let next = unsafe { &mut *node.next };
-        
-        pre.next = next as *mut _;
-        next.pre = pre as *mut _;
+
+        if pre.next != ptr::null_mut() {
+            pre.next = next as *mut _;
+        }
+        if next.pre != ptr::null_mut() {
+            next.pre = pre as *mut _;
+        }
+        self.refresh();
+        self.unlock();
     }
 
     /**
@@ -155,20 +191,42 @@ impl LinkedList {
         })
     }
 
+    /**
+     * 刷新一下。
+     * 因为删除元素的时候，头尾节点一直在变，但是为了保证遍历的时候的正确性，所以需要每次置空元素
+     * 因为在遍历元素的时候，是通过是否为null，从而判断是否结束的
+     */
+    fn refresh(&mut self) {
+        // 头结点没有上级
+        unsafe { &mut *self.head}.pre = ptr::null_mut();
+        // 尾结点没有上级
+        unsafe { &mut *self.tail}.next = ptr::null_mut();
+    }
+
     pub fn size(&self) -> usize {
         self.iter().count()
     }
     pub fn iter(&self) -> LinkedNodeIterator {
         LinkedNodeIterator {
-            current: self.head.next,
+            current: self.head,
             reversed: false,
         }
     }
     pub fn iter_reversed(&self) -> LinkedNodeIterator {
         LinkedNodeIterator {
-            current: self.tail.pre,
+            current: self.tail,
             reversed: true,
         }
+    }
+
+    pub fn print_list(&self) {
+        self.iter().for_each(|node| {
+            if node  == ptr::null_mut() {
+                return;
+            }
+            let cur_node = unsafe { &*node };
+            printkln!("0x{:x}: {:?}", node as usize, cur_node)
+        })
     }
 
 }
@@ -182,18 +240,14 @@ impl Iterator for LinkedNodeIterator {
     type Item = *mut LinkedNode;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.current.is_null() {
+        if self.current == ptr::null_mut() {
             return Option::None;
         }
         let current_node = unsafe { &mut *self.current };
-        // 上一个节点或者下一个节点为空，说明是head或者tail
-        if current_node.next.is_null() || current_node.pre.is_null() {
-            return Option::None;
-        }
-        if !self.reversed {
-            self.current = current_node.next;
-        } else {
+        if self.reversed {
             self.current = current_node.pre;
+        } else {
+            self.current = current_node.next;
         }
         return Some(current_node);
     }

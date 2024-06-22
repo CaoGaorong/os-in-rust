@@ -106,16 +106,13 @@ pub fn main_part_init(disk: &'static mut Disk) {
     let boot_sec_addr = memory::sys_malloc(size_of::<BootSector>());
     let buf = unsafe { core::slice::from_raw_parts_mut(boot_sec_addr as *mut u8, size_of::<BootSector>()) };
 
-    printkln!("sector size:{}", size_of::<BootSector>());
     // 读取该分区的第一个扇区，启动记录
     disk.read_sectors(0, 1, buf);
-    printkln!("after read sectors");
     let boot_sector = unsafe { &*(boot_sec_addr as *const BootSector) };
 
     // 得到分区表
     let part_table = &boot_sector.part_table;
 
-    printkln!("iterate disk partition");
     for (idx, part_entry) in part_table.iter().enumerate() {
         // 空分区。忽略
         if part_entry.is_empty() {
@@ -126,7 +123,6 @@ pub fn main_part_init(disk: &'static mut Disk) {
             // 填充该主分区的信息
             let primary_part = &mut disk.primary_parts[idx];
             let disk_name = core::str::from_utf8(&disk.name).expect("get ata channel name error");
-            printkln!("partition idx:{}, name: {}", idx, disk_name);
 
             sprintf!(&mut primary_part.name, "{}{}",disk_name, idx);
             primary_part.lba_start = part_entry.start_lba;
@@ -162,6 +158,7 @@ pub fn extended_part_init(disk: &mut Disk, main_ext_lba: usize, mut logic_part_n
     let boot_sec_addr = memory::sys_malloc(size_of::<BootSector>());
     let buf = unsafe { core::slice::from_raw_parts_mut(boot_sec_addr as *mut u8, size_of::<BootSector>()) };
     // 读取该分区的第一个扇区，启动记录
+    printkln!("read main ext");
     disk.read_sectors(main_ext_lba, 1, buf);
     let boot_sector = unsafe { &*(boot_sec_addr as *const BootSector) };
 

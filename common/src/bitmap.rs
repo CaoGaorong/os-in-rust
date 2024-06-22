@@ -12,7 +12,8 @@ pub struct BitMap {
     /**
      * 位图的大小；单位：字节
      */
-    pub size: usize
+    pub size: usize,
+    init: bool,
 }
 #[derive(Debug)]
 pub enum MemoryError {
@@ -28,7 +29,8 @@ impl BitMap {
     pub const fn new(bitmap: &[u8]) -> Self {
         Self {
             map_ptr: bitmap as *const [u8] as *mut u8,
-            size: bitmap.len()
+            size: bitmap.len(),
+            init: true
         }
     }
     // 一个空值
@@ -36,18 +38,27 @@ impl BitMap {
         Self {
             map_ptr: ptr::null_mut(),
             size: 0,
+            init: false
         }
+    }
+
+    pub fn init(&mut self, bitmap: &[u8]) {
+        self.map_ptr = bitmap as *const [u8] as *mut u8;
+        self.size = bitmap.len();
+        self.init = true; // 设置为初始化过了
     }
     /**
      * 把位图指向的空间清零
      */
     pub fn clear(&self) {
+        ASSERT!(self.init);
         unsafe { ptr::write_bytes(self.map_ptr, 0, self.size) }
     }
     /**
      * 在位图中申请cnt个连续的bit。返回申请到的bit在该位图的下标
      */
     pub fn apply_bits(&self, cnt: usize) -> Result<usize, MemoryError>{
+        ASSERT!(self.init);
         let mut successive_cnt = 0;
         // 遍历位图的每一个字节
         for i in  0..self.size {
@@ -76,6 +87,7 @@ impl BitMap {
      * 设置某一位
      */
     pub fn set_bit(&mut self, bit_idx: usize, val: bool) {
+        ASSERT!(self.init);
         ASSERT!(bit_idx <= self.size * 8);
 
         let byte_idx: isize = bit_idx as isize / 8;

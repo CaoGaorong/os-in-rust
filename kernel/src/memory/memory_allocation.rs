@@ -74,7 +74,7 @@ fn malloc_bytes(vaddr_pool: &mut MemPool, phy_mem_pool: &mut MemPool, allocator:
     arena.init(container as *mut _, 1, container.block_size());
     
     // 把这一个新鲜出炉的Arena，剁碎了，放入到容器中
-    container.smash(&arena);
+    container.smash(arena);
 
 
     // 从容器申请一个

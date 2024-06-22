@@ -231,9 +231,9 @@ impl Disk {
         let disk_name = core::str::from_utf8(&self.name).expect("invalid disk name");
         let sn_name = core::str::from_utf8(&identify_res.sn).expect("Invalid name");
         let module_name = core::str::from_utf8(&identify_res.module).expect("invalid moduel name");
-        printkln!("disk info: {},  sn: {}", disk_name, sn_name);
-        printkln!("module: {}", module_name);
-        printkln!("disk sector count: {}", identify_res.sec_cnt as u32);
+        // printkln!("disk info: {},  sn: {}", disk_name, sn_name);
+        // printkln!("module: {}", module_name);
+        // printkln!("disk sector count: {}", identify_res.sec_cnt as u32);
     }
     
 

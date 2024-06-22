@@ -27,7 +27,8 @@ mod device;
 
 use core::{arch::asm, mem::size_of, panic::PanicInfo};
 use memory::mem_block::{Arena, MemBlock};
-use os_in_rust_common::{constants, context::BootContext, instruction::enable_interrupt, printk, printkln};
+use os_in_rust_common::{ASSERT, constants, context::BootContext, elem2entry, instruction::enable_interrupt, printk, printkln};
+use os_in_rust_common::linked_list::{LinkedList, LinkedNode};
 use thread::ThreadArg;
 
 
@@ -53,7 +54,11 @@ pub extern "C" fn _start(boot_info: &BootContext) {
     // // 测试一样空间的分配和释放
     // test_malloc_free();
 
-    enable_interrupt();
+    // 测试链表
+    // test_linked_list();
+
+
+    // enable_interrupt();
     loop {}
 }
 
@@ -69,6 +74,38 @@ fn hello() {
         }
     }
     loop {}
+}
+
+#[derive(Debug)]
+struct StructDTO {
+    id: u32,
+    tag: LinkedNode,
+}
+
+fn test_linked_list() {
+    let mut linked_list = LinkedList::new();
+    let mut s1 = StructDTO {id: 1, tag: LinkedNode::new()};
+    linked_list.push(&mut s1.tag);
+
+    printkln!("list size:{}", linked_list.size());
+
+    let mut s2 = StructDTO {id: 2, tag: LinkedNode::new()};
+    linked_list.append(&mut s2.tag);
+
+    let mut s3 = StructDTO {id: 3, tag: LinkedNode::new()};
+    linked_list.append(&mut s3.tag);
+
+    let s11 = linked_list.pop();
+
+    let mut s4 = StructDTO {id: 4, tag: LinkedNode::new()};
+    linked_list.append(&mut s4.tag);
+
+
+    linked_list.iter().for_each(|node| {
+        let dto = unsafe{ &*elem2entry!(StructDTO, tag, node as usize)};
+        printkln!("cur addr:0x{:x}, {:?}", node as usize, *dto);
+    })
+
 }
 
 /**

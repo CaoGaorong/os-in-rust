@@ -52,9 +52,7 @@ impl MemPool {
     pub fn init(&mut self, addr_start: usize, granularity: usize, bitmap: &'static mut [u8]) {
         self.addr_start = addr_start;
         self.granularity = granularity;
-        self.bitmap.map_ptr = bitmap.as_mut_ptr();
-        self.bitmap.size = bitmap.len();
-        // self.bitmap.clear();
+        self.bitmap.init(bitmap);
     }
     /**
      * 申请page_cnt页的空间大小，返回申请到的该页的起始虚拟地址

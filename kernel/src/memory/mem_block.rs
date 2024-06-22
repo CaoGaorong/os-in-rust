@@ -2,6 +2,7 @@ use core::mem::{self, size_of};
 
 use lazy_static::lazy_static;
 use os_in_rust_common::{constants, elem2entry, linked_list::{LinkedList, LinkedNode}, printk, printkln, racy_cell::RacyCell, vga::print, ASSERT, MY_PANIC};
+use crate::println;
 
 use crate::sync::Lock;
 
@@ -101,7 +102,7 @@ pub struct MemBlockContainer {
     /**
      * 可用的内存块列表
      */
-    available_blocks_list: LinkedList,
+    pub available_blocks_list: LinkedList,
 }
 impl MemBlockContainer {
     pub const fn empty() -> Self {
@@ -122,6 +123,8 @@ impl MemBlockContainer {
         if block_list.is_empty() {
             return Option::None;
         }
+        // printkln!("before pop");
+        // block_list.print_list();
         // 从可用内存块列表中，取出一个内存块
         let mem_block_tag = block_list.pop();
         let mem_block = MemBlock::parse_by_tag(mem_block_tag);
@@ -144,6 +147,7 @@ impl MemBlockContainer {
         // 首先确保arena没有被用过
         ASSERT!(!arena.in_use());
 
+        println!("smash");
         // 这块空间可以碎成blocks块
         // 遍历每一块
         for block_idx in 0 .. arena.left_blocks() {
