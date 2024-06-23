@@ -3,6 +3,7 @@
 #![feature(abi_x86_interrupt)]
 #![feature(const_mut_refs)]
 #![feature(naked_functions)]
+#![feature(panic_info_message)]
 
 mod interrupt;
 mod init;
@@ -25,8 +26,12 @@ mod page_util;
 mod device;
 
 
+use core::ptr::slice_from_raw_parts;
+use core::{slice, str};
 use core::{arch::asm, mem::size_of, panic::PanicInfo};
+use device::ata::{Disk, Partition};
 use memory::mem_block::{Arena, MemBlock};
+use os_in_rust_common::{cstring_utils, instruction, vga, MY_PANIC};
 use os_in_rust_common::{ASSERT, constants, context::BootContext, elem2entry, instruction::enable_interrupt, printk, printkln};
 use os_in_rust_common::linked_list::{LinkedList, LinkedNode};
 use thread::ThreadArg;
@@ -37,7 +42,6 @@ static PROCESS_NAME: &str = "user process";
 #[no_mangle]
 #[link_section = ".start"]
 pub extern "C" fn _start(boot_info: &BootContext) {
-    // hello();
     printkln!("I'm Kernel!");
     
     init::init_all(boot_info);
@@ -50,13 +54,19 @@ pub extern "C" fn _start(boot_info: &BootContext) {
 
     printkln!("-----system started-----");
     // 主通道。挂在2个硬盘
-    let primary = device::init::get_ata_channel(0);
-    
+    let channel_idx = 0;
+    let primary = device::init::get_ata_channel(&channel_idx);
+    ASSERT!(primary.is_some());
+    let primary = primary.as_ref().unwrap();
     // 次通道。没硬盘
-    let secondary = device::init::get_ata_channel(1);
-    
-    // printkln!("{:?}", primary);
-    // printkln!("{:?}", secondary);
+    // let secondary = device::init::get_ata_channel(1);
+    printkln!("primary channel: ");
+    let channel_name = cstring_utils::read_from_bytes(&primary.name);
+    printk!("name:{}, port_base:{}, irq_no:{}", channel_name.unwrap(), primary.port_base, primary.irq_no);
+    printkln!("disk[0] ignored. disk[1]:");
+    let disk =  &primary.disks[1];
+    print_disk(disk.as_ref().unwrap());
+
     
     // // 测试一样空间的分配和释放
     // test_malloc_free();
@@ -67,6 +77,38 @@ pub extern "C" fn _start(boot_info: &BootContext) {
 
     // enable_interrupt();
     loop {}
+}
+
+fn print_disk(disk: &Disk) {
+    let disk_name =  cstring_utils::read_from_bytes(&disk.name);
+    ASSERT!(disk_name.is_some());
+    printkln!("name:{}, from_channel:{}, is_primary:{}", disk_name.unwrap(), disk.from_channel as usize, disk.primary);
+
+    let pp = &disk.primary_parts;
+    for (idx, part) in pp.iter().enumerate() {
+        printk!("primary part[{}]", idx);
+        if part.is_none() {
+            printk!(" is none\n");
+            continue;
+        }
+        print_partition(part.as_ref().unwrap());
+    }
+    
+    let lp = &disk.logical_parts;
+    for (idx, part) in lp.iter().enumerate() {
+        printk!("logical part[{}]", idx);
+        if part.is_none() {
+            printk!("is none\n");
+            continue;
+        }
+        print_partition(part.as_ref().unwrap());
+    }
+}
+
+fn print_partition(part: &Partition) {
+    let part_name =  cstring_utils::read_from_bytes(&part.name);
+    ASSERT!(part_name.is_some());
+    printkln!("name:{}, lba_start:{}, sec_cnt:{}, from_disk:{}", part_name.unwrap(), part.lba_start, part.sec_cnt, part.from_disk as usize);
 }
 
 
@@ -254,5 +296,9 @@ fn dummy_sleep(instruction_cnt: u32) {
 
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
+    printkln!("panic");
+    ASSERT!(info.message().is_some());
+    instruction::disable_interrupt();
+    vga::print(*info.message().unwrap());
     loop {}
 }

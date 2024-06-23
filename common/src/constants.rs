@@ -150,6 +150,20 @@ pub const IDE_CHANNEL_NAME_LEN: usize = 10;
 pub const DISK_NAME_LEN: usize = 10;
 
 /**
+ * ATA通道的数量
+ */
+pub const ATA_CHANNEL_CNT: usize = 2;
+/**
+ * 每个通道的磁盘数量
+ */
+pub const DISK_CNT_PER_CHANNEL: usize = 2;
+
+/**
+ * 每个硬盘主分区的数量
+ */
+pub const DISK_PRIMARY_PARTITION_CNT: usize = 4;
+
+/**
  * 硬盘逻辑分区的数量限制。理论上一个硬盘无限个逻辑分区，但是这里还是要限制一下
  */
 pub const DISK_LOGICAL_PARTITION_CNT: usize = 10;

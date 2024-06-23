@@ -105,7 +105,12 @@ pub extern "x86-interrupt" fn timer_handler(frame: InterruptStackFrame) {
  */
 pub extern "x86-interrupt" fn primary_channel_handler(frame: InterruptStackFrame) {
     pic::send_end_of_interrupt();
-    let primary_channel = device::get_ata_channel(0);
+    let channel_idx = 0;
+    let primary_channel = device::get_ata_channel(&channel_idx);
+    ASSERT!(primary_channel.is_some());
+    let primary_channel = primary_channel.as_mut();
+    ASSERT!(primary_channel.is_some());
+    let primary_channel = primary_channel.unwrap();
     ASSERT!(primary_channel.irq_no == ChannelIrqNoEnum::Primary as u8);
     // 该通道就绪了
     primary_channel.channel_ready();
@@ -116,10 +121,13 @@ pub extern "x86-interrupt" fn primary_channel_handler(frame: InterruptStackFrame
  */
 pub extern "x86-interrupt" fn secondary_channel_handler(frame: InterruptStackFrame) {
     pic::send_end_of_interrupt();
-    let primary_channel = device::get_ata_channel(1);
-    ASSERT!(primary_channel.irq_no == ChannelIrqNoEnum::Secondary as u8);
+    let channel_idx = 1;
+    let secondary_channel = device::get_ata_channel(&channel_idx);
+    ASSERT!(secondary_channel.is_some());
+    let secondary_channel = secondary_channel.as_mut().unwrap(); 
+    ASSERT!(secondary_channel.irq_no == ChannelIrqNoEnum::Secondary as u8);
     // 该通道就绪了
-    primary_channel.channel_ready();
+    secondary_channel.channel_ready();
 }
 
 /**

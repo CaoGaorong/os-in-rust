@@ -1,19 +1,24 @@
-use crate::{instruction, printkln};
+use core::fmt;
+
+use crate::{instruction, printkln, vga};
 
 
 // #[track_caller]
-pub fn _panic_spin(file: &str, line: u32, col: u32, condition: &str) {
+pub fn _panic_spin(file: &str, line: u32, col: u32, condition: fmt::Arguments) {
     // 把中断关闭
     instruction::disable_interrupt();
     printkln!("!!!!!PANIC!!!!");
-    printkln!("Panic in {} at {}:{}: {}", file, line, col, condition);
+    printkln!("Panic in {} at {}:{}", file, line, col);
+    vga::print(condition);
+    printkln!();
+
     loop {}
 }
 
 #[macro_export]
 macro_rules! MY_PANIC {
     ($($arg:tt)*) => {
-        $crate::assert::_panic_spin(file!(), line!(), column!(), $($arg)*);
+        $crate::assert::_panic_spin(file!(), line!(), column!(), format_args!($($arg)*));
     };
 }
 

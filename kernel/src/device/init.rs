@@ -1,7 +1,7 @@
-use core::{borrow::{Borrow, BorrowMut}, mem::size_of, sync::atomic::AtomicU32};
+use core::{borrow::{Borrow, BorrowMut}, ffi::CStr, mem::size_of, sync::atomic::AtomicU32};
 
 use lazy_static::lazy_static;
-use os_in_rust_common::{constants, linked_list::LinkedList, racy_cell::RacyCell, utils, ASSERT, printkln, sprintf};
+use os_in_rust_common::{constants, cstr_write, cstring_utils, linked_list::LinkedList, printkln, racy_cell::RacyCell, utils, ASSERT};
 
 use crate::{init, memory, println};
 use crate::device::ata::Partition;
@@ -15,7 +15,8 @@ const EMPTY_ATA_CHANNEL: ATAChannel = ATAChannel::empty();
 /**
  * 全局用的2个ATA通道。下面挂载了硬盘
  */
-pub static mut ALL_ATA_CHANNELS: [ATAChannel; 2] = [EMPTY_ATA_CHANNEL; 2];
+const NONE_CHANNEL: Option<ATAChannel> = Option::None;
+pub static mut ALL_ATA_CHANNELS: RacyCell<[Option<ATAChannel>; constants::ATA_CHANNEL_CNT]> = RacyCell::new([NONE_CHANNEL; constants::ATA_CHANNEL_CNT]);
 
 /**
  * 分区列表
@@ -30,10 +31,10 @@ static mut MAIN_EXT_LBA_BASE: RacyCell<u32> = RacyCell::new(0);
 /**
  * 获取该系统中的ATA Channel
  */
-pub fn get_ata_channel(channel_idx: usize) -> &'static mut ATAChannel {
-    unsafe { &mut ALL_ATA_CHANNELS[channel_idx] }
-    // let all_ata_channels = unsafe { ALL_ATA_CHANNELS.get_mut() };
-    // &mut all_ata_channels[channel_idx]
+pub fn get_ata_channel(channel_idx: &usize) -> &mut Option<ATAChannel> {
+    let all_channel = unsafe { ALL_ATA_CHANNELS.get_mut() };
+    let channel_opt = &mut all_channel[*channel_idx];
+    return channel_opt;
 }
 
 /**
@@ -62,36 +63,43 @@ pub fn ata_init() {
     let channel_cnt = utils::div_ceil(disk_cnt, 2) as usize;
     let mut disk_start: u8 = 0;
     
+    let mut buf = [0u8; 100];
     // 遍历每个通道
     for channel_idx in 0 .. channel_cnt {
         // 当前通道
-        let channel = get_ata_channel(channel_idx);
+        let mut channel = get_ata_channel(&channel_idx);
 
         let (port_base, irq_no) = if channel_idx == 0 {
             (ChannelPortBaseEnum::Primary, ChannelIrqNoEnum::Primary)
         } else {
             (ChannelPortBaseEnum::Secondary, ChannelIrqNoEnum::Secondary)
         };
-        // 初始化基本信息
-        sprintf!(&mut channel.name, "ata{}", channel_idx);
-        channel.port_base = port_base as u16;
-        channel.irq_no = irq_no as u8;
+        
+        cstr_write!(&mut buf, "ata {}", channel_idx);
 
+        *channel = Option::Some(ATAChannel::new(&buf, port_base, irq_no));
+        let channel = channel.as_mut().unwrap();
         let channel_ptr = channel as *mut _;
         // 初始化该通道下的两个硬盘
-        let disks = &mut channel.disks;
-        for (disk_idx, disk) in disks.iter_mut().enumerate() {
-            let disk_primary = disk_idx == 0;
-            sprintf!(&mut disk.name, "sd{}", (b'a' + disk_start));
-            disk.primary = disk_primary;
-            disk.from_channel = channel_ptr;
-            disk_start += 1;
-            
-            // 识别硬盘
-            disk.identify();
-
-            // 开始扫描该硬盘下的分区
-            main_part_init(disk);
+        
+        for disk_idx in 0 .. constants::DISK_CNT_PER_CHANNEL {
+            cstr_write!(&mut buf, "sd{}", char::from_u32((b'a' + disk_start) as u32).unwrap());
+            let mut disk = &mut channel.disks[disk_idx];
+            {
+                *disk = Option::Some(Disk::new(&buf, channel_ptr, disk_idx == 0));
+            }
+            match disk {
+                None => continue,
+                Some(d) => {
+                    disk_start += 1;
+                
+                    // 识别硬盘
+                    d.identify();
+    
+                    // 开始扫描该硬盘下的分区
+                    main_part_init(d);
+                },
+            }
         }
     }
 }
@@ -99,7 +107,7 @@ pub fn ata_init() {
 /**
  * 扫描该硬盘的主分区
  */
-pub fn main_part_init(disk: &'static mut Disk) {
+pub fn main_part_init(disk: &mut Disk) {
     let disk_ptr = disk as *const _;
 
     // 申请内存。为了防止栈溢出，因此不使用局部变量
@@ -112,7 +120,7 @@ pub fn main_part_init(disk: &'static mut Disk) {
 
     // 得到分区表
     let part_table = &boot_sector.part_table;
-
+    let mut buf = [0u8; 100];
     for (idx, part_entry) in part_table.iter().enumerate() {
         // 空分区。忽略
         if part_entry.is_empty() {
@@ -120,17 +128,18 @@ pub fn main_part_init(disk: &'static mut Disk) {
         }
         // 非扩展分区，是 有数据的主分区
         if !part_entry.is_extended() {
-            // 填充该主分区的信息
-            let primary_part = &mut disk.primary_parts[idx];
-            let disk_name = core::str::from_utf8(&disk.name).expect("get ata channel name error");
+            // 读取disk名称
+            let disk_name = cstring_utils::read_from_bytes(&disk.name);
+            ASSERT!(disk_name.is_some());
+            // 该分区名称 = 磁盘名称 + i
+            cstr_write!(&mut buf, "{}{}", disk_name.unwrap(), idx);
 
-            sprintf!(&mut primary_part.name, "{}{}",disk_name, idx);
-            primary_part.lba_start = part_entry.start_lba;
-            primary_part.sec_cnt = part_entry.sec_cnt;
-            primary_part.from_disk = disk_ptr;
+            // 填充该主分区的信息
+            let mut primary_part = &mut disk.primary_parts[idx];
+            *primary_part = Option::Some(Partition::new(&buf, part_entry.start_lba, part_entry.sec_cnt, disk_ptr));
             
             // 放到队列中
-            get_all_partition().append(&mut primary_part.tag);
+            get_all_partition().append(&mut primary_part.as_mut().unwrap().tag);
             
             continue;
         }
@@ -161,6 +170,7 @@ pub fn extended_part_init(disk: &mut Disk, main_ext_lba: usize, mut logic_part_n
     disk.read_sectors(main_ext_lba, 1, buf);
     let boot_sector = unsafe { &*(boot_sec_addr as *const BootSector) };
 
+    let mut buf = [0u8; 100];
     // 得到分区表
     let part_table = &boot_sector.part_table;
     for (idx, part_entry) in part_table.iter().enumerate() {
@@ -169,19 +179,21 @@ pub fn extended_part_init(disk: &mut Disk, main_ext_lba: usize, mut logic_part_n
         }
         // 不是扩展分区，那么是真正有数据的逻辑分区
         if !part_entry.is_extended() {
-
-            let logical_part = &mut disk.logical_parts[logic_part_no];
-            let disk_name = core::str::from_utf8(&disk.name).expect("get ata channel name error");
-            sprintf!(&mut logical_part.name, "{}{}", disk_name, idx);
-            logical_part.lba_start = part_entry.start_lba;
-            logical_part.sec_cnt = part_entry.sec_cnt;
-            logical_part.from_disk = disk_ptr;
+            // 得到磁盘名称
+            let disk_name = cstring_utils::read_from_bytes(&disk.name);
+            ASSERT!(disk_name.is_some());
+            // 该分区名称 = 磁盘名称 + i
+            cstr_write!(&mut buf, "{}{}", disk_name.unwrap(), logic_part_no + 5);
             
+            // 填充分区信息
+            let mut logical_part = &mut disk.logical_parts[logic_part_no];
             logic_part_no += 1;
             
-            // 把该逻辑分区加入队列
-            get_all_partition().append(&mut logical_part.tag);
+            *logical_part = Option::Some(Partition::new(&buf, main_ext_lba as u32 + part_entry.start_lba, part_entry.sec_cnt, disk_ptr));
             
+            let part = logical_part.as_mut().unwrap();
+            // 把该逻辑分区加入队列
+            get_all_partition().append(&mut part.tag);
             continue;
         }
 

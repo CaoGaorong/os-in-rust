@@ -1,6 +1,6 @@
 use core::{ptr, slice};
 
-use os_in_rust_common::{bitmap::BitMap, constants, linked_list::{LinkedList, LinkedNode}, printk, printkln, MY_PANIC};
+use os_in_rust_common::{bitmap::BitMap, constants, linked_list::{LinkedList, LinkedNode}, printk, printkln, ASSERT, MY_PANIC};
 use crate::{device::pio::ErrorRegister, println};
 
 use crate::sync::{Lock, Semaphore};
@@ -23,6 +23,7 @@ use super::pio::{self, CommandBlockRegister, CommandRegister, DeviceRegister, PI
 pub struct ATAChannel {
     /**
      * IDE通道名称
+     * 以C字符串的格式存储
      */
     pub name: [u8; constants::IDE_CHANNEL_NAME_LEN],
     /**
@@ -55,7 +56,7 @@ pub struct ATAChannel {
     /**
      * 一个通道可以挂在两个硬盘
      */
-    pub disks: [Disk; 2],
+    pub disks: [Option<Disk>; constants::DISK_CNT_PER_CHANNEL],
 }
 
 /**
@@ -65,6 +66,7 @@ pub struct ATAChannel {
 pub struct Disk {
     /**
      * 硬盘的名称
+     * 以C字符串的格式存储
      */
     pub name: [u8; constants::DISK_NAME_LEN],
     /**
@@ -81,12 +83,12 @@ pub struct Disk {
     /**
      * 一个硬盘最多4个主分区
      */
-    pub primary_parts: [Partition; 4],
+    pub primary_parts: [Option<Partition>; constants::DISK_PRIMARY_PARTITION_CNT],
 
     /**
      * 逻辑分区。理论上一个硬盘无限多个逻辑分区数量
      */
-    pub logical_parts: [Partition; constants::DISK_LOGICAL_PARTITION_CNT],
+    pub logical_parts: [Option<Partition>; constants::DISK_LOGICAL_PARTITION_CNT],
 }
 
 /**
@@ -96,6 +98,7 @@ pub struct Disk {
 pub struct Partition {
     /**
      * 分区名称
+     * 以C字符串的格式存储
      */
     pub name: [u8; constants::DISK_NAME_LEN],
     /**
@@ -166,7 +169,7 @@ pub enum ChannelIrqNoEnum {
 
 impl ATAChannel {
     pub const fn empty() -> Self {
-        const EMPTY_DISK: Disk = Disk::empty();
+        const ARRAY_REPEAT_VALUE: Option<Disk> = None;
         Self {
             name: [0; constants::IDE_CHANNEL_NAME_LEN],
             port_base: 0,
@@ -174,9 +177,26 @@ impl ATAChannel {
             expecting_intr: false,
             lock: Lock::new(),
             disk_done: Semaphore::new(0),
-            disks: [EMPTY_DISK; 2],
+            disks: [ARRAY_REPEAT_VALUE; constants::DISK_CNT_PER_CHANNEL],
         }
     }
+
+    pub fn new(name: &[u8], port_base: ChannelPortBaseEnum, irq_no: ChannelIrqNoEnum) -> Self {
+        ASSERT!(name.len() >= constants::IDE_CHANNEL_NAME_LEN);
+        let mut name_buf = [0; constants::IDE_CHANNEL_NAME_LEN];
+        name_buf.copy_from_slice(&name[0 .. constants::IDE_CHANNEL_NAME_LEN]);
+        const ARRAY_REPEAT_VALUE: Option<Disk> = None;
+        Self {
+            name: name_buf,
+            port_base: port_base as u16,
+            irq_no: irq_no as u8,
+            expecting_intr: false,
+            lock: Lock::new(),
+            disk_done: Semaphore::new(0),
+            disks: [ARRAY_REPEAT_VALUE; constants::DISK_CNT_PER_CHANNEL],
+        }
+    }
+
 
     pub fn channel_ready(&mut self) {
         if !self.expecting_intr {
@@ -195,13 +215,27 @@ impl ATAChannel {
 
 impl Disk {
     pub const fn empty() -> Self {
-        const EMPTY_PART: Partition = Partition::empty();
+        const ARRAY_REPEAT_VALUE: Option<Partition> = None;
         Self {
             name:  [0; constants::DISK_NAME_LEN],
             from_channel: ptr::null_mut(),
             primary: false,
-            primary_parts: [EMPTY_PART; 4],
-            logical_parts: [EMPTY_PART; constants::DISK_LOGICAL_PARTITION_CNT],
+            primary_parts: [ARRAY_REPEAT_VALUE; 4],
+            logical_parts: [ARRAY_REPEAT_VALUE; constants::DISK_LOGICAL_PARTITION_CNT],
+        }
+    }
+
+    pub fn new(name: &[u8], from_channel:  *mut ATAChannel, primary: bool) -> Self {
+        ASSERT!(name.len() >= constants::DISK_NAME_LEN);
+        let mut name_buf = [0; constants::DISK_NAME_LEN];
+        name_buf.copy_from_slice(&name[0 .. constants::DISK_NAME_LEN]);
+        const ARRAY_REPEAT_VALUE: Option<Partition> = None;
+        Self {
+            name: name_buf,
+            from_channel: from_channel,
+            primary: primary,
+            primary_parts: [ARRAY_REPEAT_VALUE; constants::DISK_PRIMARY_PARTITION_CNT],
+            logical_parts: [ARRAY_REPEAT_VALUE; constants::DISK_LOGICAL_PARTITION_CNT],
         }
     }
 
@@ -472,6 +506,23 @@ impl Partition {
             lba_start: 0,
             sec_cnt: 0,
             from_disk: ptr::null(),
+            tag: LinkedNode::new(),
+            super_block: Option::None,
+            block_bitmap: BitMap::empty(),
+            inode_bitmap: BitMap::empty(),
+            open_inodes: LinkedList::new(),
+        }
+    }
+
+    pub fn new(name: &[u8], lba_start: u32, sec_cnt: u32, from_disk: *const Disk) -> Self {
+        ASSERT!(name.len() >= constants::DISK_NAME_LEN);
+        let mut name_buf = [0; constants::DISK_NAME_LEN];
+        name_buf.copy_from_slice(&name[0 .. constants::DISK_NAME_LEN]);
+        Self {
+            name: name_buf,
+            lba_start: lba_start,
+            sec_cnt: sec_cnt,
+            from_disk: from_disk,
             tag: LinkedNode::new(),
             super_block: Option::None,
             block_bitmap: BitMap::empty(),

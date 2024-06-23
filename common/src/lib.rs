@@ -28,3 +28,4 @@ pub mod linked_list;
 pub mod pit;
 pub mod reg_eflags;
 pub mod queue;
+pub mod cstring_utils;
