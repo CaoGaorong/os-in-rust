@@ -31,6 +31,7 @@ use core::ptr::slice_from_raw_parts;
 use core::{slice, str};
 use core::{arch::asm, mem::size_of, panic::PanicInfo};
 use device::ata::{Disk, Partition};
+use filesystem::superblock::SuperBlock;
 use memory::mem_block::{Arena, MemBlock};
 use os_in_rust_common::{cstring_utils, instruction, vga, MY_PANIC};
 use os_in_rust_common::{ASSERT, constants, context::BootContext, elem2entry, instruction::enable_interrupt, printk, printkln};
@@ -50,7 +51,7 @@ pub extern "C" fn _start(boot_info: &BootContext) {
     // 打印线程信息
     // thread_management::print_thread();
 
-    process::process_execute(PROCESS_NAME, u_prog_a);
+    // process::process_execute(PROCESS_NAME, u_prog_a);
     // thread_management::thread_start("thread_a", 5, kernel_thread, 0);
 
     printkln!("-----system started-----");
@@ -58,16 +59,17 @@ pub extern "C" fn _start(boot_info: &BootContext) {
     let channel_idx = 0;
     let primary = device::init::get_ata_channel(&channel_idx);
     ASSERT!(primary.is_some());
-    let primary = primary.as_ref().unwrap();
+    let primary = primary.as_mut().unwrap();
     // 次通道。没硬盘
     // let secondary = device::init::get_ata_channel(1);
     printkln!("primary channel: ");
     let channel_name = cstring_utils::read_from_bytes(&primary.name);
-    printk!("name:{}, port_base:{}, irq_no:{}", channel_name.unwrap(), primary.port_base, primary.irq_no);
+    printk!("name:{}, port_base:0x{:x}, irq_no: 0x{:x} ", channel_name.unwrap(), primary.port_base, primary.irq_no);
     printkln!("disk[0] ignored. disk[1]:");
-    let disk =  &primary.disks[1];
+    let disk =  &mut primary.disks[1];
     print_disk(disk.as_ref().unwrap());
 
+    read_disk(disk.as_mut().unwrap());
     
     // // 测试一样空间的分配和释放
     // test_malloc_free();
@@ -80,6 +82,15 @@ pub extern "C" fn _start(boot_info: &BootContext) {
     loop {}
 }
 
+#[inline(never)]
+fn read_disk(disk: &mut Disk) {
+    let super_block = memory::sys_malloc(size_of::<SuperBlock>()) as *mut SuperBlock;
+    let buf = unsafe { slice::from_raw_parts_mut(super_block as *mut u8, size_of::<SuperBlock>()) };
+    disk.read_sectors(2049, 1, buf);
+
+    printkln!("{:?}", unsafe {&*super_block});
+
+}
 fn print_disk(disk: &Disk) {
     let disk_name =  cstring_utils::read_from_bytes(&disk.name);
     ASSERT!(disk_name.is_some());

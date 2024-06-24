@@ -1,7 +1,7 @@
 use core::{mem::size_of, ptr, task};
 
 use os_in_rust_common::{
-    constants, elem2entry, instruction, linked_list::LinkedList, printkln, racy_cell::RacyCell, ASSERT
+    constants, elem2entry, instruction, linked_list::LinkedList, printkln, racy_cell::RacyCell, ASSERT, MY_PANIC
 };
 
 use lazy_static::lazy_static;
@@ -193,6 +193,9 @@ pub fn wake_thread(task: &mut TaskStruct)  {
     // 只能是这三种状态之一
     let allow_status = [TaskStatus::TaskBlocked, TaskStatus::TaskHanging, TaskStatus::TaskWaiting];
     ASSERT!(allow_status.contains(&task.task_status));
+    if !allow_status.contains(&task.task_status) {
+        MY_PANIC!("could not wake up [{:?}] thread", &task.task_status);
+    }
 
     ASSERT!(task.task_status != TaskStatus::TaskReady);
     // 设置为就绪状态

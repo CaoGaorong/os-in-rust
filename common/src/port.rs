@@ -1,5 +1,7 @@
 use core::{arch::asm, marker::PhantomData};
 
+use crate::printk;
+
 pub struct Port<T> {
     port: u16,
     phantom: PhantomData<T>
@@ -79,9 +81,9 @@ impl PortWrite for u16 {
 /**
  * 从port中连续读取word_cnt个字的数据到buf_addr地址处的内存中
  */
+#[no_mangle]
 #[inline(never)]
 pub fn read_words(port: u16, word_cnt: u32, buf_addr: u32) {
-    
     /*
      * 利用insw指令。insw指令需要两个参数：
      * - dx: 要读取数据的端口号
@@ -94,7 +96,21 @@ pub fn read_words(port: u16, word_cnt: u32, buf_addr: u32) {
             "cld",
             "rep insw",
             in("dx") port,
-            in("di") buf_addr,
+            in("edi") buf_addr,
+            in("ecx") word_cnt
+        );
+    }
+}
+#[no_mangle]
+#[inline(never)]
+pub fn write_words(port: u16, buf_addr: u32, word_cnt: u32) {
+    unsafe {
+        asm!(
+            "mov esi, {0:e}",
+            "cld",
+            "rep outsw",
+            in(reg) buf_addr,
+            in("dx") port,
             in("ecx") word_cnt
         );
     }

@@ -18,12 +18,14 @@ use super::constant;
 pub fn write_to_register(port_base: u16, register: CommandBlockRegister) {
     
     match register {
-        CommandBlockRegister::Data(buf, _) => {
+        CommandBlockRegister::Data(buf, bytes) => {
             let port = constant::DATA_REGISTER_OFFSET + port_base;
-            // 从缓冲区中，取出16字节的数据
-            let data = unsafe { *(buf as *const _ as *const u16) };
-            // printkln!("write to port: 0x{:x}, data: 0b{:b}", port, data);
-            Port::<u16>::new(port).write(data);
+            // 从缓冲区中，取出2字节（一个字）的数据
+            // let data = unsafe { *(buf as *const _ as *const u16) };
+            // Port::<u16>::new(port).write(data);
+            // 一次性读取多个字节
+            port::write_words(port, buf.as_ptr() as u32, bytes / 2);
+
         },
         CommandBlockRegister::Feature(feature) => {
             let port = constant::FEATURE_REGISTER_OFFSET + port_base;

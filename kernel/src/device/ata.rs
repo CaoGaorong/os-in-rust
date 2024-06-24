@@ -1,7 +1,7 @@
 use core::{ptr, slice};
 
 use os_in_rust_common::{bitmap::BitMap, constants, linked_list::{LinkedList, LinkedNode}, printk, printkln, ASSERT, MY_PANIC};
-use crate::{device::pio::ErrorRegister, filesystem::superblock::SuperBlock, println};
+use crate::{device::pio::ErrorRegister, filesystem::superblock::SuperBlock, println, thread};
 
 use crate::sync::{Lock, Semaphore};
 
@@ -314,7 +314,7 @@ impl Disk {
 
             // 读取出多个字节，放到buf缓冲区中
             let sec_once_bytes = sec_once as u32 * constants::DISK_SECTOR_SIZE as u32;
-            self.read_bytes(&buf[(lba - lba_start) ..], sec_once_bytes);
+            self.read_bytes(&buf[(lba - lba_start) * sec_once_bytes as usize ..], sec_once_bytes);
         }
         // 解锁channel
         self.unlock_channel();
@@ -333,6 +333,7 @@ impl Disk {
             printkln!("error to read sector. buffer capacity not enough. lba:{}, sec_cnt:{}, buf len:{}", lba_start, sec_cnt, buf.len());
             MY_PANIC!("");
         }
+        self.lock_channel();
         // 一共读取sec_cnt个扇区，批量
         let step = u8::MAX as usize + 1;
         for lba in (lba_start .. lba_end).step_by(step) {
@@ -348,7 +349,6 @@ impl Disk {
 
             // 发送写入命令
             self.set_command(PIOCommand::Write);
-
             // 检查硬盘是否准备好了
             if !self.ready_for_read() {
                 printkln!("failed to read disk. disk not ready, lba:{}, sec_once:{}", lba, sec_once);
@@ -357,8 +357,12 @@ impl Disk {
 
             // 读取出多个字节，放到buf缓冲区中
             let sec_once_bytes = sec_once as u32 * constants::DISK_SECTOR_SIZE as u32;
-            self.write_bytes(&buf[lba - lba_start ..], sec_once_bytes);
+            self.write_bytes(&buf[(lba - lba_start) * sec_once_bytes as usize ..], sec_once_bytes);
+
+            // 然后进入阻塞。等待硬盘就绪的中断信号
+            self.block();
         }
+        self.unlock_channel();
 
     }
 
@@ -448,21 +452,26 @@ impl Disk {
     }
 
     /**
-     * 把buf寄存器中bytes个字节的数据，写入到该通道的data寄存器中
+     * 把buf缓冲区中bytes个字节的数据，写入到该通道的data寄存器中
      */
     fn write_bytes(&mut self, buf: &[u8], bytes: u32) {
         // 得到ATA bus通道
         let ata_channel = unsafe { &*self.from_channel };
         let port_base = ata_channel.port_base;
 
-        // 逐个字（2个字节）读取
-        for start_byte in (0 .. bytes).step_by(2) {
-            let register = CommandBlockRegister::Data(&buf[start_byte as usize ..], 2);
-            pio::write_to_register(port_base, register);
+        // 两种方式；方式一：连续读取字节
+        // 把buf缓冲区中的bytes歌字节的数据，写入到硬盘中
+        pio::write_to_register(port_base, CommandBlockRegister::Data(buf, bytes));
 
-            // 刷新一下，再写入
-            self.set_command(PIOCommand::Flush);
-        }
+        // 方式二：
+        // // 逐个字（2个字节）读取
+        // for start_byte in (0 .. bytes).step_by(2) {
+        //     let register = CommandBlockRegister::Data(&buf[start_byte as usize ..], 2);
+        //     pio::write_to_register(port_base, register);
+
+        //     // 刷新一下，再写入
+        //     self.set_command(PIOCommand::Flush);
+        // }
     }
     /**
      * 给该硬盘所属的通道加锁

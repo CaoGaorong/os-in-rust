@@ -61,7 +61,7 @@ impl MemBlockAllocator {
                 return container;
             }
         }
-        MY_PANIC!("SYSTEM ERROR, No mem size match. mem_size: ");
+        MY_PANIC!("SYSTEM ERROR, No mem size match. mem_size: {}", bytes);
         panic!("error")
     }
 

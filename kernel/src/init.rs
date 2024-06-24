@@ -3,7 +3,7 @@
 
 use os_in_rust_common::{bios_mem::{ARDSType, AddressRangeDescriptorStructure}, context::BootContext, printkln, ASSERT};
 
-use crate::{interrupt, memory, sys_call, thread_management, tss, device};
+use crate::{device, filesystem, interrupt, memory, sys_call, thread_management, tss};
 
 pub fn init_all(boot_info: &BootContext) {
     // 初始化中断描述符和中断控制器
@@ -42,5 +42,8 @@ pub fn init_all(boot_info: &BootContext) {
 
     // 初始化硬盘ATA通道
     device::ata_init();
+
+    // 初始化文件系统
+    filesystem::init();
 
 }

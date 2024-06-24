@@ -22,11 +22,11 @@ pub const fn bool_to_u8 (b: bool) -> u8 {
 /**
  * 两个数相除，线上取整
  */
-pub fn div_ceil<T: Div + Add + Sub + Into<f64>>(num1: T, num2:T) -> f64 {
-    let num1_f64:f64 = num1.into();
-    let num2_f64:f64 = num2.into();
-    let one_f64:f64 = 1 as f64;
-    (num1_f64 + num2_f64 - one_f64) / num2_f64
+// #[inline(never)]
+pub fn div_ceil<T: Into<u32>>(num1: T, num2:T) -> u32 {
+    let n1: u32 = num1.into();
+    let n2: u32 = num2.into();
+    (n1 + n2 - 1) / n2
 }
 
 /**
