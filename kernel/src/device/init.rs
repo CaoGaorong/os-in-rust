@@ -108,7 +108,7 @@ pub fn ata_init() {
  * 扫描该硬盘的主分区
  */
 pub fn main_part_init(disk: &mut Disk) {
-    let disk_ptr = disk as *const _;
+    let disk_ptr = disk as *mut _;
 
     // 申请内存。为了防止栈溢出，因此不使用局部变量
     let boot_sec_addr = memory::sys_malloc(size_of::<BootSector>());
@@ -162,7 +162,7 @@ pub fn main_part_init(disk: &mut Disk) {
  */
 pub fn extended_part_init(disk: &mut Disk, main_ext_lba: usize, mut logic_part_no: usize) {
     
-    let disk_ptr = disk as *const _;
+    let disk_ptr = disk as *mut _;
     // 申请内存。为了防止栈溢出，因此不使用局部变量
     let boot_sec_addr = memory::sys_malloc(size_of::<BootSector>());
     let buf = unsafe { core::slice::from_raw_parts_mut(boot_sec_addr as *mut u8, size_of::<BootSector>()) };

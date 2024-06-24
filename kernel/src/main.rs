@@ -24,6 +24,7 @@ mod sys_call;
 mod pid_allocator;
 mod page_util;
 mod device;
+mod filesystem;
 
 
 use core::ptr::slice_from_raw_parts;
@@ -108,7 +109,7 @@ fn print_disk(disk: &Disk) {
 fn print_partition(part: &Partition) {
     let part_name =  cstring_utils::read_from_bytes(&part.name);
     ASSERT!(part_name.is_some());
-    printkln!("name:{}, lba_start:{}, sec_cnt:{}, from_disk:{}", part_name.unwrap(), part.lba_start, part.sec_cnt, part.from_disk as usize);
+    printkln!("name:{}, lba_start:{}, sec_cnt:{}, from_disk:{}", part_name.unwrap(), part.abs_lba_start(0), part.sec_cnt, part.from_disk as usize);
 }
 
 

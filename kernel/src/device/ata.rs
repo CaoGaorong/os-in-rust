@@ -1,7 +1,7 @@
 use core::{ptr, slice};
 
 use os_in_rust_common::{bitmap::BitMap, constants, linked_list::{LinkedList, LinkedNode}, printk, printkln, ASSERT, MY_PANIC};
-use crate::{device::pio::ErrorRegister, println};
+use crate::{device::pio::ErrorRegister, filesystem::superblock::SuperBlock, println};
 
 use crate::sync::{Lock, Semaphore};
 
@@ -104,7 +104,7 @@ pub struct Partition {
     /**
      * 该分区位于硬盘的起始扇区数
      */
-    pub lba_start: u32,
+    lba_start: u32,
     /**
      * 该分区占用的扇区数量
      */
@@ -112,7 +112,7 @@ pub struct Partition {
     /**
      * 该分区归属的硬盘
      */
-    pub from_disk: *const Disk,
+    pub from_disk: *mut Disk,
     /**
      * 组成链表的tag
      */
@@ -136,10 +136,6 @@ pub struct Partition {
      * 该硬盘打开的inode节点队列
      */
     open_inodes: LinkedList,
-}
-#[derive(Debug)]
-pub struct SuperBlock {
-
 }
 
 /**
@@ -333,7 +329,7 @@ impl Disk {
             printkln!("error to read sector. exceed maximum sector. lba:{}, sec_cnt:{}", lba_start, sec_cnt);
             MY_PANIC!("");
         }
-        if buf.len() < sec_cnt * constants::DISK_SECTOR_SIZE {
+        if buf.len() > sec_cnt * constants::DISK_SECTOR_SIZE {
             printkln!("error to read sector. buffer capacity not enough. lba:{}, sec_cnt:{}, buf len:{}", lba_start, sec_cnt, buf.len());
             MY_PANIC!("");
         }
@@ -505,7 +501,7 @@ impl Partition {
             name: [0; constants::DISK_NAME_LEN],
             lba_start: 0,
             sec_cnt: 0,
-            from_disk: ptr::null(),
+            from_disk: ptr::null_mut(),
             tag: LinkedNode::new(),
             super_block: Option::None,
             block_bitmap: BitMap::empty(),
@@ -514,7 +510,7 @@ impl Partition {
         }
     }
 
-    pub fn new(name: &[u8], lba_start: u32, sec_cnt: u32, from_disk: *const Disk) -> Self {
+    pub fn new(name: &[u8], lba_start: u32, sec_cnt: u32, from_disk: *mut Disk) -> Self {
         ASSERT!(name.len() >= constants::DISK_NAME_LEN);
         let mut name_buf = [0; constants::DISK_NAME_LEN];
         name_buf.copy_from_slice(&name[0 .. constants::DISK_NAME_LEN]);
@@ -530,11 +526,12 @@ impl Partition {
             open_inodes: LinkedList::new(),
         }
     }
-    pub fn init(&mut self, name: &str, lba_start: u32, sec_cnt: u32, from_disk: *const Disk) {
-        self.name.copy_from_slice(name.as_bytes());
-        self.lba_start = lba_start;
-        self.sec_cnt = sec_cnt;
-        self.from_disk = from_disk;
+
+    /**
+     * 根据该分区的相对LBA地址，得到绝对LBA地址
+     */
+    pub fn abs_lba_start(&self, rel_lba_start: u32) -> u32 {
+        self.lba_start + rel_lba_start
     }
 }
 
