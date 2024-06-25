@@ -19,8 +19,13 @@ pub static IDT: RacyCell<InterruptDescriptorTable> = RacyCell::new(InterruptDesc
 /**
  * 初始化中断描述符表
  */
+#[cfg(all(not(test), target_arch = "x86"))]
 pub fn idt_init() {
     unsafe { IDT.get_mut().load() };
+}
+#[cfg(not(target_arch = "x86"))]
+pub fn idt_init() {
+    todo!()
 }
 
 
@@ -78,14 +83,22 @@ pub enum InterruptTypeEnum {
  * 没有错误码的中断处理函数定义
  */
 // #[cfg(feature = "abi_x86_interrupt")]
+#[cfg(all(not(test), target_arch = "x86"))]
 pub type HandlerFunc = extern "x86-interrupt" fn(InterruptStackFrame);
+
+#[cfg(all(not(target_arch = "x86")))]
+pub type HandlerFunc = fn(InterruptStackFrame);
 
 
 /**
  * 有错误码的中断处理函数的定义
  */
 // #[cfg(feature = "abi_x86_interrupt")]
+#[cfg(all(not(test), target_arch = "x86"))]
 pub type HandlerFuncWithErrCode = extern "x86-interrupt" fn(InterruptStackFrame, error_code: u32);
+#[cfg(all(not(target_arch = "x86")))
+]
+pub type HandlerFuncWithErrCode = fn(InterruptStackFrame, error_code: u32);
 
 
 /**
@@ -225,13 +238,17 @@ impl InterruptDescriptorTable {
         self.set_interrupt(interrupt_type, id);
     }
 
-    #[inline]
+    #[cfg(all(not(test), target_arch = "x86"))]
     pub fn load(&'static self) {
         let idtr = IDTR::new(self as *const InterruptDescriptorTable);
         // 加载到GDTR寄存器
         unsafe {
             asm!("cli", "lidt [{}]", in(reg) &idtr, options(readonly, nostack, preserves_flags));
         }
+    }
+    #[cfg(all(not(target_arch = "x86")))]
+    pub fn load(&'static self) {
+        todo!()
     }
 
 }

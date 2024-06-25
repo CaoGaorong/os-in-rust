@@ -65,10 +65,16 @@ pub enum SegmentSelector {
 /**
  * 加载数据段选择子到段寄存器中
  */
+#[cfg(all(not(test), target_arch = "x86"))]
 pub fn load_data_selector() {
     let data_selector = SegmentSelector::Data0Selector as u16;
     // load GDT
     unsafe {
         asm!("mov ds, {0:x}", "mov ss, {0:x}", "mov es, {0:x}", in(reg) data_selector);
     }
+}
+
+#[cfg(all(not(target_arch = "x86")))]
+pub fn load_data_selector() {
+    todo!()
 }

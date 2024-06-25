@@ -102,6 +102,7 @@ impl PcbPage {
      * 加载PCB页。
      * 把把“上下文”恢复到当前CPU寄存器中，利用ret指令，把(esp + 4)的值赋值到eip寄存器，来实现跳转执行
      */
+    #[cfg(all(not(test), target_arch = "x86"))]
     pub fn do_load(&self) {
         // 当前PCB的栈指针指向的地址
         let stack_addr = self.task_struct.kernel_stack;
@@ -118,6 +119,10 @@ impl PcbPage {
                 in(reg) stack_addr,
             );
         }
+    }
+    #[cfg(all(not(target_arch = "x86")))]
+    pub fn do_load(&self) {
+        todo!()
     }
 }
 

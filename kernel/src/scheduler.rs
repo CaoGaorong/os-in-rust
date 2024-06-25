@@ -102,6 +102,7 @@ extern "C" fn switch_to_wrapper(cur_task: &mut TaskStruct, task_to_run: &mut Tas
  */
 #[no_mangle]
 #[inline(never)]
+#[cfg(all(not(test), target_arch = "x86"))]
 extern "C" fn switch_to(cur_task: &mut TaskStruct, task_to_run: &mut TaskStruct) {
 
     // 保存上下文。callee-saved register
@@ -142,4 +143,9 @@ extern "C" fn switch_to(cur_task: &mut TaskStruct, task_to_run: &mut TaskStruct)
     //         "pop esi"
     //     )
     // }
+}
+
+#[cfg(all(not(target_arch = "x86")))]
+extern "C" fn switch_to(cur_task: &mut TaskStruct, task_to_run: &mut TaskStruct) {
+    todo!()
 }

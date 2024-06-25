@@ -4,6 +4,7 @@ use crate::racy_cell::RacyCell;
 
 
 #[no_mangle]
+#[cfg(all(not(test), target_arch = "x86"))]
 #[link_section = ".memeory_map"]
 static MEMORY_MAP: RacyCell<[AddressRangeDescriptorStructure; 10]> = RacyCell::new([AddressRangeDescriptorStructure::empty(); 10]);
 
@@ -68,8 +69,8 @@ pub enum ARDSType {
  * 
  * (u32, u32) -> ARDS数组的起始地址和ARDS数组的长度
  */
-#[cfg(not(test))]
 #[inline]
+#[cfg(all(not(test), target_arch = "x86"))]
 pub fn get_memeory_map() -> (u32, u32) {
     // 最终的ARDS结构列表
     // static mut MEMORY_MAP: [AddressRangeDescriptorStrure; 100] = [AddressRangeDescriptorStrure::empty(); 100];
@@ -121,4 +122,10 @@ pub fn get_memeory_map() -> (u32, u32) {
     // (&memory_map[0] as *const _ as u32, ards_cnt as u32)
     (memory_map.as_ptr() as u32, ards_cnt as u32)
     // Result::Ok(&mut memory_map[..ards_cnt])
+}
+
+#[inline]
+#[cfg(any(test, not(target_arch = "x86")))]
+pub fn get_memeory_map() -> (u32, u32) {
+    todo!()
 }

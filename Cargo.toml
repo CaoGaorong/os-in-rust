@@ -16,4 +16,5 @@ edition = "2021"
 
 [workspace.dependencies]
 os_in_rust_common = { version = "0.1.0", path = "common"}
+kernel = { version = "0.1.0", path = "kernel"}
 volatile = "0.2.6"

@@ -77,6 +77,7 @@ pub fn free<T>(ptr: *const T) {
  * edx_opt：第三个参数；可选
  */
 #[inline(always)]
+#[cfg(all(not(test), target_arch = "x86"))]
 fn do_sys_call(eax_sys_nr: SystemCallNo, ebx_opt: Option<u32>, ecx_opt: Option<u32>, edx_opt: Option<u32>) -> u32 {
     let eax = eax_sys_nr as u32;
     let res: u32;
@@ -101,4 +102,8 @@ fn do_sys_call(eax_sys_nr: SystemCallNo, ebx_opt: Option<u32>, ecx_opt: Option<u
         );
     }
     res
+}
+#[cfg(all(not(target_arch = "x86")))]
+fn do_sys_call(eax_sys_nr: SystemCallNo, ebx_opt: Option<u32>, ecx_opt: Option<u32>, edx_opt: Option<u32>) -> u32 {
+    todo!()
 }

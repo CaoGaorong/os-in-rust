@@ -52,7 +52,7 @@ pub enum CR0 {
     PG = 31,
 }
 
-#[cfg(not(test))]
+#[cfg(all(not(test), target_arch = "x86"))]
 pub fn set_on(reg: CR0) -> u32{
     let mut cr0_before: u32;
     unsafe {
@@ -66,7 +66,12 @@ pub fn set_on(reg: CR0) -> u32{
     cr0_before
 }
 
-#[cfg(not(test))]
+#[cfg(any(test, not(target_arch = "x86")))]
+pub fn set_on(reg: CR0) -> u32 {
+    todo!()
+}
+
+#[cfg(all(not(test), target_arch = "x86"))]
 pub fn set_off(reg: CR0) -> u32{
     let mut cr0_before: u32;
     unsafe {
@@ -79,9 +84,17 @@ pub fn set_off(reg: CR0) -> u32{
     // 返回已有的寄存器
     cr0_before
 }
+#[cfg(any(test, not(target_arch = "x86")))]
+pub fn set_off(reg: CR0) -> u32{
+    todo!()
+}
 
-#[cfg(not(test))]
+#[cfg(all(not(test), target_arch = "x86"))]
 fn set_cr0(val: u32) {
     unsafe { asm!("mov cr0, {:e}", in(reg) val, options(nostack, preserves_flags)) };
+}
+#[cfg(any(test, not(target_arch = "x86")))]
+fn set_cr0(val: u32) {
+    todo!()
 }
 

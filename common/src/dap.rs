@@ -53,6 +53,7 @@ impl DiskPacketAddress {
     /**
      * 开始执行加载
      */
+    #[cfg(all(not(test), target_arch = "x86"))]
     pub unsafe fn do_load(&self) {
         // dap的结构的地址
         let address = self as *const Self as u16;
@@ -69,6 +70,10 @@ impl DiskPacketAddress {
             );
         }
     }
+    #[cfg(all(not(target_arch = "x86")))]
+    pub unsafe fn do_load(&self) {
+        todo!()
+    }
 }
 
 /**
@@ -77,6 +82,7 @@ impl DiskPacketAddress {
  * num_sec: 加载的扇区数量
  * mem_addr: 要加载到的内存地址
  */
+#[cfg(all(not(test), target_arch = "x86"))]
 pub fn load_disk(lba: u64, num_sec: u16, mem_addr: u32) {
     // 取Loader加载到内存地址的高16位
     let addr_high16 = (mem_addr >> 16) as u16;
@@ -94,4 +100,9 @@ pub fn load_disk(lba: u64, num_sec: u16, mem_addr: u32) {
     unsafe {
         dap_structre.do_load();
     }
+}
+
+#[cfg(all(not(target_arch = "x86")))]
+pub fn load_disk(lba: u64, num_sec: u16, mem_addr: u32) {
+    todo!()
 }

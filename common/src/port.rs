@@ -44,6 +44,7 @@ trait PortRead {
 }
 
 impl PortRead for u8 {
+    #[cfg(all(not(test), target_arch = "x86"))]
     fn read_from_port(port: u16) -> Self {
         let value: u8;
         unsafe {
@@ -51,8 +52,13 @@ impl PortRead for u8 {
         }
         value
     }
+    #[cfg(any(test, not(target_arch = "x86")))]
+    fn read_from_port(port: u16) -> Self {
+        todo!()
+    }
 }
 impl PortRead for u16 {
+    #[cfg(all(not(test), target_arch = "x86"))]
     fn read_from_port(port: u16) -> Self {
         let value: u16;
         unsafe {
@@ -60,20 +66,34 @@ impl PortRead for u16 {
         }
         value
     }
+    #[cfg(any(test, not(target_arch = "x86")))]
+    fn read_from_port(port: u16) -> Self {
+        todo!()
+    }
 }
 
 impl PortWrite for u8 {
+    #[cfg(all(not(test), target_arch = "x86"))]
     fn write_to_port(port: u16, value: Self) {
         unsafe {
             asm!("out dx, al", in("dx") port, in("al") value, options(nomem, nostack, preserves_flags));
         }
     }
+    #[cfg(any(test, not(target_arch = "x86")))]
+    fn write_to_port(port: u16, value: Self) {
+        todo!()
+    }
 }
 impl PortWrite for u16 {
+    #[cfg(all(not(test), target_arch = "x86"))]
     fn write_to_port(port: u16, value: Self) {
         unsafe {
             asm!("out dx, ax", in("dx") port, in("ax") value, options(nomem, nostack, preserves_flags));
         }
+    }
+    #[cfg(any(test, not(target_arch = "x86")))]
+    fn write_to_port(port: u16, value: Self) {
+        todo!()
     }
 }
 
@@ -83,6 +103,7 @@ impl PortWrite for u16 {
  */
 #[no_mangle]
 #[inline(never)]
+#[cfg(all(not(test), target_arch = "x86"))]
 pub fn read_words(port: u16, word_cnt: u32, buf_addr: u32) {
     /*
      * 利用insw指令。insw指令需要两个参数：
@@ -101,8 +122,14 @@ pub fn read_words(port: u16, word_cnt: u32, buf_addr: u32) {
         );
     }
 }
-#[no_mangle]
+
+#[cfg(any(test, not(target_arch = "x86")))]
+pub fn read_words(port: u16, word_cnt: u32, buf_addr: u32) {
+    todo!()
+}
+
 #[inline(never)]
+#[cfg(all(not(test), target_arch = "x86"))]
 pub fn write_words(port: u16, buf_addr: u32, word_cnt: u32) {
     unsafe {
         asm!(
@@ -114,4 +141,9 @@ pub fn write_words(port: u16, buf_addr: u32, word_cnt: u32) {
             in("ecx") word_cnt
         );
     }
+}
+
+#[cfg(any(test, not(target_arch = "x86")))]
+pub fn write_words(port: u16, buf_addr: u32, word_cnt: u32) {
+    todo!()
 }

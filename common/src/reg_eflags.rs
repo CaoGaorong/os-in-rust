@@ -63,7 +63,7 @@ impl EFlags {
     /**
      * 读取寄存器的Eflags数据
      */
-    #[cfg(not(test))]
+    #[cfg(all(not(test), target_arch = "x86"))]
     pub fn load() -> Self {
         let mut eflags: u32;
         unsafe {
@@ -80,6 +80,11 @@ impl EFlags {
             data: eflags
         }
     }
+    #[cfg(any(test, not(target_arch = "x86")))]
+    pub fn load() -> Self {
+        todo!()
+    }
+
     /**
      * 把eflags寄存器某一位打开
      */
@@ -101,7 +106,7 @@ impl EFlags {
     /**
      * 把数据写入到寄存器中
      */
-    #[cfg(not(test))]
+    #[cfg(all(not(test), target_arch = "x86"))]
     pub fn store(&self) {
         unsafe {
             asm!(
@@ -113,6 +118,10 @@ impl EFlags {
                 options(att_syntax)
             )
         }
+    }
+    #[cfg(any(test, not(target_arch = "x86")))]
+    pub fn store(&self) {
+        todo!()
     }
 }
 /**

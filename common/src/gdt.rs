@@ -8,9 +8,14 @@ static mut GDT: GlobalDescriptorTable = GlobalDescriptorTable::new();
 /**
  * 加载GDTR
  */
+#[cfg(all(not(test), target_arch = "x86"))]
 pub fn load_gdt() {
     // 加载GDT到GDTR寄存器中
     unsafe { GDT.load_gdtr() };
+}
+#[cfg(all(not(target_arch = "x86")))]
+pub fn load_gdt() {
+    todo!()
 }
 
 /**
@@ -23,6 +28,7 @@ pub fn get_gdt_addr() -> *const GlobalDescriptorTable {
 /**
  * 指定GDT的地址，加载到GDTR
  */
+#[cfg(all(not(test), target_arch = "x86"))]
 pub fn load_gdtr_by_addr(gdt_addr: *const GlobalDescriptorTable) {
     let gdtr = GDTR::new(gdt_addr);
     // 加载到GDTR寄存器c
@@ -30,7 +36,10 @@ pub fn load_gdtr_by_addr(gdt_addr: *const GlobalDescriptorTable) {
         asm!("cli", "lgdt [{}]", in(reg) &gdtr, options(readonly, nostack, preserves_flags));
     }
 }
-
+#[cfg(all(not(target_arch = "x86")))]
+pub fn load_gdtr_by_addr(gdt_addr: *const GlobalDescriptorTable) {
+    todo!()
+}
 
 /**
  * 填充GDT的描述符
@@ -183,8 +192,13 @@ impl GlobalDescriptorTable {
     /**
      * 加载全局描述符表到GDTR寄存器
      */
+    #[cfg(all(not(test), target_arch = "x86"))]
     pub fn load_gdtr(&'static self) {
         load_gdtr_by_addr(self);
+    }
+    #[cfg(all(not(target_arch = "x86")))]
+    pub fn load_gdtr(&'static self) {
+        todo!()
     }
     
     /**

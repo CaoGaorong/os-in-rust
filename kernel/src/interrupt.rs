@@ -39,24 +39,37 @@ pub fn init() {
 /**
  * 通用的中断处理程序
  */
+#[cfg(all(not(test), target_arch = "x86"))]
 extern "x86-interrupt" fn general_handler(frame: InterruptStackFrame) {
     printk!(".");
     pic::send_end_of_interrupt();
 }
 
 
+#[cfg(all(not(target_arch = "x86")))]
+fn general_handler(frame: InterruptStackFrame) {
+    todo!()
+}
+
 
 
 /**
  * 通用的中断处理程序
  */
+#[cfg(all(not(test), target_arch = "x86"))]
 extern "x86-interrupt" fn general_handler_with_error_code(frame: InterruptStackFrame, error_code: u32) {
     pic::send_end_of_interrupt();
     printkln!("!!!!general error code exception occur!!!");
     loop {}
 }
 
+#[cfg(all(not(target_arch = "x86")))]
+fn general_handler_with_error_code(frame: InterruptStackFrame, error_code: u32) {
+    todo!()
+}
 
+
+#[cfg(all(not(test), target_arch = "x86"))]
 extern "x86-interrupt" fn keyboard_handler(frame: InterruptStackFrame) {
     pic::send_end_of_interrupt();
     // 接收键盘扫描码
@@ -66,26 +79,42 @@ extern "x86-interrupt" fn keyboard_handler(frame: InterruptStackFrame) {
     keyboard::scan_code_handler(scan_code);
 }
 
+#[cfg(all(not(target_arch = "x86")))]
+fn keyboard_handler(frame: InterruptStackFrame) {
+    todo!()
+}
 
 /**
  * 通用的中断处理程序
  */
+#[cfg(all(not(test), target_arch = "x86"))]
 extern "x86-interrupt" fn general_protection_handler(frame: InterruptStackFrame, error_code: u32) {
     pic::send_end_of_interrupt();
     printkln!("!!!!general protection exception occur!!!");
     loop {}
 }
+#[cfg(all(not(target_arch = "x86")))]
+fn general_protection_handler(frame: InterruptStackFrame, error_code: u32) {
+    todo!()
+}
 
 
 /**
  * 通用的中断处理程序
  */
+#[cfg(all(not(test), target_arch = "x86"))]
 extern "x86-interrupt" fn page_fault_handler(frame: InterruptStackFrame, error_code: u32) {
     pic::send_end_of_interrupt();
     printkln!("!!!!page fault exception occur!!!");
     loop {}
 }
+#[cfg(all(not(target_arch = "x86")))]
+fn page_fault_handler(frame: InterruptStackFrame, error_code: u32) {
+    todo!()
+}
 
+
+#[cfg(all(not(test), target_arch = "x86"))]
 pub extern "x86-interrupt" fn timer_handler(frame: InterruptStackFrame) {
     // 进入中断
     stash_intr_stack();
@@ -99,10 +128,16 @@ pub extern "x86-interrupt" fn timer_handler(frame: InterruptStackFrame) {
     pop_intr_stack();
 }
 
+#[cfg(all(not(target_arch = "x86")))]
+fn timer_handler(frame: InterruptStackFrame) {
+    todo!()
+}
+
 
 /**
  * ATA primary channel 的中断
  */
+#[cfg(all(not(test), target_arch = "x86"))]
 pub extern "x86-interrupt" fn primary_channel_handler(frame: InterruptStackFrame) {
     pic::send_end_of_interrupt();
     // 确保只有内核线程才能收到硬盘中断
@@ -121,9 +156,15 @@ pub extern "x86-interrupt" fn primary_channel_handler(frame: InterruptStackFrame
     primary_channel.channel_ready();
 }
 
+#[cfg(all(not(target_arch = "x86")))]
+fn primary_channel_handler(frame: InterruptStackFrame) {
+    todo!()
+}
+
 /**
  * ATA secondary channel 的中断
  */
+#[cfg(all(not(test), target_arch = "x86"))]
 pub extern "x86-interrupt" fn secondary_channel_handler(frame: InterruptStackFrame) {
     pic::send_end_of_interrupt();
     let channel_idx = 1;
@@ -135,12 +176,18 @@ pub extern "x86-interrupt" fn secondary_channel_handler(frame: InterruptStackFra
     secondary_channel.channel_ready();
 }
 
+#[cfg(all(not(target_arch = "x86")))]
+fn secondary_channel_handler(frame: InterruptStackFrame) {
+    todo!()
+}
+
 /**
  * 系统调用；中断处理程序
  * 由于实现系统调用，需要在用户程序和中断处理程序「之间」传递参数（通过寄存器传递），因此我们不能直接保存和恢复上下文，反而要修改上下文。
  * 所以我们必须要知道中断发生到退出具体栈中的上下文数据的变化，因此 **不能使用任何调用约定**（因为使用调用约定我们就不知道栈内的数据情况了）
  */
 #[naked]
+#[cfg(all(not(test), target_arch = "x86"))]
 fn system_call_handler() {
     unsafe {
         asm!(
@@ -171,6 +218,11 @@ fn system_call_handler() {
             options(noreturn),
         )
     }
+}
+
+#[cfg(all(not(target_arch = "x86")))]
+fn system_call_handler() {
+    todo!()
 }
 
 /**
@@ -218,6 +270,7 @@ extern "C" fn system_call_dispatcher(eax: u32, ebx: u32, ecx: u32, edx: u32) -> 
  * 保存中断上下文
  */
 #[inline(always)]
+#[cfg(all(not(test), target_arch = "x86"))]
 fn stash_intr_stack() {
     // 保护上下文，主要是保护段寄存器
     unsafe {
@@ -231,11 +284,19 @@ fn stash_intr_stack() {
     }
 }
 
+#[inline(always)]
+#[cfg(all(not(target_arch = "x86")))]
+fn stash_intr_stack() {
+    todo!()
+}
+
+
 /**
  * 恢复中断上下文
  */
 #[inline(always)]
 #[no_mangle]
+#[cfg(all(not(test), target_arch = "x86"))]
 fn pop_intr_stack() {
     unsafe {
         asm!(
@@ -248,12 +309,20 @@ fn pop_intr_stack() {
     }
 }
 
+#[inline(always)]
+#[no_mangle]
+#[cfg(all(not(target_arch = "x86")))]
+fn pop_intr_stack() {
+    todo!()
+}
+
 /**
  * 退出中断；恢复手动上下文 + iretd
  * 这个函数给汇编程序调用，不要改名
  */
 #[inline(always)]
 #[no_mangle]
+#[cfg(all(not(test), target_arch = "x86"))]
 pub fn intr_exit() {
     // 恢复手动入栈的上下文
     pop_intr_stack();
@@ -261,6 +330,13 @@ pub fn intr_exit() {
     unsafe {
         asm!("iretd")
     }
+}
+
+#[inline(always)]
+#[no_mangle]
+#[cfg(all(not(target_arch = "x86")))]
+pub fn intr_exit() {
+    todo!()
 }
 
 

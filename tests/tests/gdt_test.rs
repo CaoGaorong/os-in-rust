@@ -1,7 +1,6 @@
 
 #[cfg(test)]
 mod tests {
-    use std::slice;
 
     use os_in_rust_common::gdt::GlobalDescriptorTable;
     use os_in_rust_common::gdt::GDTR;
@@ -10,6 +9,7 @@ mod tests {
 
     #[test]
     fn left_shift() {
+        println!("fuck");
         let a = 0b0;
         let b = 0b1;
         let c = 0b1;
@@ -50,12 +50,6 @@ mod tests {
     }
 
     static  gdt: GlobalDescriptorTable = gdt::GlobalDescriptorTable::new();
-    #[test] 
-    fn video_seg_test() {
-        let segment = gdt.video_seg;
-        let segment_data = unsafe{(*(&segment as *const sd::SegmentDescriptor as *const u64)) as u64};
-        println!("0x{:x}", segment_data);
-    }
     #[test]
     fn gdt_test() {
 

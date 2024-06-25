@@ -11,6 +11,7 @@ pub enum InterruptStatus {
  * 禁用中断
  */
 #[inline]
+#[cfg(all(not(test), target_arch = "x86"))]
 pub fn disable_interrupt() -> InterruptStatus {
     if is_intr_on() {
         unsafe { asm!("cli") };
@@ -18,10 +19,24 @@ pub fn disable_interrupt() -> InterruptStatus {
     }
     return InterruptStatus::Off;
 }
+
+#[inline]
+#[cfg(any(test, not(target_arch = "x86")))]
+pub fn disable_interrupt() -> InterruptStatus {
+    todo!()
+}
+
 /**
  * 启用中断
  */
 #[inline]
+#[cfg(any(test, not(target_arch = "x86")))]
+pub fn enable_interrupt() -> InterruptStatus {
+    todo!()
+}
+
+#[inline]
+#[cfg(all(not(test), target_arch = "x86"))]
 pub fn enable_interrupt() -> InterruptStatus {
     if is_intr_on() {
         return InterruptStatus::On;
@@ -48,7 +63,7 @@ pub fn is_intr_on() -> bool {
     reg_eflags::is_flag_on(reg_eflags::FlagEnum::InterruptFlag)
 }
 
-#[cfg(not(test))]
+#[cfg(all(not(test), target_arch = "x86"))]
 pub fn load_esp() -> u32 {
     let cur_esp: u32;
     unsafe {
@@ -60,10 +75,17 @@ pub fn load_esp() -> u32 {
     cur_esp
 }
 
+#[inline]
+#[cfg(any(test, not(target_arch = "x86")))]
+pub fn load_esp() -> u32 {
+    todo!()
+}
+
 
 /**
  * 执行hlt指令
  */
+#[cfg(all(not(test), target_arch = "x86"))]
 pub fn halt() {
     unsafe {
         asm!(
@@ -71,4 +93,8 @@ pub fn halt() {
             "hlt"
         )
     }
+}
+#[cfg(all(not(target_arch = "x86")))]
+pub fn halt() {
+    todo!()
 }

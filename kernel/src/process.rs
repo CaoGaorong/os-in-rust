@@ -7,6 +7,7 @@ use crate::{console_println, interrupt, memory, mutex::Mutex, page_util, thread:
 /**
  * 用户进程的实现
  */
+#[cfg(all(not(test), target_arch = "x86"))]
 pub extern "C" fn start_process(func_addr: ThreadArg) {
     let pcb_page = thread::current_thread();
 
@@ -31,6 +32,10 @@ pub extern "C" fn start_process(func_addr: ThreadArg) {
     interrupt::intr_exit();
 }
 
+#[cfg(all(not(target_arch = "x86")))]
+pub extern "C" fn start_process(func_addr: ThreadArg) {
+    todo!()
+}
 
 
 /**

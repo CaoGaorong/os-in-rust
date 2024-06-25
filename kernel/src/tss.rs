@@ -121,6 +121,7 @@ impl Tss {
  * 加载TSS到TR寄存器
  * tss_selector: tss所在GDT的选择子
  */
+#[cfg(all(not(test), target_arch = "x86"))]
 pub fn load_tss(tss_selector: u16) {
     unsafe {
         asm!(
@@ -129,7 +130,10 @@ pub fn load_tss(tss_selector: u16) {
         )
     }
 }
-
+#[cfg(all(not(target_arch = "x86")))]
+pub fn load_tss(tss_selector: u16) {
+    todo!()
+}
 
 pub static GLOBAL_TSS: RacyCell<Tss> = RacyCell::new(Tss::empty());
 
