@@ -105,7 +105,6 @@ pub extern "x86-interrupt" fn timer_handler(frame: InterruptStackFrame) {
  */
 pub extern "x86-interrupt" fn primary_channel_handler(frame: InterruptStackFrame) {
     pic::send_end_of_interrupt();
-    
     // 确保只有内核线程才能收到硬盘中断
     // 否则，当内核线程发起硬盘操作，然后切换到了用户进程，然后收到硬盘中断
     let cur_task = &thread::current_thread().task_struct;

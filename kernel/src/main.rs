@@ -42,7 +42,6 @@ use thread::ThreadArg;
 
 static PROCESS_NAME: &str = "user process";
 
-#[cfg(not(test))]
 #[no_mangle]
 #[link_section = ".start"]
 pub extern "C" fn _start(boot_info: &BootContext) {
@@ -71,7 +70,8 @@ pub extern "C" fn _start(boot_info: &BootContext) {
     let disk =  &mut primary.disks[1];
     print_disk(disk.as_ref().unwrap());
 
-    read_disk(disk.as_mut().unwrap());
+    printkln!("print_super_blocksss");
+    print_super_block(disk.as_mut().unwrap());
     
     // // 测试一样空间的分配和释放
     // test_malloc_free();
@@ -85,11 +85,10 @@ pub extern "C" fn _start(boot_info: &BootContext) {
 }
 
 #[inline(never)]
-fn read_disk(disk: &mut Disk) {
+fn print_super_block(disk: &mut Disk) {
     let super_block = memory::sys_malloc(size_of::<SuperBlock>()) as *mut SuperBlock;
     let buf = unsafe { slice::from_raw_parts_mut(super_block as *mut u8, size_of::<SuperBlock>()) };
     disk.read_sectors(2049, 1, buf);
-
     printkln!("{:?}", unsafe {&*super_block});
 
 }
@@ -308,12 +307,11 @@ fn dummy_sleep(instruction_cnt: u32) {
 
 
 
-#[cfg(not(test))]
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
+    instruction::disable_interrupt();
     printkln!("panic");
     ASSERT!(info.message().is_some());
-    instruction::disable_interrupt();
     vga::print(*info.message().unwrap());
     loop {}
 }

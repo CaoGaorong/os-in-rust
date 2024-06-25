@@ -1,4 +1,4 @@
-use core::{mem::{size_of, size_of_val}, slice};
+use core::{arch::asm, mem::{size_of, size_of_val}, slice};
 
 use os_in_rust_common::{constants, printkln, utils, ASSERT};
 
@@ -53,11 +53,14 @@ pub fn install_filesystem(part: &mut Partition) {
 
     // 先创建一个缓冲区，取两者的最大者
     let buff_bytes = super_block.block_bitmap_secs.max(super_block.inode_bitmap_secs) as usize * constants::DISK_SECTOR_SIZE;
-    let buff = unsafe { slice::from_raw_parts_mut(memory::malloc(buff_bytes) as *mut _, buff_bytes) };
+    // printkln!("buff bytes:{}", buff_bytes);
+    let addr = memory::sys_malloc(buff_bytes);
+    // printkln!("addr: 0x{:x}", addr);
+    
+    let buff = unsafe { slice::from_raw_parts_mut(addr as *mut u8, buff_bytes) };
 
     // 安装块位图
     self::install_block_bitmap(part, &super_block, buff);
-
 
 }
 
@@ -67,12 +70,14 @@ pub fn install_filesystem(part: &mut Partition) {
 fn install_super_block(part: &mut Partition, super_block: &SuperBlock) {
     let disk = unsafe { &mut *part.from_disk };
     // 把超级块 写入到 该分区的
-    disk.write_sector(unsafe { slice::from_raw_parts(super_block as *const SuperBlock as *const _, size_of_val(&super_block)) }, part.abs_lba_start(1) as usize, 1);
+    disk.write_sector(unsafe { slice::from_raw_parts(super_block as *const SuperBlock as *const _, size_of_val(super_block)) }, part.abs_lba_start(1) as usize, 1);
 }
 
 /**
  * 在part分区中，安装块位图
  */
+#[inline(never)]
+#[no_mangle]
 fn install_block_bitmap(part: &mut Partition, super_block: &SuperBlock, buff: &mut [u8]) {
     // 块位图长度是扇区大小的倍数，当初是向上去整了的
     // 块位图中，位图的长度（按位计算）
@@ -91,10 +96,16 @@ fn install_block_bitmap(part: &mut Partition, super_block: &SuperBlock, buff: &m
     unsafe { buff.as_mut_ptr().add(utils::div_ceil(data_block_secs, 8) as usize).write_bytes(0xFF, invalid_bits as usize / 8); }
 
     // 最后一个有效字节，可能部分位是无效的。把高位的部分位，也设置为1
-    for invalid_bit in  (0 .. invalid_bits % 8).rev() {
-        buff[data_block_secs as usize / 8] |= 1 << invalid_bit;
+    for invalid_bit in  0 .. invalid_bits % 8 {
+        buff[data_block_secs as usize / 8] |= 1 << (7 - invalid_bit);
     }
 
     // 位图的第0位设置为1，这一位是给根目录所在块的，设置为已占用
     buff[0] |= 0x01;
+
+
+    let disk = unsafe { &mut *part.from_disk };
+    // printkln!("buf len:{}", buff.len());
+    // printkln!("lba:{}, secs:{}", super_block.block_bitmap_lba, super_block.block_bitmap_secs);
+    disk.write_sector(buff, super_block.block_bitmap_lba as usize, super_block.block_bitmap_secs as usize);
 }

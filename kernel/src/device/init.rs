@@ -84,6 +84,7 @@ pub fn ata_init() {
         
         for disk_idx in 0 .. constants::DISK_CNT_PER_CHANNEL {
             cstr_write!(&mut buf, "sd{}", char::from_u32((b'a' + disk_start) as u32).unwrap());
+            // printkln!("disk name:{}", cstring_utils::read_from_bytes(&buf).unwrap());
             let mut disk = &mut channel.disks[disk_idx];
             {
                 *disk = Option::Some(Disk::new(&buf, channel_ptr, disk_idx == 0));

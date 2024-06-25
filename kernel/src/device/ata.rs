@@ -288,14 +288,16 @@ impl Disk {
         self.lock_channel();
 
         // 一共读取sec_cnt个扇区，批量读取
-        let step = u8::MAX as usize + 1;
+        let step = 1;
         for lba in (lba_start .. lba_end).step_by(step) {
             // 每次读取sec_once个扇区
-            let sec_once: u16 = if lba + step > lba_end {
-                (lba_end - lba).try_into().unwrap()
-            } else {
-                step.try_into().unwrap()
-            };
+            let sec_once = step.try_into().unwrap();
+            // let sec_once: u16 = if lba + step > lba_end {
+            //     (lba_end - lba).try_into().unwrap()
+            // } else {
+            //     step.try_into().unwrap()
+            // };
+
 
             // 设置好要读取的扇区
             self.set_op_sector(lba.try_into().unwrap(), sec_once);
@@ -329,20 +331,22 @@ impl Disk {
             printkln!("error to read sector. exceed maximum sector. lba:{}, sec_cnt:{}", lba_start, sec_cnt);
             MY_PANIC!("");
         }
-        if buf.len() > sec_cnt * constants::DISK_SECTOR_SIZE {
+        // 缓冲区的数据，只能多，不能少
+        if buf.len() < sec_cnt * constants::DISK_SECTOR_SIZE {
             printkln!("error to read sector. buffer capacity not enough. lba:{}, sec_cnt:{}, buf len:{}", lba_start, sec_cnt, buf.len());
             MY_PANIC!("");
         }
         self.lock_channel();
         // 一共读取sec_cnt个扇区，批量
-        let step = u8::MAX as usize + 1;
+        let step = 1; // 如果使用qemu，最好只操作1个扇区
         for lba in (lba_start .. lba_end).step_by(step) {
             // 每次读取sec_once个扇区
-            let sec_once: u16 = if lba + step > lba_end {
-                (lba_end - lba).try_into().unwrap()
-            } else {
-                step.try_into().unwrap()
-            };
+            let sec_once = step.try_into().unwrap();
+            // let sec_once: u16 = if lba + step > lba_end {
+            //     (lba_end - lba).try_into().unwrap()
+            // } else {
+            //     step.try_into().unwrap()
+            // };
 
             // 设置好要操作的扇区
             self.set_op_sector(lba as u32, sec_once);

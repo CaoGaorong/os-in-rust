@@ -42,32 +42,32 @@ pub struct SuperBlock {
     pub root_inode_no: usize,
    
     /**
-     * inode位图所在扇区的LBA地址
+     * inode位图本身所在扇区的LBA地址
      */
     pub inode_bitmap_lba: u32,
     /**
-     * inode位图占用的扇区数量
+     * inode位图本身占用的扇区数量
      */
     pub inode_bitmap_secs: u32,
 
     /**
-     * inode数组所在的LBA起始地址
+     * inode数组本身所在的LBA起始地址
      */
     pub inode_table_lba: u32,
     /**
-     * inode数组，占用的扇区数量
+     * inode数组本身占用的扇区数量
      */
     pub inode_table_secs: u32,
 
 
     /**
-     * 空闲块位图，自身所在扇区的LBA地址
+     * 空闲块位图自身所在扇区的LBA地址
      *  - 块位图是描述空闲块的使用情况
      *  - 一位表示某一个块（扇区）的使用情况
      */
     pub block_bitmap_lba: u32,
     /**
-     * 空闲块位图，占用的扇区数量
+     * 空闲块位图本身占用的扇区数量
      */
     pub block_bitmap_secs: u32,
  
