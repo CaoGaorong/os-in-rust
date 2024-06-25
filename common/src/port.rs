@@ -70,6 +70,7 @@ impl PortWrite for u8 {
     }
 }
 impl PortWrite for u16 {
+    #[cfg(not(test))]
     fn write_to_port(port: u16, value: Self) {
         unsafe {
             asm!("out dx, ax", in("dx") port, in("ax") value, options(nomem, nostack, preserves_flags));
@@ -81,6 +82,7 @@ impl PortWrite for u16 {
 /**
  * 从port中连续读取word_cnt个字的数据到buf_addr地址处的内存中
  */
+#[cfg(not(test))]
 #[no_mangle]
 #[inline(never)]
 pub fn read_words(port: u16, word_cnt: u32, buf_addr: u32) {
@@ -101,6 +103,7 @@ pub fn read_words(port: u16, word_cnt: u32, buf_addr: u32) {
         );
     }
 }
+#[cfg(not(test))]
 #[no_mangle]
 #[inline(never)]
 pub fn write_words(port: u16, buf_addr: u32, word_cnt: u32) {

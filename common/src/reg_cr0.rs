@@ -52,6 +52,7 @@ pub enum CR0 {
     PG = 31,
 }
 
+#[cfg(not(test))]
 pub fn set_on(reg: CR0) -> u32{
     let mut cr0_before: u32;
     unsafe {
@@ -65,6 +66,7 @@ pub fn set_on(reg: CR0) -> u32{
     cr0_before
 }
 
+#[cfg(not(test))]
 pub fn set_off(reg: CR0) -> u32{
     let mut cr0_before: u32;
     unsafe {
@@ -78,6 +80,7 @@ pub fn set_off(reg: CR0) -> u32{
     cr0_before
 }
 
+#[cfg(not(test))]
 fn set_cr0(val: u32) {
     unsafe { asm!("mov cr0, {:e}", in(reg) val, options(nostack, preserves_flags)) };
 }

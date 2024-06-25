@@ -13,6 +13,13 @@ use super::{mem_block::{self, Arena, MemBlockAllocator}, memory_poll::{self, get
  * ************************************************************
  */
 
+/**
+ * 申请内存
+ */
+pub fn malloc<T>(bytes: usize) -> &'static mut T {
+    let addr = sys_malloc(bytes);
+    unsafe { &mut *(addr as *mut T) }
+}
 
 /**
  * 在内核空间申请bytes字节的空间

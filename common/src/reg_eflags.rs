@@ -63,6 +63,7 @@ impl EFlags {
     /**
      * 读取寄存器的Eflags数据
      */
+    #[cfg(not(test))]
     pub fn load() -> Self {
         let mut eflags: u32;
         unsafe {
@@ -100,6 +101,7 @@ impl EFlags {
     /**
      * 把数据写入到寄存器中
      */
+    #[cfg(not(test))]
     pub fn store(&self) {
         unsafe {
             asm!(

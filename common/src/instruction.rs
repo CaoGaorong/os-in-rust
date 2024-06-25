@@ -48,6 +48,7 @@ pub fn is_intr_on() -> bool {
     reg_eflags::is_flag_on(reg_eflags::FlagEnum::InterruptFlag)
 }
 
+#[cfg(not(test))]
 pub fn load_esp() -> u32 {
     let cur_esp: u32;
     unsafe {

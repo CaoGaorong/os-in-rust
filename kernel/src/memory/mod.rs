@@ -6,6 +6,7 @@ pub mod memory_poll;
 // 初始化内存池
 pub use memory_poll::mem_pool_init;
 // 申请内存
+pub use memory_allocation::malloc;
 pub use memory_allocation::sys_malloc;
 pub use memory_allocation::malloc_kernel_page;
 pub use memory_allocation::malloc_user_stack_page;

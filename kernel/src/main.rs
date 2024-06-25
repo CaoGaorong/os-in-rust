@@ -1,5 +1,6 @@
-#![no_std]
-#![no_main]
+#![cfg_attr(test, allow(unused_imports))]
+#![cfg_attr(not(test), no_std)]
+#![cfg_attr(not(test), no_main)]
 #![feature(abi_x86_interrupt)]
 #![feature(const_mut_refs)]
 #![feature(naked_functions)]
@@ -41,6 +42,7 @@ use thread::ThreadArg;
 
 static PROCESS_NAME: &str = "user process";
 
+#[cfg(not(test))]
 #[no_mangle]
 #[link_section = ".start"]
 pub extern "C" fn _start(boot_info: &BootContext) {
@@ -306,6 +308,7 @@ fn dummy_sleep(instruction_cnt: u32) {
 
 
 
+#[cfg(not(test))]
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
     printkln!("panic");

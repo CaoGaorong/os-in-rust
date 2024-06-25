@@ -68,6 +68,7 @@ pub enum ARDSType {
  * 
  * (u32, u32) -> ARDS数组的起始地址和ARDS数组的长度
  */
+#[cfg(not(test))]
 #[inline]
 pub fn get_memeory_map() -> (u32, u32) {
     // 最终的ARDS结构列表
