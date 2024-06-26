@@ -5,7 +5,7 @@ use os_in_rust_common::{constants, printkln, utils, ASSERT};
 use crate::device::{self, ata::{Disk, Partition}};
 use crate::memory;
 
-use super::superblock::SuperBlock;
+use super::{inode::Inode, superblock::SuperBlock};
 
 pub enum FileType {
     /**
@@ -51,19 +51,27 @@ pub fn install_filesystem(part: &mut Partition) {
     // 安装superBlock
     self::install_super_block(part, &super_block);
 
-    // 先创建一个缓冲区，取两者的最大者
-    let buff_bytes = super_block.block_bitmap_secs.max(super_block.inode_bitmap_secs) as usize * constants::DISK_SECTOR_SIZE;
+    // 先创建一个缓冲区，取三者的最大者
+    let buff_max_secs = super_block.block_bitmap_secs
+                        .max(super_block.inode_bitmap_secs)
+                        .max(super_block.inode_table_secs);
+    let buff_bytes = buff_max_secs as usize * constants::DISK_SECTOR_SIZE;
     // printkln!("buff bytes:{}", buff_bytes);
     let addr = memory::sys_malloc(buff_bytes);
     // printkln!("addr: 0x{:x}", addr);
     
     let buff = unsafe { slice::from_raw_parts_mut(addr as *mut u8, buff_bytes) };
-
+    
+    // printkln!("buffer len:{}", buff.len());
+    printkln!("fuck");
     // 安装块位图
     self::install_block_bitmap(part, &super_block, buff);
 
     // 安装inode位图
     self::install_inode_bitmap(part, &super_block, buff);
+
+    // 安装inode表（数组）
+    self::install_inode_table(part, &super_block, buff);
 }
 
 /**
@@ -124,4 +132,23 @@ fn install_inode_bitmap(part: &mut Partition, super_block: &SuperBlock, buff: &m
     // printkln!("install_inode_bitmap");
     let disk = unsafe { &mut *part.from_disk };
     disk.write_sector(buff, super_block.inode_bitmap_lba as usize, super_block.inode_bitmap_secs as usize);
+}
+
+
+fn install_inode_table(part: &mut Partition, super_block: &SuperBlock, buff: &mut [u8]) {
+    // 清零
+    unsafe { buff.as_mut_ptr().write_bytes(0x00, buff.len()) };
+    // 转成Inode数组
+    let inode_table = unsafe { slice::from_raw_parts_mut(buff as *mut _ as *mut Inode, buff.len() / size_of::<Inode>()) };
+    
+    // 跟目录inode
+    let root_inode = &mut inode_table[0];
+    root_inode.i_no = 0;
+    root_inode.i_size = super_block.dir_entry_size * 2; // 2个目录：.和..
+    // 根目录inode，数据区就是在第一个数据扇区
+    root_inode.i_sectors[0] = Option::Some(super_block.data_lba_start);
+
+    // 把inode列表写入到硬盘中
+    let disk = unsafe { &mut *part.from_disk };
+    disk.write_sector(buff, super_block.inode_table_lba as usize, super_block.inode_table_secs as usize);
 }

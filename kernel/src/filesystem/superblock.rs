@@ -2,7 +2,7 @@ use core::mem::size_of;
 
 use os_in_rust_common::{constants, utils};
 
-use super::{constant, inode::Inode};
+use super::{constant, dir::DirEntry, inode::Inode};
 
 /**
  * 文件系统的超级块
@@ -39,7 +39,11 @@ pub struct SuperBlock {
     /**
      * 根inode编号
      */
-    pub root_inode_no: usize,
+    pub root_inode_no: u32,
+    /**
+     * 目录项的大小
+     */
+    pub dir_entry_size: u32, 
    
     /**
      * inode位图本身所在扇区的LBA地址
@@ -116,6 +120,7 @@ impl SuperBlock {
             sec_cnt: part_secs, // 该分区的扇区数量
             inode_cnt: constant::MAX_FILE_PER_FS,
             root_inode_no: 0, // 根目录的inode号就是0，位于inode数据的首个元素
+            dir_entry_size: size_of::<DirEntry>().try_into().unwrap(), // 目录项的大小
             // inode位图
             inode_bitmap_lba: inode_bitmap_lba, // inode位图所在扇区的起始LBA
             inode_bitmap_secs: inode_bitmap_sec,// inode位图占用扇区数量
