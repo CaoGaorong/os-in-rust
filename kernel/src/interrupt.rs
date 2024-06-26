@@ -90,12 +90,26 @@ fn keyboard_handler(frame: InterruptStackFrame) {
 #[cfg(all(not(test), target_arch = "x86"))]
 extern "x86-interrupt" fn general_protection_handler(frame: InterruptStackFrame, error_code: u32) {
     pic::send_end_of_interrupt();
-    printkln!("!!!!general protection exception occur!!!");
+    hello();
+    // printkln!("!!!!general protection exception occur!!!");
     loop {}
 }
 #[cfg(all(not(target_arch = "x86")))]
 fn general_protection_handler(frame: InterruptStackFrame, error_code: u32) {
     todo!()
+}
+
+fn hello() {
+    let hello = b"Hello, World";
+    let vga_buffer = 0xC00b8000 as *mut u8;
+
+    for (i, &e) in hello.iter().enumerate() {
+        unsafe {
+            *vga_buffer.offset(i as isize * 2) = e;
+            *vga_buffer.offset(i as isize * 2 + 1) = 0xb;
+        }
+    }
+    loop {}
 }
 
 
@@ -105,7 +119,8 @@ fn general_protection_handler(frame: InterruptStackFrame, error_code: u32) {
 #[cfg(all(not(test), target_arch = "x86"))]
 extern "x86-interrupt" fn page_fault_handler(frame: InterruptStackFrame, error_code: u32) {
     pic::send_end_of_interrupt();
-    printkln!("!!!!page fault exception occur!!!");
+    hello();
+    // printkln!("!!!!page fault exception occur!!!");
     loop {}
 }
 #[cfg(all(not(target_arch = "x86")))]

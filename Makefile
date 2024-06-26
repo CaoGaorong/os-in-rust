@@ -43,7 +43,9 @@ run: build
 	qemu-system-i386 \
 	-hda build/hd60M.img \
 	-hdb build/hd80M.img \
-	--full-screen
+	--full-screen \
+	-d int \
+	-no-reboot
 
 
 debug: build

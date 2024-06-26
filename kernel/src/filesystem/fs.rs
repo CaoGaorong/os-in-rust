@@ -62,6 +62,8 @@ pub fn install_filesystem(part: &mut Partition) {
     // 安装块位图
     self::install_block_bitmap(part, &super_block, buff);
 
+    // 安装inode位图
+    self::install_inode_bitmap(part, &super_block, buff);
 }
 
 /**
@@ -108,4 +110,18 @@ fn install_block_bitmap(part: &mut Partition, super_block: &SuperBlock, buff: &m
     // printkln!("buf len:{}", buff.len());
     // printkln!("lba:{}, secs:{}", super_block.block_bitmap_lba, super_block.block_bitmap_secs);
     disk.write_sector(buff, super_block.block_bitmap_lba as usize, super_block.block_bitmap_secs as usize);
+}
+
+#[inline(never)]
+#[no_mangle]
+fn install_inode_bitmap(part: &mut Partition, super_block: &SuperBlock, buff: &mut [u8]) {
+    // 清零
+    unsafe { buff.as_mut_ptr().write_bytes(0x00, buff.len()) };
+    // buf[0] = 0b00000001
+    // 表示位图的0号位是1，被根inode占用了
+    buff[0] |= 0x01;
+
+    // printkln!("install_inode_bitmap");
+    let disk = unsafe { &mut *part.from_disk };
+    disk.write_sector(buff, super_block.inode_bitmap_lba as usize, super_block.inode_bitmap_secs as usize);
 }
