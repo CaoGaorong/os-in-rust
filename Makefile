@@ -44,15 +44,15 @@ run: build
 	-hda build/hd60M.img \
 	-hdb build/hd80M.img \
 	--full-screen \
-	-d int \
-	-no-reboot
 
 
 debug: build
 	qemu-system-i386 \
 	-hda build/hd60M.img \
 	-hdb build/hd80M.img \
-	-S -s
+	-S -s \
+	-d int \
+	-no-reboot
 
 
 clean: 

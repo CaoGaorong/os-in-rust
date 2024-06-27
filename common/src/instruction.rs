@@ -98,3 +98,18 @@ pub fn halt() {
 pub fn halt() {
     todo!()
 }
+
+
+/**
+ * 清除页表缓存
+ * <https://wiki.osdev.org/TLB>
+ */
+pub fn invalidate_page(vaddr: usize) {
+    unsafe {
+        asm!(
+            "invlpg [{:e}]",
+            in(reg) vaddr,
+            options(nostack, preserves_flags)
+        )
+    }
+}

@@ -1,6 +1,6 @@
 use core::{ptr, slice};
 
-use os_in_rust_common::{bitmap::BitMap, constants, linked_list::{LinkedList, LinkedNode}, printk, printkln, ASSERT, MY_PANIC};
+use os_in_rust_common::{bitmap::BitMap, constants, cstring_utils, elem2entry, linked_list::{LinkedList, LinkedNode}, printk, printkln, ASSERT, MY_PANIC};
 use crate::{device::pio::ErrorRegister, filesystem::superblock::SuperBlock, println, thread};
 
 use crate::sync::{Lock, Semaphore};
@@ -59,109 +59,6 @@ pub struct ATAChannel {
     pub disks: [Option<Disk>; constants::DISK_CNT_PER_CHANNEL],
 }
 
-/**
- * 一个硬盘的结构
- */
-#[derive(Debug)]
-pub struct Disk {
-    /**
-     * 硬盘的名称
-     * 以C字符串的格式存储
-     */
-    pub name: [u8; constants::DISK_NAME_LEN],
-    /**
-     * 该硬盘归属的通道
-     */
-    // from_channel: Option<&'static mut ATAChannel>,
-    pub from_channel: * mut ATAChannel,
-
-    /**
-     * 是否是主硬盘
-     */
-    pub primary: bool,
-
-    /**
-     * 一个硬盘最多4个主分区
-     */
-    pub primary_parts: [Option<Partition>; constants::DISK_PRIMARY_PARTITION_CNT],
-
-    /**
-     * 逻辑分区。理论上一个硬盘无限多个逻辑分区数量
-     */
-    pub logical_parts: [Option<Partition>; constants::DISK_LOGICAL_PARTITION_CNT],
-}
-
-/**
- * 硬盘中的分区结构（逻辑结构）
- */
-#[derive(Debug)]
-pub struct Partition {
-    /**
-     * 分区名称
-     * 以C字符串的格式存储
-     */
-    pub name: [u8; constants::DISK_NAME_LEN],
-    /**
-     * 该分区位于硬盘的起始扇区数
-     */
-    lba_start: u32,
-    /**
-     * 该分区占用的扇区数量
-     */
-    pub sec_cnt: u32,
-    /**
-     * 该分区归属的硬盘
-     */
-    pub from_disk: *mut Disk,
-    /**
-     * 组成链表的tag
-     */
-    pub tag: LinkedNode,
-
-    /**
-     * 本硬盘的超级块的地址
-     */
-    super_block: Option<&'static SuperBlock>,
-
-    /**
-     * 块位图
-     */
-    block_bitmap: BitMap, 
-    /**
-     * 节点位图
-     */
-    inode_bitmap: BitMap, 
-
-    /**
-     * 该硬盘打开的inode节点队列
-     */
-    open_inodes: LinkedList,
-}
-
-/**
- * 通道起始端口号
- */
-pub enum ChannelPortBaseEnum {
-    Primary = 0x1f0,
-    Secondary = 0x170,
-}
-/**
- * 通道请求端口号。8259A设定的起始端口号 + 14/15
- *  这里14和15是8259A的这个端口位置。看下面Primary ATA和 Secondary ATA
- *                     ____________                          ____________
- * Real Time Clock --> |            |   Timer -------------> |            |
- * ACPI -------------> |            |   Keyboard-----------> |            |      _____
- * Available --------> | Secondary  |----------------------> | Primary    |     |     |
- * Available --------> | Interrupt  |   Serial Port 2 -----> | Interrupt  |---> | CPU |
- * Mouse ------------> | Controller |   Serial Port 1 -----> | Controller |     |_____|
- * Co-Processor -----> |            |   Parallel Port 2/3 -> |            |
- * Primary ATA ------> |            |   Floppy disk -------> |            |
- * Secondary ATA ----> |____________|   Parallel Port 1----> |____________|
-*/
-pub enum ChannelIrqNoEnum {
-    Primary = (constants::INTERRUPT_NO_START + 14) as isize,
-    Secondary = (constants::INTERRUPT_NO_START + 15) as isize,
-}
 
 impl ATAChannel {
     pub const fn empty() -> Self {
@@ -206,7 +103,43 @@ impl ATAChannel {
         pio::read_from_register(self.port_base, CommandBlockRegister::RegularStatus(&mut status_register));
 
     }
+    pub fn get_name(&self) -> &str {
+        let name = cstring_utils::read_from_bytes(&self.name);
+        ASSERT!(name.is_some());
+        name.expect("invalid name")
+    }
 
+}
+/**
+ * 一个硬盘的结构
+ */
+#[derive(Debug)]
+pub struct Disk {
+    /**
+     * 硬盘的名称
+     * 以C字符串的格式存储
+     */
+    pub name: [u8; constants::DISK_NAME_LEN],
+    /**
+     * 该硬盘归属的通道
+     */
+    // from_channel: Option<&'static mut ATAChannel>,
+    pub from_channel: *mut ATAChannel,
+
+    /**
+     * 是否是主硬盘
+     */
+    pub primary: bool,
+
+    /**
+     * 一个硬盘最多4个主分区
+     */
+    pub primary_parts: [Option<Partition>; constants::DISK_PRIMARY_PARTITION_CNT],
+
+    /**
+     * 逻辑分区。理论上一个硬盘无限多个逻辑分区数量
+     */
+    pub logical_parts: [Option<Partition>; constants::DISK_LOGICAL_PARTITION_CNT],
 }
 
 impl Disk {
@@ -236,7 +169,9 @@ impl Disk {
     }
 
     pub fn get_name(&self) -> &str {
-        core::str::from_utf8(&self.name).expect("get ata channel name error")
+        let name = cstring_utils::read_from_bytes(&self.name);
+        ASSERT!(name.is_some());
+        name.expect("invalid name")
     }
 
     pub fn identify(&mut self) {
@@ -261,7 +196,7 @@ impl Disk {
         // 把读取到的结果，转成固定格式
         let identify_res =  unsafe { &*(&buf as *const _ as *const DiskIdentifyContent) };
 
-        let disk_name = core::str::from_utf8(&self.name).expect("invalid disk name");
+        let disk_name = self.get_name();
         let sn_name = core::str::from_utf8(&identify_res.sn).expect("Invalid name");
         let module_name = core::str::from_utf8(&identify_res.module).expect("invalid moduel name");
         // printkln!("disk info: {},  sn: {}", disk_name, sn_name);
@@ -508,6 +443,60 @@ impl Disk {
     }
 }
 
+
+/**
+ * 硬盘中的分区结构（逻辑结构）
+ */
+#[derive(Debug)]
+pub struct Partition {
+    /**
+     * 分区名称
+     * 以C字符串的格式存储
+     */
+    pub name: [u8; constants::DISK_NAME_LEN],
+    /**
+     * 该分区位于硬盘的起始扇区数
+     */
+    lba_start: u32,
+    /**
+     * 该分区占用的扇区数量
+     */
+    pub sec_cnt: u32,
+    /**
+     * 该分区归属的硬盘
+     */
+    pub from_disk: *mut Disk,
+    /**
+     * 组成链表的tag
+     */
+    pub tag: LinkedNode,
+
+    /**
+     * 本硬盘的超级块的地址
+     */
+    super_block: Option<&'static SuperBlock>,
+
+    /**
+     * 块位图
+     */
+    block_bitmap: BitMap, 
+    /**
+     * 节点位图
+     */
+    inode_bitmap: BitMap, 
+
+    /**
+     * 该硬盘打开的inode节点队列
+     */
+    open_inodes: LinkedList,
+}
+
+
+// 自己保证并发问题
+unsafe impl Send for Partition {}
+unsafe impl Sync for Partition {}
+
+
 impl Partition {
     pub const fn empty() -> Self {
         Self {
@@ -546,7 +535,49 @@ impl Partition {
     pub fn abs_lba_start(&self, rel_lba_start: u32) -> u32 {
         self.lba_start + rel_lba_start
     }
+
+    pub fn parse_by_tag(tag: *const LinkedNode) -> &'static mut Partition {
+        let part = elem2entry!(Partition, tag, tag as *const _ as usize);
+        unsafe { &mut *part }
+    }
+
+    /**
+     * 获取名字
+     */
+    pub fn get_name(&self) -> &str {
+        let name = cstring_utils::read_from_bytes(&self.name);
+        ASSERT!(name.is_some());
+        name.unwrap()
+    }
 }
+
+
+/**
+ * 通道起始端口号
+ */
+pub enum ChannelPortBaseEnum {
+    Primary = 0x1f0,
+    Secondary = 0x170,
+}
+/**
+ * 通道请求端口号。8259A设定的起始端口号 + 14/15
+ *  这里14和15是8259A的这个端口位置。看下面Primary ATA和 Secondary ATA
+ *                     ____________                          ____________
+ * Real Time Clock --> |            |   Timer -------------> |            |
+ * ACPI -------------> |            |   Keyboard-----------> |            |      _____
+ * Available --------> | Secondary  |----------------------> | Primary    |     |     |
+ * Available --------> | Interrupt  |   Serial Port 2 -----> | Interrupt  |---> | CPU |
+ * Mouse ------------> | Controller |   Serial Port 1 -----> | Controller |     |_____|
+ * Co-Processor -----> |            |   Parallel Port 2/3 -> |            |
+ * Primary ATA ------> |            |   Floppy disk -------> |            |
+ * Secondary ATA ----> |____________|   Parallel Port 1----> |____________|
+*/
+pub enum ChannelIrqNoEnum {
+    Primary = (constants::INTERRUPT_NO_START + 14) as isize,
+    Secondary = (constants::INTERRUPT_NO_START + 15) as isize,
+}
+
+
 
 /**
  * 硬盘identify命令得到的内容

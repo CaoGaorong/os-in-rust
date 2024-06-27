@@ -43,8 +43,10 @@ pub fn init_all(boot_info: &BootContext) {
     // 初始化硬盘ATA通道
     device::ata_init();
 
-    instruction::enable_interrupt();
+    // 给每个分区，安装文件系统
+    device::install_filesystem_for_all_part();
+
     // 初始化文件系统
-    filesystem::init();
+    filesystem::mount_part("sdb5");
 
 }

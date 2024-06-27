@@ -3,7 +3,7 @@ use core::{borrow::{Borrow, BorrowMut}, ffi::CStr, mem::size_of, sync::atomic::A
 use lazy_static::lazy_static;
 use os_in_rust_common::{constants, cstr_write, cstring_utils, linked_list::LinkedList, printkln, racy_cell::RacyCell, utils, ASSERT};
 
-use crate::{init, memory, println};
+use crate::{filesystem, init, memory, println};
 use crate::device::ata::Partition;
 
 use super::{
@@ -11,7 +11,6 @@ use super::{
     drive::{BootSector, PartitionType},
 };
 
-const EMPTY_ATA_CHANNEL: ATAChannel = ATAChannel::empty();
 /**
  * 全局用的2个ATA通道。下面挂载了硬盘
  */
@@ -133,7 +132,7 @@ pub fn main_part_init(disk: &mut Disk) {
             let disk_name = cstring_utils::read_from_bytes(&disk.name);
             ASSERT!(disk_name.is_some());
             // 该分区名称 = 磁盘名称 + i
-            cstr_write!(&mut buf, "{}{}", disk_name.unwrap(), idx);
+            cstr_write!(&mut buf, "{}{}", disk.get_name(), idx);
 
             // 填充该主分区的信息
             let mut primary_part = &mut disk.primary_parts[idx];
@@ -180,11 +179,8 @@ pub fn extended_part_init(disk: &mut Disk, main_ext_lba: usize, mut logic_part_n
         }
         // 不是扩展分区，那么是真正有数据的逻辑分区
         if !part_entry.is_extended() {
-            // 得到磁盘名称
-            let disk_name = cstring_utils::read_from_bytes(&disk.name);
-            ASSERT!(disk_name.is_some());
             // 该分区名称 = 磁盘名称 + i
-            cstr_write!(&mut buf, "{}{}", disk_name.unwrap(), logic_part_no + 4);
+            cstr_write!(&mut buf, "{}{}", disk.get_name(), logic_part_no + 4);
             
             // 填充分区信息
             let mut logical_part = &mut disk.logical_parts[logic_part_no];
@@ -202,4 +198,18 @@ pub fn extended_part_init(disk: &mut Disk, main_ext_lba: usize, mut logic_part_n
         let main_extend_lba_base = main_extended_lba_base();
         extended_part_init(disk, (part_entry.start_lba + *main_extend_lba_base) as usize, logic_part_no);
     }
+}
+
+
+/**
+ * 为所有的分区安装文件系统
+ */
+pub fn install_filesystem_for_all_part() {
+    // 取出所有分区
+    let all_partition = get_all_partition();
+    // 遍历每个分区，安装文件系统
+    all_partition.iter().for_each(|part_tag| {
+        let part = Partition::parse_by_tag(part_tag);
+        filesystem::install_filesystem(part);
+    })
 }

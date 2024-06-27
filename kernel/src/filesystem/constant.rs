@@ -19,3 +19,9 @@ pub const INODE_DATA_SECS: usize = INODE_DIRECT_DATA_SECS + INODE_INDIRECT_DATA_
  * 一个文件系统最大的文件数量（inode数量）
  */
 pub const MAX_FILE_PER_FS: u32 = 4096;
+
+
+/**
+ * 文件名称最大长度。单位字节
+ */
+pub const MAX_FILE_NAME: usize = 20;

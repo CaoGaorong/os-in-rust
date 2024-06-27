@@ -1,15 +1,23 @@
 
 use core::{arch::asm, ptr::{self, addr_of}};
 
-use os_in_rust_common::{constants, idt::{self, HandlerFunc, InterruptStackFrame, InterruptTypeEnum}, instruction, pic, pit, port::Port, printk, printkln, sd::SegmentDPL, ASSERT, MY_PANIC};
+use os_in_rust_common::{idt::{self, InterruptStackFrame, InterruptTypeEnum}, pic, pit, port::Port, sd::SegmentDPL, ASSERT, MY_PANIC};
 
 use crate::{device::{self, ata::{self, ChannelIrqNoEnum}, drive, pio::{self, CommandBlockRegister, StatusRegister}}, interrupt, keyboard::{self, ScanCodeCombinator}, println, scheduler, sys_call::sys_call::{self, HandlerType}, thread};
 
+/**
+ * exceptions and codes: <https://wiki.osdev.org/Exceptions>
+ */
 pub fn init() {
     
+    // general protection
     unsafe { idt::IDT.get_mut().set_error_code_handler(InterruptTypeEnum::GeneralProtectionFault, general_protection_handler) }
-    unsafe { idt::IDT.get_mut().set_error_code_handler(InterruptTypeEnum::DoubleFault, general_protection_handler) }
+    // double fault
+    unsafe { idt::IDT.get_mut().set_error_code_handler(InterruptTypeEnum::DoubleFault, double_fault_handler) }
+    // page fault
     unsafe { idt::IDT.get_mut().set_error_code_handler(InterruptTypeEnum::PageFault, page_fault_handler) }
+    // invalid code
+    unsafe { idt::IDT.get_mut().set_handler(InterruptTypeEnum::InvalidOpcode, invalid_opcode_handler) }
 
     // 初始化时钟中断
     unsafe { idt::IDT.get_mut().set_handler(InterruptTypeEnum::Timer, timer_handler) }
@@ -34,39 +42,73 @@ pub fn init() {
 
 }
 
-
-
 /**
- * 通用的中断处理程序
+ * 非法操作码处理
  */
 #[cfg(all(not(test), target_arch = "x86"))]
-extern "x86-interrupt" fn general_handler(frame: InterruptStackFrame) {
-    printk!(".");
-    pic::send_end_of_interrupt();
+extern "x86-interrupt" fn invalid_opcode_handler(frame: InterruptStackFrame) {
+    MY_PANIC!("invalid opcode");
 }
 
 
 #[cfg(all(not(target_arch = "x86")))]
-fn general_handler(frame: InterruptStackFrame) {
-    todo!()
+fn invalid_opcode_handler(frame: InterruptStackFrame) {
+    MY_PANIC!("invalid opcode");
 }
 
 
+/**
+ * 保护异常
+ */
+#[cfg(all(not(test), target_arch = "x86"))]
+extern "x86-interrupt" fn general_protection_handler(frame: InterruptStackFrame, error_code: u32) {
+    MY_PANIC!("!!!!general protection exception occur, error code:{}!!!", error_code);
+}
+
+#[cfg(all(not(target_arch = "x86")))]
+fn general_protection_handler(frame: InterruptStackFrame, error_code: u32) {
+    todo!()
+}
+
+/**
+ * double fault
+ */
+#[cfg(all(not(test), target_arch = "x86"))]
+extern "x86-interrupt" fn double_fault_handler(frame: InterruptStackFrame, error_code: u32) {
+    MY_PANIC!("!!!!!DOUBLE FAULT OCCUR !!!!");
+    loop {}
+}
+#[cfg(all(not(target_arch = "x86")))]
+fn double_fault_handler(frame: InterruptStackFrame, error_code: u32) {
+    todo!()
+}
 
 /**
  * 通用的中断处理程序
  */
 #[cfg(all(not(test), target_arch = "x86"))]
-extern "x86-interrupt" fn general_handler_with_error_code(frame: InterruptStackFrame, error_code: u32) {
-    pic::send_end_of_interrupt();
-    printkln!("!!!!general error code exception occur!!!");
+extern "x86-interrupt" fn page_fault_handler(frame: InterruptStackFrame, error_code: u32) {
+    MY_PANIC!("page fault, code:{}", error_code);
+    loop {}
+}
+#[cfg(all(not(target_arch = "x86")))]
+fn page_fault_handler(frame: InterruptStackFrame, error_code: u32) {
+    MY_PANIC!("page fault, code:{}", error_code);
+}
+
+
+fn alert(error_msg: &str) {
+    let vga_buffer = 0xC00b8000 as *mut u8;
+    for (i, &e) in error_msg.as_bytes().iter().enumerate() {
+        unsafe {
+            *vga_buffer.offset(i as isize * 2) = e;
+            *vga_buffer.offset(i as isize * 2 + 1) = 0xb;
+        }
+    }
     loop {}
 }
 
-#[cfg(all(not(target_arch = "x86")))]
-fn general_handler_with_error_code(frame: InterruptStackFrame, error_code: u32) {
-    todo!()
-}
+
 
 
 #[cfg(all(not(test), target_arch = "x86"))]
@@ -83,51 +125,6 @@ extern "x86-interrupt" fn keyboard_handler(frame: InterruptStackFrame) {
 fn keyboard_handler(frame: InterruptStackFrame) {
     todo!()
 }
-
-/**
- * 通用的中断处理程序
- */
-#[cfg(all(not(test), target_arch = "x86"))]
-extern "x86-interrupt" fn general_protection_handler(frame: InterruptStackFrame, error_code: u32) {
-    pic::send_end_of_interrupt();
-    hello();
-    // printkln!("!!!!general protection exception occur!!!");
-    loop {}
-}
-#[cfg(all(not(target_arch = "x86")))]
-fn general_protection_handler(frame: InterruptStackFrame, error_code: u32) {
-    todo!()
-}
-
-fn hello() {
-    let hello = b"Hello, World";
-    let vga_buffer = 0xC00b8000 as *mut u8;
-
-    for (i, &e) in hello.iter().enumerate() {
-        unsafe {
-            *vga_buffer.offset(i as isize * 2) = e;
-            *vga_buffer.offset(i as isize * 2 + 1) = 0xb;
-        }
-    }
-    loop {}
-}
-
-
-/**
- * 通用的中断处理程序
- */
-#[cfg(all(not(test), target_arch = "x86"))]
-extern "x86-interrupt" fn page_fault_handler(frame: InterruptStackFrame, error_code: u32) {
-    pic::send_end_of_interrupt();
-    hello();
-    // printkln!("!!!!page fault exception occur!!!");
-    loop {}
-}
-#[cfg(all(not(target_arch = "x86")))]
-fn page_fault_handler(frame: InterruptStackFrame, error_code: u32) {
-    todo!()
-}
-
 
 #[cfg(all(not(test), target_arch = "x86"))]
 pub extern "x86-interrupt" fn timer_handler(frame: InterruptStackFrame) {

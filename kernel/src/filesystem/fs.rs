@@ -1,54 +1,75 @@
 use core::{arch::asm, mem::{size_of, size_of_val}, slice};
 
-use os_in_rust_common::{constants, printkln, utils, ASSERT};
+use os_in_rust_common::{constants, cstr_write, printkln, racy_cell::RacyCell, utils, ASSERT};
 
-use crate::device::{self, ata::{Disk, Partition}};
+use crate::{device::{self, ata::{Disk, Partition}}, filesystem::dir::FileType, sys_call};
 use crate::memory;
 
-use super::{inode::Inode, superblock::SuperBlock};
+use super::{dir::DirEntry, inode::Inode, superblock::SuperBlock};
 
-pub enum FileType {
-    /**
-     * 普通文件
-     */
-    Regular,
-    /**
-     * 目录
-     */
-    Directory,
-    /**
-     * 未知
-     */
-    Unknown,
+/**
+ * 当前的挂载的分区
+ */
+static CUR_PARTITION: RacyCell<Option<&Partition>> = RacyCell::new(Option::None);
+
+
+pub fn get_cur_partition() -> &'static mut Option<&'static Partition> {
+    unsafe { CUR_PARTITION.get_mut() }
 }
 
+#[inline(never)]
+pub fn mount_part(part_name: &str) {
+    printkln!("mount {}", part_name);
+    // 找到所有分区
+    let all_part = device::get_all_partition();
+    // 遍历所有分区
+    let target_part = all_part.iter()
+        .for_each(|part_tag| {
+            let part = Partition::parse_by_tag(part_tag);
+            // 找到这个分区了，设置为当前分区
+            if part.get_name() == part_name {
+                *get_cur_partition() = Option::Some(part)
+            }
+        });
+}
 
 pub fn init() {
+    // 取出primary通道
     let channel_idx = 0;
     let primary_channel = device::get_ata_channel(&channel_idx);
     let primary_channel = primary_channel.as_mut();
     ASSERT!(primary_channel.is_some());
     let primary_channel = primary_channel.unwrap();
+
+    // 取出secondary disk: hd80M.img
     let secondary_disk = &mut primary_channel.disks[1];
     let secondary_disk = secondary_disk.as_mut();
     ASSERT!(secondary_disk.is_some());
     let secondary_disk =  secondary_disk.unwrap();
+
+    // 取出第一个分区
     let first_part  = &mut secondary_disk.primary_parts[0];
     let first_part = first_part.as_mut();
     ASSERT!(first_part.is_some());
     let first_part = first_part.unwrap();
 
+    // 把文件系统安装在第一个分区上
     install_filesystem(first_part);
+
 }
 
+/**
+ * 安装文件系统
+ * 我们文件系统的设计：
+ * | 引导块(1扇区) | 超级块(1扇区) | inode位图(x扇区) | inode数组(y扇区)| 空闲数据块位图(z扇区)  | 根目录(1扇区) | 若干个数据块
+ * 注意：这里根目录也属于数据块
+ */
 #[inline(never)]
 #[no_mangle]
 pub fn install_filesystem(part: &mut Partition) {
-    // printkln!("install file system");
-    // 构建一个超级块出来。占用1个扇区
-    let super_block = SuperBlock::new(part.abs_lba_start(0), part.sec_cnt);
-
+    
     // 安装superBlock
+    let super_block = SuperBlock::new(part.abs_lba_start(0), part.sec_cnt);
     self::install_super_block(part, &super_block);
 
     // 先创建一个缓冲区，取三者的最大者
@@ -56,22 +77,22 @@ pub fn install_filesystem(part: &mut Partition) {
                         .max(super_block.inode_bitmap_secs)
                         .max(super_block.inode_table_secs);
     let buff_bytes = buff_max_secs as usize * constants::DISK_SECTOR_SIZE;
-    // printkln!("buff bytes:{}", buff_bytes);
-    let addr = memory::sys_malloc(buff_bytes);
-    // printkln!("addr: 0x{:x}", addr);
-    
-    let buff = unsafe { slice::from_raw_parts_mut(addr as *mut u8, buff_bytes) };
-    
-    // printkln!("buffer len:{}", buff.len());
-    printkln!("fuck");
-    // 安装块位图
-    self::install_block_bitmap(part, &super_block, buff);
+    let buff = unsafe { slice::from_raw_parts_mut(memory::sys_malloc(buff_bytes) as *mut u8, buff_bytes) };
 
     // 安装inode位图
     self::install_inode_bitmap(part, &super_block, buff);
 
     // 安装inode表（数组）
     self::install_inode_table(part, &super_block, buff);
+
+    // 安装块位图
+    self::install_block_bitmap(part, &super_block, buff);
+
+    // 安装根目录
+    self::install_root_dir(part, &super_block, buff);
+
+    // 释放缓冲区
+    memory::sys_free(buff.as_ptr() as usize);
 }
 
 /**
@@ -84,7 +105,7 @@ fn install_super_block(part: &mut Partition, super_block: &SuperBlock) {
 }
 
 /**
- * 在part分区中，安装块位图
+ * 在part分区中，安装空闲块位图
  */
 #[inline(never)]
 #[no_mangle]
@@ -113,13 +134,15 @@ fn install_block_bitmap(part: &mut Partition, super_block: &SuperBlock, buff: &m
     // 位图的第0位设置为1，这一位是给根目录所在块的，设置为已占用
     buff[0] |= 0x01;
 
-
+    // 块位图写入硬盘
     let disk = unsafe { &mut *part.from_disk };
-    // printkln!("buf len:{}", buff.len());
-    // printkln!("lba:{}, secs:{}", super_block.block_bitmap_lba, super_block.block_bitmap_secs);
     disk.write_sector(buff, super_block.block_bitmap_lba as usize, super_block.block_bitmap_secs as usize);
 }
 
+
+/**
+ * 安装inode位图
+ */
 #[inline(never)]
 #[no_mangle]
 fn install_inode_bitmap(part: &mut Partition, super_block: &SuperBlock, buff: &mut [u8]) {
@@ -135,6 +158,9 @@ fn install_inode_bitmap(part: &mut Partition, super_block: &SuperBlock, buff: &m
 }
 
 
+/**
+ * 安装inode列表
+ */
 fn install_inode_table(part: &mut Partition, super_block: &SuperBlock, buff: &mut [u8]) {
     // 清零
     unsafe { buff.as_mut_ptr().write_bytes(0x00, buff.len()) };
@@ -151,4 +177,34 @@ fn install_inode_table(part: &mut Partition, super_block: &SuperBlock, buff: &mu
     // 把inode列表写入到硬盘中
     let disk = unsafe { &mut *part.from_disk };
     disk.write_sector(buff, super_block.inode_table_lba as usize, super_block.inode_table_secs as usize);
+}
+
+/**
+ * 安装根目录项
+ *  根目录有两项：.和..，都放在块的数据区
+ */
+fn install_root_dir(part: &mut Partition, super_block: &SuperBlock, buff: &mut [u8]) {
+    // 清零
+    unsafe { buff.as_mut_ptr().write_bytes(0x00, buff.len()) };
+    // 转成目录项数组
+    let dir_table = unsafe { slice::from_raw_parts_mut(buff as *mut _ as *mut DirEntry, buff.len() / size_of::<DirEntry>()) };
+    {
+        // . 目录项项
+        let cur_dir = &mut dir_table[0];
+        cstr_write!(&mut cur_dir.name, ".");
+        cur_dir.i_no = 0;
+        cur_dir.file_type = FileType::Directory;
+    }
+
+    {
+        // .. 目录项
+        let last_dir = &mut dir_table[1];
+        cstr_write!(&mut last_dir.name, "..");
+        last_dir.i_no = 0;
+        last_dir.file_type = FileType::Directory;
+    }
+    // 把根目录的两个项：.和..，写入到数据扇区
+    let disk = unsafe { &mut *part.from_disk };
+    disk.write_sector(buff, super_block.data_lba_start as usize, 1 as usize);
+
 }

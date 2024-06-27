@@ -1,7 +1,7 @@
 use core::{mem::size_of, ptr};
 
 
-use os_in_rust_common::{paging::{PageTable, PageTableEntry}, printk, printkln, ASSERT};
+use os_in_rust_common::{instruction, paging::{PageTable, PageTableEntry}, printk, printkln, ASSERT};
 
 use crate::memory;
 
@@ -47,6 +47,8 @@ pub fn add_page_connection(virtual_addr: usize, physical_addr: usize) {
 pub fn unset_pte(virtual_addr: usize) {
     let pte = addr_to_pte(virtual_addr);
     (unsafe { &mut *pte }).set_present(false);
+    // 刷新TLB缓存
+    instruction::invalidate_page(virtual_addr);
 }
 
 /**

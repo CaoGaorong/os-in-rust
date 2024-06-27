@@ -45,7 +45,7 @@ static PROCESS_NAME: &str = "user process";
 #[no_mangle]
 #[link_section = ".start"]
 pub extern "C" fn _start(boot_info: &BootContext) {
-    printkln!("I'm Kernel!");
+    // printkln!("I'm Kernel!");
     
     init::init_all(boot_info);
     
@@ -73,6 +73,8 @@ pub extern "C" fn _start(boot_info: &BootContext) {
     printkln!("print_super_blocksss");
     print_super_block(disk.as_mut().unwrap());
     
+    print_cur_part();
+    
     // // 测试一样空间的分配和释放
     // test_malloc_free();
 
@@ -84,18 +86,27 @@ pub extern "C" fn _start(boot_info: &BootContext) {
     loop {}
 }
 
+fn print_cur_part() {
+    let cur_part = filesystem::fs::get_cur_partition();
+    if cur_part.is_none() {
+        printkln!("no part mounted");
+    } else {
+        printkln!("part {} mounted", cur_part.unwrap().get_name());
+    }
+}
+
 #[inline(never)]
 fn print_super_block(disk: &mut Disk) {
     let super_block = memory::sys_malloc(size_of::<SuperBlock>()) as *mut SuperBlock;
     let buf = unsafe { slice::from_raw_parts_mut(super_block as *mut u8, size_of::<SuperBlock>()) };
-    disk.read_sectors(2049, 1, buf);
+    disk.read_sectors(146664, 1, buf);
     printkln!("{:?}", unsafe {&*super_block});
 
 }
 fn print_disk(disk: &Disk) {
     let disk_name =  cstring_utils::read_from_bytes(&disk.name);
     ASSERT!(disk_name.is_some());
-    printkln!("name:{}, from_channel:{}, is_primary:{}", disk_name.unwrap(), disk.from_channel as usize, disk.primary);
+    printkln!("name:{}, from_channel:{}, is_primary:{}", disk.get_name(), disk.from_channel as usize, disk.primary);
 
     let pp = &disk.primary_parts;
     for (idx, part) in pp.iter().enumerate() {

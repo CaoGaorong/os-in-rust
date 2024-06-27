@@ -16,6 +16,12 @@ pub struct BitMap {
     pub size: usize,
     init: bool,
 }
+
+// 自己保证并发问题
+unsafe impl Send for BitMap {}
+unsafe impl Sync for BitMap {}
+
+
 #[derive(Debug)]
 pub enum MemoryError {
     MemInsufficient,
