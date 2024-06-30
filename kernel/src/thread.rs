@@ -172,6 +172,11 @@ pub struct TaskStruct {
     pub pgdir: *mut PageTable,
 
     /**
+     * 该任务的文件描述符数组
+     */
+    pub fd_table: [Option<u8>; constants::MAX_FILES_PER_PROC],
+
+    /**
      * 该pcb的通用链表tag。
      * 可以放就绪队列，也可以放阻塞队列，所以是通用的
      */
@@ -210,25 +215,6 @@ impl Display for TaskStruct {
 }
 
 impl TaskStruct {
-    pub fn new(name: &'static str, priority: u8) -> Self {
-        Self {
-            pid: pid_allocator::allocate(),
-            kernel_stack: 0,
-            name,
-            priority,
-            task_status: TaskStatus::TaskReady,
-            left_ticks: priority,
-            elapsed_ticks: 0,
-            pgdir: ptr::null_mut(),
-            general_tag: LinkedNode::new(),
-            all_tag: LinkedNode::new(),
-            vaddr_pool: MemPool::empty(),
-            stack_magic: constants::TASK_STRUCT_STACK_MAGIC,
-            pcb_page_addr: 0,
-            mem_block_allocator: MemBlockAllocator::new(),
-        }
-    }
-
     fn init(&mut self, name: &'static str, priority: u8, kernel_stack: u32, pcb_page_addr: u32) {
         self.pid = pid_allocator::allocate();
         self.kernel_stack = kernel_stack;
@@ -242,6 +228,11 @@ impl TaskStruct {
         self.general_tag = LinkedNode::new();
         self.all_tag = LinkedNode::new();
         self.pcb_page_addr = pcb_page_addr;
+        // 文件描述符数组
+        self.fd_table = [Option::None; constants::MAX_FILES_PER_PROC];
+        self.fd_table[0] = Option::Some(0);
+        self.fd_table[1] = Option::Some(1);
+        self.fd_table[2] = Option::Some(2);
     }
 
     pub fn set_status(&mut self , status: TaskStatus) {

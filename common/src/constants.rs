@@ -187,3 +187,9 @@ pub const DISK_SECTOR_SIZE: usize = 512;
  * idle线程的名称
  */
 pub static IDLE_THREAD_NAME: &str = "idle";
+
+
+/**
+ * 一个进程最大打开文件的数量
+ */
+pub const MAX_FILES_PER_PROC: usize = 8;

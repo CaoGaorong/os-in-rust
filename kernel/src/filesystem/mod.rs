@@ -3,6 +3,7 @@ pub mod superblock;
 pub mod inode;
 pub mod dir;
 pub mod fs;
+pub mod file;
 
 pub use fs::init;
 pub use fs::install_filesystem;
