@@ -62,7 +62,7 @@ fn invalid_opcode_handler(frame: InterruptStackFrame) {
  */
 #[cfg(all(not(test), target_arch = "x86"))]
 extern "x86-interrupt" fn general_protection_handler(frame: InterruptStackFrame, error_code: u32) {
-    MY_PANIC!("!!!!general protection exception occur, error code:{}!!!", error_code);
+    MY_PANIC!("!!!!general protection exception occur, error code:0x{:x}!!!", error_code);
 }
 
 #[cfg(all(not(target_arch = "x86")))]
@@ -75,7 +75,7 @@ fn general_protection_handler(frame: InterruptStackFrame, error_code: u32) {
  */
 #[cfg(all(not(test), target_arch = "x86"))]
 extern "x86-interrupt" fn double_fault_handler(frame: InterruptStackFrame, error_code: u32) {
-    MY_PANIC!("!!!!!DOUBLE FAULT OCCUR !!!!");
+    MY_PANIC!("!!!!!DOUBLE FAULT OCCUR !!!!, error code: 0x{:x}", error_code);
     loop {}
 }
 #[cfg(all(not(target_arch = "x86")))]
@@ -88,12 +88,11 @@ fn double_fault_handler(frame: InterruptStackFrame, error_code: u32) {
  */
 #[cfg(all(not(test), target_arch = "x86"))]
 extern "x86-interrupt" fn page_fault_handler(frame: InterruptStackFrame, error_code: u32) {
-    MY_PANIC!("page fault, code:{}", error_code);
-    loop {}
+    MY_PANIC!("page fault, code:0x{:x}", error_code);
 }
 #[cfg(all(not(target_arch = "x86")))]
 fn page_fault_handler(frame: InterruptStackFrame, error_code: u32) {
-    MY_PANIC!("page fault, code:{}", error_code);
+    MY_PANIC!("page fault, code:0x{:x}", error_code);
 }
 
 

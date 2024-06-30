@@ -453,7 +453,7 @@ pub struct Partition {
      * 分区名称
      * 以C字符串的格式存储
      */
-    pub name: [u8; constants::DISK_NAME_LEN],
+    name: [u8; constants::DISK_NAME_LEN],
     /**
      * 该分区位于硬盘的起始扇区数
      */
@@ -470,25 +470,6 @@ pub struct Partition {
      * 组成链表的tag
      */
     pub tag: LinkedNode,
-
-    /**
-     * 本硬盘的超级块的地址
-     */
-    super_block: Option<&'static SuperBlock>,
-
-    /**
-     * 块位图
-     */
-    block_bitmap: BitMap, 
-    /**
-     * 节点位图
-     */
-    inode_bitmap: BitMap, 
-
-    /**
-     * 该硬盘打开的inode节点队列
-     */
-    open_inodes: LinkedList,
 }
 
 
@@ -505,10 +486,6 @@ impl Partition {
             sec_cnt: 0,
             from_disk: ptr::null_mut(),
             tag: LinkedNode::new(),
-            super_block: Option::None,
-            block_bitmap: BitMap::empty(),
-            inode_bitmap: BitMap::empty(),
-            open_inodes: LinkedList::new(),
         }
     }
 
@@ -522,10 +499,6 @@ impl Partition {
             sec_cnt: sec_cnt,
             from_disk: from_disk,
             tag: LinkedNode::new(),
-            super_block: Option::None,
-            block_bitmap: BitMap::empty(),
-            inode_bitmap: BitMap::empty(),
-            open_inodes: LinkedList::new(),
         }
     }
 

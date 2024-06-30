@@ -2,19 +2,22 @@ use core::{arch::asm, mem::{size_of, size_of_val}, slice};
 
 use os_in_rust_common::{constants, cstr_write, printkln, racy_cell::RacyCell, utils, ASSERT};
 
-use crate::{device::{self, ata::{Disk, Partition}}, filesystem::dir::FileType, sys_call};
+use crate::{device::{self, ata::Partition}, filesystem::dir::FileType};
 use crate::memory;
 
-use super::{dir::DirEntry, inode::Inode, superblock::SuperBlock};
+use super::{dir::{DirEntry, MountedPartition}, inode::Inode, superblock::SuperBlock};
 
 /**
  * 当前的挂载的分区
  */
-static CUR_PARTITION: RacyCell<Option<&Partition>> = RacyCell::new(Option::None);
+static CUR_PARTITION: RacyCell<Option<MountedPartition>> = RacyCell::new(Option::None);
 
+pub fn set_cur_part(cur_part: MountedPartition) {
+    *unsafe { CUR_PARTITION.get_mut() } = Option::Some(cur_part);
+}
 
-pub fn get_cur_partition() -> &'static mut Option<&'static Partition> {
-    unsafe { CUR_PARTITION.get_mut() }
+pub fn get_cur_partition() -> Option<&'static MountedPartition> {
+    unsafe { CUR_PARTITION.get_mut() }.as_ref()
 }
 
 #[inline(never)]
@@ -26,9 +29,35 @@ pub fn mount_part(part_name: &str) {
     let target_part = all_part.iter()
         .for_each(|part_tag| {
             let part = Partition::parse_by_tag(part_tag);
+            // printkln!("part:0x{:x}", part as *const _ as usize);
             // 找到这个分区了，设置为当前分区
             if part.get_name() == part_name {
-                *get_cur_partition() = Option::Some(part)
+                let disk = unsafe { &mut *part.from_disk };
+
+                // SuperBlock
+                let super_block: &mut SuperBlock = memory::malloc(size_of::<SuperBlock>());
+                let sb_buf = unsafe { slice::from_raw_parts_mut(super_block as *mut _ as *mut u8, size_of::<SuperBlock>()) };
+                // 读取SuperBlock
+                disk.read_sectors(part.abs_lba_start(1) as usize, 1, sb_buf);
+
+
+                // inode位图
+                let inode_bitmap_len = super_block.inode_bitmap_lba as usize * constants::DISK_SECTOR_SIZE;
+                let inode_bitmap_bits = unsafe { slice::from_raw_parts_mut(memory::sys_malloc(inode_bitmap_len) as *mut u8, inode_bitmap_len) };
+                disk.read_sectors(super_block.inode_bitmap_lba as usize, super_block.inode_bitmap_secs as usize, inode_bitmap_bits);
+
+
+                // 块位图
+                let block_bitmap_len = super_block.block_bitmap_secs as usize * constants::DISK_SECTOR_SIZE;
+                let block_bitmap_bits = unsafe { slice::from_raw_parts_mut(memory::sys_malloc(block_bitmap_len) as *mut u8, inode_bitmap_len) };
+                disk.read_sectors(super_block.block_bitmap_lba as usize, super_block.block_bitmap_secs as usize, block_bitmap_bits);
+                
+
+                // 挂载的分区
+                let mounted_part =  MountedPartition::new(part, super_block, inode_bitmap_bits, block_bitmap_bits);
+
+                // 设置当前挂载的分区
+                set_cur_part(mounted_part);
             }
         });
 }
