@@ -34,6 +34,7 @@ use core::{arch::asm, mem::size_of, panic::PanicInfo};
 use device::ata::{Disk, Partition};
 use filesystem::superblock::SuperBlock;
 use memory::mem_block::{Arena, MemBlock};
+use os_in_rust_common::domain::LbaAddr;
 use os_in_rust_common::{cstring_utils, instruction, vga, MY_PANIC};
 use os_in_rust_common::{ASSERT, constants, context::BootContext, elem2entry, instruction::enable_interrupt, printk, printkln};
 use os_in_rust_common::linked_list::{LinkedList, LinkedNode};
@@ -101,7 +102,7 @@ fn print_cur_part() {
 fn print_super_block(disk: &mut Disk) {
     let super_block = memory::sys_malloc(size_of::<SuperBlock>()) as *mut SuperBlock;
     let buf = unsafe { slice::from_raw_parts_mut(super_block as *mut u8, size_of::<SuperBlock>()) };
-    disk.read_sectors(59895, 1, buf);
+    disk.read_sectors(LbaAddr::new(59895), 1, buf);
     printkln!("{:?}", unsafe {&*super_block});
 }
 fn print_disk(disk: &Disk) {
@@ -133,7 +134,8 @@ fn print_disk(disk: &Disk) {
 fn print_partition(part: &Partition) {
     // let part_name =  cstring_utils::read_from_bytes(&part.name);
     // ASSERT!(part_name.is_some());
-    printkln!("name:{}, lba_start:{}, sec_cnt:{}, from_disk:{}", part.get_name(), part.abs_lba_start(0), part.sec_cnt, part.from_disk as usize);
+    // printkln!("name:{}, lba:{:?}, sec_cnt:{}, from_disk:{}", part.get_name(), part.abs_lba_start(0), part.sec_cnt, part.from_disk as usize);
+    printkln!(" {}, {:?}, {}, {}", part.get_name(), part.abs_lba_start(0), part.sec_cnt, part.from_disk as usize);
 }
 
 

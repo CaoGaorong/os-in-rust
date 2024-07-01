@@ -1,6 +1,6 @@
 use core::{ptr, slice};
 
-use os_in_rust_common::{bitmap::BitMap, constants, cstring_utils, elem2entry, linked_list::{LinkedList, LinkedNode}, printk, printkln, ASSERT, MY_PANIC};
+use os_in_rust_common::{bitmap::BitMap, constants, cstring_utils, domain::LbaAddr, elem2entry, linked_list::{LinkedList, LinkedNode}, printk, printkln, ASSERT, MY_PANIC};
 use crate::{device::pio::ErrorRegister, filesystem::superblock::SuperBlock, println, thread};
 
 use crate::sync::{Lock, Semaphore};
@@ -208,7 +208,8 @@ impl Disk {
     /**
      * 从lba_start为起始地址的扇区中，读取连续sec_cnt扇区的数据，到buf缓冲区中
      */
-    pub fn read_sectors(&mut self, lba_start: usize, sec_cnt: usize, buf: &mut [u8]) {
+    pub fn read_sectors(&mut self, lba_start: LbaAddr, sec_cnt: usize, buf: &mut [u8]) {
+        let lba_start = lba_start.get_lba() as usize;
         let lba_end = lba_start + sec_cnt;
         if lba_end > (constants::DISK_MAX_SIZE / constants::DISK_SECTOR_SIZE as u64) as usize {
             printkln!("error to read sector. exceed maximum sector. lba:{}, sec_cnt:{}", lba_start, sec_cnt);
@@ -260,7 +261,8 @@ impl Disk {
     /**
      * 把buf的数据写入到lba_start起始的地址 的连续 sec_cnt个扇区中
      */
-    pub fn write_sector(&mut self, buf: &[u8], lba_start: usize, sec_cnt: usize) {
+    pub fn write_sector(&mut self, buf: &[u8], lba_start: LbaAddr, sec_cnt: usize) {
+        let lba_start = lba_start.get_lba() as usize;
         let lba_end = lba_start + sec_cnt;
         if lba_end > (constants::DISK_MAX_SIZE / constants::DISK_SECTOR_SIZE as u64) as usize {
             printkln!("error to read sector. exceed maximum sector. lba:{}, sec_cnt:{}", lba_start, sec_cnt);
@@ -457,7 +459,7 @@ pub struct Partition {
     /**
      * 该分区位于硬盘的起始扇区数
      */
-    lba_start: u32,
+    lba_start: LbaAddr,
     /**
      * 该分区占用的扇区数量
      */
@@ -482,14 +484,14 @@ impl Partition {
     pub const fn empty() -> Self {
         Self {
             name: [0; constants::DISK_NAME_LEN],
-            lba_start: 0,
+            lba_start: LbaAddr::empty(),
             sec_cnt: 0,
             from_disk: ptr::null_mut(),
             tag: LinkedNode::new(),
         }
     }
 
-    pub fn new(name: &[u8], lba_start: u32, sec_cnt: u32, from_disk: *mut Disk) -> Self {
+    pub fn new(name: &[u8], lba_start: LbaAddr, sec_cnt: u32, from_disk: *mut Disk) -> Self {
         ASSERT!(name.len() >= constants::DISK_NAME_LEN);
         let mut name_buf = [0; constants::DISK_NAME_LEN];
         name_buf.copy_from_slice(&name[0 .. constants::DISK_NAME_LEN]);
@@ -505,8 +507,8 @@ impl Partition {
     /**
      * 根据该分区的相对LBA地址，得到绝对LBA地址
      */
-    pub fn abs_lba_start(&self, rel_lba_start: u32) -> u32 {
-        self.lba_start + rel_lba_start
+    pub fn abs_lba_start(&self, rel_lba_start: u32) -> LbaAddr {
+        self.lba_start.add(rel_lba_start)
     }
 
     pub fn parse_by_tag(tag: *const LinkedNode) -> &'static mut Partition {

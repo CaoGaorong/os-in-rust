@@ -1,6 +1,6 @@
 use core::{fmt::Display, mem::{self, size_of}, ptr, slice};
 
-use os_in_rust_common::{bitmap::BitMap, constants, linked_list::LinkedList, printkln, racy_cell::RacyCell, ASSERT, MY_PANIC};
+use os_in_rust_common::{bitmap::BitMap, constants, cstr_write, linked_list::LinkedList, printkln, racy_cell::RacyCell, ASSERT, MY_PANIC};
 
 use crate::{device::ata::Partition, memory, thread};
 
@@ -101,7 +101,7 @@ impl MountedPartition {
         let byte_cnt = sec_cnt * constants::DISK_SECTOR_SIZE;
         let inode_buf = unsafe { slice::from_raw_parts_mut(memory::sys_malloc(byte_cnt) as *mut u8, byte_cnt) };
         // 从硬盘中读取扇区
-        disk.read_sectors(inode_location.lba.try_into().unwrap(), sec_cnt, inode_buf);
+        disk.read_sectors(inode_location.lba, sec_cnt, inode_buf);
 
         let mut target_inode = Inode::empty();
         // 根据字节偏移量，找到这个inode数据
@@ -152,6 +152,57 @@ impl MountedPartition {
         result.unwrap()
     }
 
+    /**
+     * 把目录项dir_entry放入到parent目录中。并且保存到硬盘
+     */
+    pub fn sync_dir_entry(&mut self, parent: &Dir, dir_entry: &DirEntry) {
+        // 从块位图中，申请1位。得到该位的下标
+        let block_idx = self.apply_block();
+        // 把这一位同步到快位图的硬盘中
+        self.sync_block_bitmap(block_idx);
+
+        // 找到当前节点的数据区域，然后把目录项放入数据区
+
+
+    }
+
+    /**
+     * 把inode位图的第bit_idx同步到硬盘中
+     */
+    pub fn sync_inode_bitmap(&mut self, bit_idx: usize) {
+        // 第bit_idx，所在inode位图的第bit_in_byte个字节
+        let bit_in_byte = bit_idx / 8;
+        // 第bit_idx，是inode位图所在扇区的的第bix_in_sec个扇区
+        let bit_in_sec = bit_in_byte / constants::DISK_SECTOR_SIZE;
+
+        let disk = unsafe { &mut *self.base_part.from_disk };
+        
+        // 把 inode bitmap 中，该bit所在地址为起始地址。
+        let bitmap_offset = unsafe { self.inode_bitmap.map_ptr.add(bit_in_byte) };
+        // 把 inode bitmap 数据区转成数组
+        let sec_data = unsafe { slice::from_raw_parts(bitmap_offset, constants::DISK_SECTOR_SIZE) };
+        // 把inode bitmap写入到硬盘中
+        disk.write_sector(sec_data, self.super_block.inode_bitmap_lba.add(bit_in_sec.try_into().unwrap()), 1);
+    }
+
+    /**
+     * 把块位图的第bit_idx同步到硬盘中
+     */
+    pub fn sync_block_bitmap(&mut self, bit_idx: usize) {
+        // 第bit_idx，所在inode位图的第bit_in_byte个字节
+        let bit_in_byte = bit_idx / 8;
+        // 第bit_idx，是inode位图所在扇区的的第bix_in_sec个扇区
+        let bit_in_sec = bit_in_byte / constants::DISK_SECTOR_SIZE;
+
+        let disk = unsafe { &mut *self.base_part.from_disk };
+        
+        // 把 inode bitmap 中，该bit所在地址为起始地址。
+        let bitmap_offset = unsafe { self.block_bitmap.map_ptr.add(bit_in_byte) };
+        // 把 inode bitmap 数据区转成数组
+        let sec_data = unsafe { slice::from_raw_parts(bitmap_offset, constants::DISK_SECTOR_SIZE) };
+        // 把inode bitmap写入到硬盘中
+        disk.write_sector(sec_data, self.super_block.block_bitmap_lba.add(bit_in_sec.try_into().unwrap()), 1);
+    }
 
 }
 
@@ -176,15 +227,17 @@ pub enum FileType {
  * 目录的结构。位于内存的逻辑结构
  */
 pub struct Dir {
+    inode: Option<&'static OpenedInode>,
 
 }
 
 impl Dir {
     pub const fn empty () -> Self {
         Self {
-            
+            inode: Option::None
         }
     }
+
 }
 /**
  * 目录项的结构。物理结构，保存到硬盘中
@@ -203,4 +256,28 @@ pub struct DirEntry {
      * 文件类型
      */
     pub file_type: FileType,
+}
+
+impl DirEntry {
+    pub fn new(i_no: usize, file_name: &str, file_type: FileType) -> Self {
+        let mut dir_entry = Self {
+            i_no: i_no,
+            name: [0; constant::MAX_FILE_NAME],
+            file_type: file_type,
+        };
+        // 写入文件名称
+        cstr_write!(&mut dir_entry.name, "{}", file_name);
+        dir_entry
+    }
+
+    /**
+     * 把当前的目录项写入parent_dir目录内，保存到硬盘中
+     */
+    pub fn write_to_disk(&self, parent_dir: &Dir) {
+        let parent_inode = parent_dir.inode;
+        ASSERT!(parent_inode.is_some());
+        let parent_inode = parent_inode.unwrap();
+
+        // TODO
+    }
 }

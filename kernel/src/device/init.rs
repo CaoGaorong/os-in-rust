@@ -1,7 +1,7 @@
 use core::{borrow::{Borrow, BorrowMut}, ffi::CStr, mem::size_of, sync::atomic::AtomicU32};
 
 use lazy_static::lazy_static;
-use os_in_rust_common::{constants, cstr_write, cstring_utils, linked_list::LinkedList, printkln, racy_cell::RacyCell, utils, ASSERT};
+use os_in_rust_common::{constants, cstr_write, cstring_utils, domain::LbaAddr, linked_list::LinkedList, printkln, racy_cell::RacyCell, utils, ASSERT};
 
 use crate::{filesystem, init, memory, println};
 use crate::device::ata::Partition;
@@ -25,7 +25,7 @@ pub static PARTITION_LIST: RacyCell<LinkedList> = RacyCell::new(LinkedList::new(
 /**
  * 总扩展分区的LBA起始地址
  */
-static mut MAIN_EXT_LBA_BASE: RacyCell<u32> = RacyCell::new(0);
+static mut MAIN_EXT_LBA_BASE: RacyCell<LbaAddr> = RacyCell::new(LbaAddr::empty());
 
 /**
  * 获取该系统中的ATA Channel
@@ -46,7 +46,7 @@ pub fn get_all_partition() -> &'static mut LinkedList {
 /**
  * 总扩展分区的BLA起始地址
  */
-fn main_extended_lba_base() -> &'static mut u32 {
+fn main_extended_lba_base() -> &'static mut LbaAddr {
     unsafe { MAIN_EXT_LBA_BASE.get_mut() }
 }
 
@@ -115,7 +115,7 @@ pub fn main_part_init(disk: &mut Disk) {
     let buf = unsafe { core::slice::from_raw_parts_mut(boot_sec_addr as *mut u8, size_of::<BootSector>()) };
 
     // 读取该分区的第一个扇区，启动记录
-    disk.read_sectors(0, 1, buf);
+    disk.read_sectors(LbaAddr::new(0), 1, buf);
     let boot_sector = unsafe { &*(boot_sec_addr as *const BootSector) };
 
     // 得到分区表
@@ -150,7 +150,7 @@ pub fn main_part_init(disk: &mut Disk) {
         *main_extend_lba_base = part_entry.start_lba;
 
         // 进入扩展分区的扫描。总逻辑分区LBA地址，逻辑分区号是0
-        extended_part_init(disk, part_entry.start_lba.try_into().unwrap(), 0);
+        extended_part_init(disk, part_entry.start_lba, 0);
     }
 }
 
@@ -160,7 +160,7 @@ pub fn main_part_init(disk: &mut Disk) {
  *  - main_ext_lba: 总扩展分区的起始地址。所有子扩展分区的LBA地址都基于该地址
  *  - logic_part_no: 在该扩展分区中，逻辑分区起始的编号
  */
-pub fn extended_part_init(disk: &mut Disk, main_ext_lba: usize, mut logic_part_no: usize) {
+pub fn extended_part_init(disk: &mut Disk, main_ext_lba: LbaAddr, mut logic_part_no: usize) {
     
     let disk_ptr = disk as *mut _;
     // 申请内存。为了防止栈溢出，因此不使用局部变量
@@ -186,7 +186,7 @@ pub fn extended_part_init(disk: &mut Disk, main_ext_lba: usize, mut logic_part_n
             let mut logical_part = &mut disk.logical_parts[logic_part_no];
             logic_part_no += 1;
             
-            *logical_part = Option::Some(Partition::new(&buf, main_ext_lba as u32 + part_entry.start_lba, part_entry.sec_cnt, disk_ptr));
+            *logical_part = Option::Some(Partition::new(&buf, main_ext_lba + part_entry.start_lba, part_entry.sec_cnt, disk_ptr));
             
             let part = logical_part.as_mut().unwrap();
             // 把该逻辑分区加入队列
@@ -196,7 +196,7 @@ pub fn extended_part_init(disk: &mut Disk, main_ext_lba: usize, mut logic_part_n
 
         // 扩展分区，递归扫描
         let main_extend_lba_base = main_extended_lba_base();
-        extended_part_init(disk, (part_entry.start_lba + *main_extend_lba_base) as usize, logic_part_no);
+        extended_part_init(disk, part_entry.start_lba + *main_extend_lba_base, logic_part_no);
     }
 }
 

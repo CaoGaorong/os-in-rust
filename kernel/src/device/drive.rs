@@ -1,3 +1,5 @@
+use os_in_rust_common::domain::LbaAddr;
+
 /**
  * 分区相关
  */
@@ -68,7 +70,7 @@ pub struct PartitionTableEntry {
     /**
      * 该分区所在的扇区偏移量（起始LBA地址）
      */
-    pub start_lba: u32,
+    pub start_lba: LbaAddr,
     /**
      * 该分区占用的扇区数量
      */

@@ -104,6 +104,7 @@ pub fn halt() {
  * 清除页表缓存
  * <https://wiki.osdev.org/TLB>
  */
+#[cfg(all(not(test), target_arch = "x86"))]
 pub fn invalidate_page(vaddr: usize) {
     unsafe {
         asm!(
@@ -112,4 +113,9 @@ pub fn invalidate_page(vaddr: usize) {
             options(nostack, preserves_flags)
         )
     }
+}
+
+#[cfg(all(not(target_arch = "x86")))]
+pub fn invalidate_page(vaddr: usize) {
+    todo!()
 }

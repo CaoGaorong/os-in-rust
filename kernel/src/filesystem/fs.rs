@@ -1,6 +1,6 @@
 use core::{arch::asm, mem::{size_of, size_of_val}, slice};
 
-use os_in_rust_common::{constants, cstr_write, printkln, racy_cell::RacyCell, utils, ASSERT};
+use os_in_rust_common::{constants, cstr_write, domain::LbaAddr, printkln, racy_cell::RacyCell, utils, ASSERT};
 
 use crate::{device::{self, ata::Partition}, filesystem::dir::FileType};
 use crate::memory;
@@ -38,19 +38,19 @@ pub fn mount_part(part_name: &str) {
                 let super_block: &mut SuperBlock = memory::malloc(size_of::<SuperBlock>());
                 let sb_buf = unsafe { slice::from_raw_parts_mut(super_block as *mut _ as *mut u8, size_of::<SuperBlock>()) };
                 // 读取SuperBlock
-                disk.read_sectors(part.abs_lba_start(1) as usize, 1, sb_buf);
+                disk.read_sectors(part.abs_lba_start(1), 1, sb_buf);
 
 
                 // inode位图
-                let inode_bitmap_len = super_block.inode_bitmap_lba as usize * constants::DISK_SECTOR_SIZE;
+                let inode_bitmap_len = super_block.inode_bitmap_lba.get_lba() as usize * constants::DISK_SECTOR_SIZE;
                 let inode_bitmap_bits = unsafe { slice::from_raw_parts_mut(memory::sys_malloc(inode_bitmap_len) as *mut u8, inode_bitmap_len) };
-                disk.read_sectors(super_block.inode_bitmap_lba as usize, super_block.inode_bitmap_secs as usize, inode_bitmap_bits);
+                disk.read_sectors(super_block.inode_bitmap_lba, super_block.inode_bitmap_secs as usize, inode_bitmap_bits);
 
 
                 // 块位图
                 let block_bitmap_len = super_block.block_bitmap_secs as usize * constants::DISK_SECTOR_SIZE;
                 let block_bitmap_bits = unsafe { slice::from_raw_parts_mut(memory::sys_malloc(block_bitmap_len) as *mut u8, inode_bitmap_len) };
-                disk.read_sectors(super_block.block_bitmap_lba as usize, super_block.block_bitmap_secs as usize, block_bitmap_bits);
+                disk.read_sectors(super_block.block_bitmap_lba, super_block.block_bitmap_secs as usize, block_bitmap_bits);
                 
 
                 // 挂载的分区
@@ -130,7 +130,7 @@ pub fn install_filesystem(part: &mut Partition) {
 fn install_super_block(part: &mut Partition, super_block: &SuperBlock) {
     let disk = unsafe { &mut *part.from_disk };
     // 把超级块 写入到 该分区的
-    disk.write_sector(unsafe { slice::from_raw_parts(super_block as *const SuperBlock as *const _, size_of_val(super_block)) }, part.abs_lba_start(1) as usize, 1);
+    disk.write_sector(unsafe { slice::from_raw_parts(super_block as *const SuperBlock as *const _, size_of_val(super_block)) }, part.abs_lba_start(1), 1);
 }
 
 /**
@@ -165,7 +165,7 @@ fn install_block_bitmap(part: &mut Partition, super_block: &SuperBlock, buff: &m
 
     // 块位图写入硬盘
     let disk = unsafe { &mut *part.from_disk };
-    disk.write_sector(buff, super_block.block_bitmap_lba as usize, super_block.block_bitmap_secs as usize);
+    disk.write_sector(buff, super_block.block_bitmap_lba, super_block.block_bitmap_secs as usize);
 }
 
 
@@ -183,7 +183,7 @@ fn install_inode_bitmap(part: &mut Partition, super_block: &SuperBlock, buff: &m
 
     // printkln!("install_inode_bitmap");
     let disk = unsafe { &mut *part.from_disk };
-    disk.write_sector(buff, super_block.inode_bitmap_lba as usize, super_block.inode_bitmap_secs as usize);
+    disk.write_sector(buff, super_block.inode_bitmap_lba, super_block.inode_bitmap_secs as usize);
 }
 
 
@@ -201,11 +201,11 @@ fn install_inode_table(part: &mut Partition, super_block: &SuperBlock, buff: &mu
     root_inode.i_no = 0;
     root_inode.i_size = super_block.dir_entry_size * 2; // 2个目录：.和..
     // 根目录inode，数据区就是在第一个数据扇区
-    root_inode.i_sectors[0] = Option::Some(super_block.data_lba_start);
+    root_inode.i_sectors[0] = super_block.data_lba_start;
 
     // 把inode列表写入到硬盘中
     let disk = unsafe { &mut *part.from_disk };
-    disk.write_sector(buff, super_block.inode_table_lba as usize, super_block.inode_table_secs as usize);
+    disk.write_sector(buff, super_block.inode_table_lba, super_block.inode_table_secs as usize);
 }
 
 /**
@@ -234,6 +234,6 @@ fn install_root_dir(part: &mut Partition, super_block: &SuperBlock, buff: &mut [
     }
     // 把根目录的两个项：.和..，写入到数据扇区
     let disk = unsafe { &mut *part.from_disk };
-    disk.write_sector(buff, super_block.data_lba_start as usize, 1 as usize);
+    disk.write_sector(buff, super_block.data_lba_start, 1 as usize);
 
 }
