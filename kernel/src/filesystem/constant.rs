@@ -25,3 +25,8 @@ pub const MAX_FILE_PER_FS: u32 = 4096;
  * 文件名称最大长度。单位字节
  */
 pub const MAX_FILE_NAME: usize = 20;
+
+/**
+ * 整个系统最大可以打开的文件数量
+ */
+pub const MAX_OPENED_FILE_IN_SYSTEM: usize = 32;

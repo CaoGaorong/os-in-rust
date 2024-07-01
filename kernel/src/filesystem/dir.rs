@@ -1,6 +1,6 @@
 use core::{fmt::Display, mem::{self, size_of}, ptr, slice};
 
-use os_in_rust_common::{bitmap::BitMap, constants, linked_list::LinkedList, printkln, MY_PANIC};
+use os_in_rust_common::{bitmap::BitMap, constants, linked_list::LinkedList, printkln, racy_cell::RacyCell, ASSERT, MY_PANIC};
 
 use crate::{device::ata::Partition, memory, thread};
 
@@ -10,6 +10,10 @@ use super::{constant, inode::{Inode, InodeLocation, OpenedInode}, superblock::Su
  * 文件系统中的目录的结构以及操作
  */
 
+/**
+ * 根目录
+ */
+static ROOT_DIR: RacyCell<Dir> = RacyCell::new(Dir::empty());
 
 /**
  * 挂载的分区结构
@@ -129,6 +133,26 @@ impl MountedPartition {
         
         InodeLocation::new(self.super_block.inode_table_lba, i_idx_start, cross_secs)
     }
+
+    /**
+     * 在当前挂载的分区中的inode位图中，申请一个inode
+     */
+    pub fn apply_inode(&mut self) -> usize {
+        let result = self.inode_bitmap.apply_bits(1);
+        ASSERT!(result.is_ok());
+        result.unwrap()
+    }
+
+    /**
+     * 在当前挂载的分区中的inode位图中，申请一个空闲块
+     */
+    pub fn apply_block(&mut self) -> usize {
+        let result = self.block_bitmap.apply_bits(1);
+        ASSERT!(result.is_ok());
+        result.unwrap()
+    }
+
+
 }
 
 /**
@@ -153,6 +177,14 @@ pub enum FileType {
  */
 pub struct Dir {
 
+}
+
+impl Dir {
+    pub const fn empty () -> Self {
+        Self {
+            
+        }
+    }
 }
 /**
  * 目录项的结构。物理结构，保存到硬盘中

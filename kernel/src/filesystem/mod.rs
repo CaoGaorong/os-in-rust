@@ -4,6 +4,7 @@ pub mod inode;
 pub mod dir;
 pub mod fs;
 pub mod file;
+pub mod file_descriptor;
 
 pub use fs::init;
 pub use fs::install_filesystem;
