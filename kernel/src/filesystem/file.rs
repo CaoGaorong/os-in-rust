@@ -87,11 +87,11 @@ pub enum StdFileDescriptor {
  */
 pub fn create_file(part: &mut MountedPartition, parent_dir: &Dir, file_name: &str) {
     // 从当前分区中，申请1个inode。得到inode号（inode数组的下标）
-    let inode_no = part.apply_inode();
+    let inode_no = part.inode_pool.apply_inode(1);
 
     // 创建的inode
     let inode: &mut OpenedInode = memory::malloc(size_of::<OpenedInode>());
-    *inode = OpenedInode::new(Inode::new(inode_no as u32));
+    *inode = OpenedInode::new(Inode::new(inode_no));
 
 
     // 获取文件表
@@ -103,10 +103,6 @@ pub fn create_file(part: &mut MountedPartition, parent_dir: &Dir, file_name: &st
     set_file_table(file_table_idx, OpenedFile::new(inode));
 
     let dir_entry = DirEntry::new(inode_no, file_name, FileType::Regular);
-
-
-
-
     
 }
 

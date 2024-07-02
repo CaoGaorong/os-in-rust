@@ -1,4 +1,4 @@
-use core::{fmt::Display, ops::Add};
+use core::{fmt::Display, ops::{Add, Sub}};
 
 
 /**
@@ -54,3 +54,80 @@ impl Add for LbaAddr {
         LbaAddr::new(self.data  + rhs.data)
     }
 }
+
+impl Sub for LbaAddr {
+    type Output = LbaAddr;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        LbaAddr::new(self.data - rhs.data)
+    }
+}
+
+impl From<u32> for LbaAddr {
+    fn from(value: u32) -> Self {
+        Self {
+            data: value,
+        }
+    }
+}
+impl From<LbaAddr> for usize {
+    fn from(value: LbaAddr) -> Self {
+        value.data.try_into().unwrap()
+    }
+}
+
+
+#[derive(Clone, Copy, Debug)]
+#[repr(C, packed)]
+pub struct InodeNo {
+    data: usize,
+}
+impl InodeNo {
+    pub fn new(idx: usize) -> Self {
+        Self {
+            data: idx,
+        }
+    }
+
+    pub fn add(&self, offset: usize) -> Self {
+        Self::new(self.data + offset)
+    }
+}
+
+impl Sub for InodeNo {
+    type Output = InodeNo;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        InodeNo::new(self.data - rhs.data)
+    }
+}
+
+impl PartialEq for InodeNo {
+    fn eq(&self, other: &Self) -> bool {
+        self.data == other.data
+    }
+}
+impl From<usize> for InodeNo {
+    fn from(value: usize) -> Self {
+        InodeNo::new(value)
+    }
+}
+
+impl From<u32> for InodeNo {
+    fn from(value: u32) -> Self {
+        InodeNo::new(value as usize)
+    }
+}
+
+impl From<InodeNo> for u32 {
+    fn from(value: InodeNo) -> Self {
+        value.data.try_into().unwrap()
+    }
+}
+impl From<InodeNo> for usize {
+    fn from(value: InodeNo) -> Self {
+        value.data
+    }
+}
+
+

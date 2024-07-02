@@ -1,6 +1,6 @@
 use core::{mem::size_of, ptr, slice};
 
-use os_in_rust_common::{constants, domain::LbaAddr, elem2entry, linked_list::{LinkedList, LinkedNode}};
+use os_in_rust_common::{constants, domain::{InodeNo, LbaAddr}, elem2entry, linked_list::{LinkedList, LinkedNode}};
 
 use crate::{device::ata::Disk, memory, sync::Lock, thread};
 
@@ -15,7 +15,7 @@ pub struct Inode {
     /**
      * inode编号
      */
-    pub i_no: u32,
+    pub i_no: InodeNo,
     /**
      * 当前inode占用的空间大小。单位：字节
      * inode是文件，那么i_size是文件大小
@@ -34,12 +34,12 @@ pub struct Inode {
 impl Inode {
     pub fn empty() -> Self {
         Self {
-            i_no: 0,
+            i_no: InodeNo::new(0),
             i_size: 0,
             i_sectors: [LbaAddr::empty(); constant::INODE_DATA_SECS],
         }
     }
-    pub fn new(i_no: u32) -> Self {
+    pub fn new(i_no: InodeNo) -> Self {
         Self {
             i_no,
             i_size: 0,

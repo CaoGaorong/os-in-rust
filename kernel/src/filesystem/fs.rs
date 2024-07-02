@@ -1,6 +1,6 @@
 use core::{arch::asm, mem::{size_of, size_of_val}, slice};
 
-use os_in_rust_common::{constants, cstr_write, domain::LbaAddr, printkln, racy_cell::RacyCell, utils, ASSERT};
+use os_in_rust_common::{constants, cstr_write, domain::{InodeNo, LbaAddr}, printkln, racy_cell::RacyCell, utils, ASSERT};
 
 use crate::{device::{self, ata::Partition}, filesystem::dir::FileType};
 use crate::memory;
@@ -198,7 +198,7 @@ fn install_inode_table(part: &mut Partition, super_block: &SuperBlock, buff: &mu
     
     // 跟目录inode
     let root_inode = &mut inode_table[0];
-    root_inode.i_no = 0;
+    root_inode.i_no = InodeNo::new(0);
     root_inode.i_size = super_block.dir_entry_size * 2; // 2个目录：.和..
     // 根目录inode，数据区就是在第一个数据扇区
     root_inode.i_sectors[0] = super_block.data_lba_start;
@@ -221,7 +221,7 @@ fn install_root_dir(part: &mut Partition, super_block: &SuperBlock, buff: &mut [
         // . 目录项项
         let cur_dir = &mut dir_table[0];
         cstr_write!(&mut cur_dir.name, ".");
-        cur_dir.i_no = 0;
+        cur_dir.i_no = InodeNo::from(0u32);
         cur_dir.file_type = FileType::Directory;
     }
 
@@ -229,7 +229,7 @@ fn install_root_dir(part: &mut Partition, super_block: &SuperBlock, buff: &mut [
         // .. 目录项
         let last_dir = &mut dir_table[1];
         cstr_write!(&mut last_dir.name, "..");
-        last_dir.i_no = 0;
+        last_dir.i_no = InodeNo::from(0u32);
         last_dir.file_type = FileType::Directory;
     }
     // 把根目录的两个项：.和..，写入到数据扇区
