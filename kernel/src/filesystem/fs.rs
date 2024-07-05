@@ -201,7 +201,7 @@ fn install_inode_table(part: &mut Partition, super_block: &SuperBlock, buff: &mu
     root_inode.i_no = InodeNo::new(0);
     root_inode.i_size = super_block.dir_entry_size * 2; // 2个目录：.和..
     // 根目录inode，数据区就是在第一个数据扇区
-    root_inode.i_sectors[0] = super_block.data_lba_start;
+    root_inode.direct_sectors[0] = super_block.data_lba_start;
 
     // 把inode列表写入到硬盘中
     let disk = unsafe { &mut *part.from_disk };

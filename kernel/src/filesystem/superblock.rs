@@ -135,4 +135,6 @@ impl SuperBlock {
             data_block_secs: data_block_secs, // 数据块占用的扇区的数量
         }
     }
+
+    pub fn locate_inode()
 }

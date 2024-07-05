@@ -1,4 +1,4 @@
-use core::{fmt::Display, mem::{self, size_of}, ptr, slice};
+use core::{fmt::Display, mem::{self, size_of}, ops::Index, ptr, slice};
 
 use os_in_rust_common::{bitmap::BitMap, constants, cstr_write, domain::{InodeNo, LbaAddr}, linked_list::LinkedList, printkln, racy_cell::RacyCell, ASSERT, MY_PANIC};
 
@@ -240,8 +240,8 @@ impl MountedPartition {
     /**
      * 根据inode号计算出，该inode所处硬盘的哪个位置
      */
-    fn locate_inode(&self, i_no: InodeNo) -> InodeLocation {
-        if u32::from(i_no) >  constant::MAX_FILE_PER_FS{
+    pub fn locate_inode(&self, i_no: InodeNo) -> InodeLocation {
+        if u32::from(i_no) >  constant::MAX_FILE_PER_FS {
             MY_PANIC!("failed to locate inode({:?}). exceed maximum({})", i_no, constant::MAX_FILE_PER_FS);
         }
         // inode所在相对inode数组，开始的字节偏移量
@@ -262,14 +262,85 @@ impl MountedPartition {
 
     /**
      * 把目录项dir_entry放入到parent目录中。并且保存到硬盘
+     *  - 如果目录项保存到硬盘，用的是已经用过的数据扇区，那么只需要保存目录项到硬盘即可
+     *  - 如果目录项保存到硬盘，用的是新的数据扇区，那么还要更新inode中的i_sectors数据
      */
     pub fn sync_dir_entry(&mut self, parent: &Dir, dir_entry: &DirEntry) {
-        // 从块位图中，申请1位。得到该位的下标
-        let block_idx = self.data_block_pool.apply_block(1);
-        // 把这一位同步到快位图的硬盘中
-        self.sync_block_pool(block_idx);
+        ASSERT!(parent.inode.is_some());
 
-        // 找到当前节点的数据区域，然后把目录项放入数据区
+        // 申请内存，搞一个缓冲区
+        let buff_addr = memory::sys_malloc(constants::DISK_SECTOR_SIZE);
+        let buf = unsafe { slice::from_raw_parts_mut(buff_addr as *mut u8, constants::DISK_SECTOR_SIZE) };
+        // 缓冲区格式转成 目录项
+        let dir_list = unsafe { slice::from_raw_parts_mut(buff_addr as *mut DirEntry, constants::DISK_SECTOR_SIZE / size_of::<DirEntry>()) };
+        let disk = unsafe { &mut *self.base_part.from_disk };
+
+        let parent_inode = parent.inode.unwrap();
+
+        let mut new_data_block_idx: Option<usize> = Option::None;
+
+        // 直接数据块
+        let direct_data_blocks = parent_inode.get_direct_data_blocks();
+        // 找到可用的LBA块，所在数据扇区数组的下标
+        let free_slot_idx = direct_data_blocks.iter()
+            .enumerate()
+            // 找到那个空的数据块的LBA地址。
+            .find(|(idx, &lba)| lba.available())
+            // 找到该空闲块，在数组的下标
+            .map(|(idx, lba)| idx);
+        // 在直接数据块中，找到空位了
+        if free_slot_idx.is_some() {
+            // 如果空位是0，那么往前找一个不空的块，从里面找空目录项
+            if free_slot_idx.unwrap() > 0 {
+                let target_block_idx = free_slot_idx.unwrap() - 1;
+                // 如果找到的可用扇区是非0扇区（说明找到的是用过的），那么往前找一个用过的扇区，看用完没有
+                disk.read_sectors(direct_data_blocks[target_block_idx], 1, buf);
+                let available_entry = dir_list.iter().enumerate().find(|(idx, &entry)| {entry.is_valid()}).map(|(idx, &entry)| idx);
+                // 如果没有找到可用的目录项，那么要用新的数据块了
+                if available_entry.is_none() {
+                    new_data_block_idx = Option::Some(free_slot_idx.unwrap());
+                } else {
+                    new_data_block_idx = Option::None;
+                }
+            } else {
+                new_data_block_idx = Option::Some(free_slot_idx.unwrap());
+            }
+        }
+
+        // 把间接块的数据加载出来
+        parent_inode.load_data_block(self);
+
+        // 取出间接块的数据
+        let indirect_data_blocks =  parent_inode.get_indirect_data_blocks();
+        // 找到可用的LBA块，所在数据扇区数组的下标
+        let free_slot_idx = direct_data_blocks.iter()
+            .enumerate()
+            // 找到那个空的数据块的LBA地址。
+            .find(|(idx, &lba)| lba.available())
+            // 找到该空闲块，在数组的下标
+            .map(|(idx, lba)| idx);
+
+        // 在间接块找到了空块
+        if free_slot_idx.is_some() {
+            // 如果空位是0，那么往前找一个不空的块，从里面找空目录项
+            if free_slot_idx.unwrap() > 0 {
+                let target_block_idx = free_slot_idx.unwrap() - 1;
+                // 如果找到的可用扇区是非0扇区（说明找到的是用过的），那么往前找一个用过的扇区，看用完没有
+                disk.read_sectors(direct_data_blocks[target_block_idx], 1, buf);
+                let available_entry = dir_list.iter().enumerate().find(|(idx, &entry)| {entry.is_valid()}).map(|(idx, &entry)| idx);
+                // 如果没有找到可用的目录项，那么要用新的数据块了
+                if available_entry.is_none() {
+                    new_data_block_idx = Option::Some(free_slot_idx.unwrap());
+                } else {
+                    new_data_block_idx = Option::None;
+                }
+            } else {
+                new_data_block_idx = Option::Some(free_slot_idx.unwrap());
+            }
+        }
+
+        parent_inode.sync_data_block()
+
 
 
     }
@@ -304,6 +375,7 @@ impl MountedPartition {
 /**
  * 文件的类型
  */
+#[derive(Copy, Clone)]
 pub enum FileType {
     /**
      * 普通文件
@@ -323,7 +395,6 @@ pub enum FileType {
  */
 pub struct Dir {
     inode: Option<&'static OpenedInode>,
-
 }
 
 impl Dir {
@@ -337,6 +408,7 @@ impl Dir {
 /**
  * 目录项的结构。物理结构，保存到硬盘中
  */
+#[derive(Copy, Clone)]
 #[repr(C, packed)]
 pub struct DirEntry {
     /**
@@ -363,6 +435,10 @@ impl DirEntry {
         // 写入文件名称
         cstr_write!(&mut dir_entry.name, "{}", file_name);
         dir_entry
+    }
+
+    pub fn is_valid(&self) -> bool {
+        self.i_no != 0
     }
 
     /**
