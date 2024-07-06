@@ -5,19 +5,19 @@ use os_in_rust_common::{constants, cstr_write, domain::{InodeNo, LbaAddr}, print
 use crate::{device::{self, ata::Partition}, filesystem::dir::FileType};
 use crate::memory;
 
-use super::{dir::{DirEntry, MountedPartition}, inode::Inode, superblock::SuperBlock};
+use super::{dir::DirEntry, filesystem::FileSystem, inode::Inode, superblock::SuperBlock};
 
 /**
  * 当前的挂载的分区
  */
-static CUR_PARTITION: RacyCell<Option<MountedPartition>> = RacyCell::new(Option::None);
+static CUR_FILE_SYSTEM: RacyCell<Option<FileSystem>> = RacyCell::new(Option::None);
 
-pub fn set_cur_part(cur_part: MountedPartition) {
-    *unsafe { CUR_PARTITION.get_mut() } = Option::Some(cur_part);
+pub fn set_filesystem(cur_part: FileSystem) {
+    *unsafe { CUR_FILE_SYSTEM.get_mut() } = Option::Some(cur_part);
 }
 
-pub fn get_cur_partition() -> Option<&'static MountedPartition> {
-    unsafe { CUR_PARTITION.get_mut() }.as_ref()
+pub fn get_filesystem() -> Option<&'static FileSystem> {
+    unsafe { CUR_FILE_SYSTEM.get_mut() }.as_ref()
 }
 
 #[inline(never)]
@@ -53,11 +53,11 @@ pub fn mount_part(part_name: &str) {
                 disk.read_sectors(super_block.block_bitmap_lba, super_block.block_bitmap_secs as usize, block_bitmap_bits);
                 
 
-                // 挂载的分区
-                let mounted_part =  MountedPartition::new(part, super_block, inode_bitmap_bits, block_bitmap_bits);
+                // 挂载的分区。构建文件系统
+                let fs =  FileSystem::new(part, super_block, inode_bitmap_bits, block_bitmap_bits);
 
                 // 设置当前挂载的分区
-                set_cur_part(mounted_part);
+                set_filesystem(fs);
             }
         });
 }

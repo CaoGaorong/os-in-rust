@@ -36,9 +36,9 @@ impl LbaAddr {
         self.data
     }
     /**
-     * 当前LBA地址是否空闲可用？
+     * 当前LBA地址是否为空
      */
-    pub fn available(&self) -> bool {
+    pub fn is_empty(&self) -> bool {
         if self.data <= 0 {
             return false;
         }

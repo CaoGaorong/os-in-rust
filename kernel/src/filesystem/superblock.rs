@@ -136,5 +136,4 @@ impl SuperBlock {
         }
     }
 
-    pub fn locate_inode()
 }

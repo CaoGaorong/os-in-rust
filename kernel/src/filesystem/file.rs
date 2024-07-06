@@ -2,36 +2,9 @@ use core::mem::size_of;
 
 use os_in_rust_common::{constants, racy_cell::RacyCell, ASSERT};
 
-use crate::{filesystem::dir::{DirEntry, FileType}, memory};
+use crate::{filesystem::{dir::{DirEntry, FileType}, global_file_table}, memory, thread};
 
-use super::{constant, dir::{Dir, MountedPartition}, inode::{Inode, OpenedInode}};
-
-/**
- * 整个系统打开的文件
- */
-const REPEAT_FILE:Option<OpenedFile> = Option::None;
-static GLOBAL_FILE_TABLE: RacyCell<[Option<OpenedFile>; constant::MAX_OPENED_FILE_IN_SYSTEM]> = RacyCell::new([REPEAT_FILE; constant::MAX_OPENED_FILE_IN_SYSTEM]);
-
-/**
- * 从全局的文件表中，找到空位
- */
-pub fn get_free_slot_in_global_file_table() -> Option<usize> {
-    let global_file_table = unsafe { GLOBAL_FILE_TABLE.get_mut() };
-    for (idx, ele) in global_file_table.iter().enumerate() {
-        if ele.is_none() {
-            return Option::Some(idx);
-        }
-    }
-    return Option::None;
-}
-
-/**
- * 填充文件表的第idx项的值为file
- */
-pub fn set_file_table(idx: usize, file: OpenedFile) {
-    let global_file_table = unsafe { GLOBAL_FILE_TABLE.get_mut() };
-    global_file_table[idx] = Option::Some(file);
-}
+use super::{dir::Dir, filesystem::FileSystem, inode::{Inode, OpenedInode}};
 
 /**
  * 文件系统的，文件的结构
@@ -83,27 +56,44 @@ pub enum StdFileDescriptor {
 }
 
 /**
- * 在part分区中，parent_dir文件夹下创建一个名为file_name的文件
+ * 在part分区中，parent_dir目录下创建一个名为file_name的文件
+ * 在实现上，分成两个步骤：
+ *   - 创建文件（inode）以及对应的目录项（文件名称）
+ *   - 把这个inode挂到该目录下（把目录项放写入到目录对应的数据区）
  */
-pub fn create_file(part: &mut MountedPartition, parent_dir: &Dir, file_name: &str) {
-    // 从当前分区中，申请1个inode。得到inode号（inode数组的下标）
-    let inode_no = part.inode_pool.apply_inode(1);
+pub fn create_file(filesystem: &mut FileSystem, parent_dir: &Dir, file_name: &str) {
 
-    // 创建的inode
-    let inode: &mut OpenedInode = memory::malloc(size_of::<OpenedInode>());
-    *inode = OpenedInode::new(Inode::new(inode_no));
+    /***1. 创建inode。物理结构，同步到硬盘中*****/
+
+    // 从当前分区中，申请1个inode，并且写入硬盘（inode位图）
+    let inode_no = filesystem.inode_pool.apply_inode(1);
+
+    // 创建一个inode
+    let inode = Inode::new(inode_no);
+    // 把inode写入硬盘（inode列表）
+    filesystem.sync_inode(&inode);
+
+    // 创建一个目录项
+    let dir_entry = DirEntry::new(inode_no, file_name, FileType::Regular);
+    // 把目录项挂到目录并且写入硬盘（inode数据区）
+    filesystem.sync_dir_entry(parent_dir, &dir_entry);
 
 
-    // 获取文件表
-    let file_table_idx = get_free_slot_in_global_file_table();
+    /***2. 构建inode的内存结构*****/
+    // 2.1 填充inode的内存结构
+    let opened_inode: &mut OpenedInode = memory::malloc(size_of::<OpenedInode>());
+    *opened_inode = OpenedInode::new(inode);
+
+    // 2.2 添加到打开的分区中
+    filesystem.open_inodes.append(&mut opened_inode.tag);
+
+    // 2.3 在整个系统打开的文件中，注册一下
+    let file_table_idx = global_file_table::register_file(OpenedFile::new(opened_inode));
     ASSERT!(file_table_idx.is_some());
     let file_table_idx = file_table_idx.unwrap();
 
-    // 填充文件表
-    set_file_table(file_table_idx, OpenedFile::new(inode));
-
-    let dir_entry = DirEntry::new(inode_no, file_name, FileType::Regular);
-    
+    // 2.4 把这个打开的文件，安装到当前进程的文件描述符
+    thread::current_thread().task_struct.fd_table.install_fd(file_table_idx);
 }
 
 

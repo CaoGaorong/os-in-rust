@@ -8,7 +8,7 @@ use super::file::StdFileDescriptor;
  */
 #[repr(transparent)]
 pub struct FileDescriptorTable {
-    data: [Option<u32>; constants::MAX_FILES_PER_PROC],
+    data: [Option<usize>; constants::MAX_FILES_PER_PROC],
 }
 impl FileDescriptorTable {
     /**
@@ -16,9 +16,9 @@ impl FileDescriptorTable {
      */
     pub fn new() -> Self {
         let mut fd_table = [Option::None; constants::MAX_FILES_PER_PROC];
-        fd_table[StdFileDescriptor::StdInputNo as usize] = Option::Some(StdFileDescriptor::StdInputNo as u32);
-        fd_table[StdFileDescriptor::StdOutputNo as usize] = Option::Some(StdFileDescriptor::StdOutputNo as u32);
-        fd_table[StdFileDescriptor::StdErrorNo as usize] = Option::Some(StdFileDescriptor::StdErrorNo as u32);
+        fd_table[StdFileDescriptor::StdInputNo as usize] = Option::Some(StdFileDescriptor::StdInputNo as usize);
+        fd_table[StdFileDescriptor::StdOutputNo as usize] = Option::Some(StdFileDescriptor::StdOutputNo as usize);
+        fd_table[StdFileDescriptor::StdErrorNo as usize] = Option::Some(StdFileDescriptor::StdErrorNo as usize);
         Self {
             data: fd_table,
         }
@@ -40,7 +40,7 @@ impl FileDescriptorTable {
     /**
      * 给当前进程的文件描述符表，安装一个全局文件描述符
      */
-    pub fn install_fd(&mut self, global_file_descriptor: u32) {
+    pub fn install_fd(&mut self, global_file_descriptor: usize) {
         // 当前的文件描述符表，找到空位
         let slot_idx = self.get_free_slot();
         ASSERT!(slot_idx.is_some());
