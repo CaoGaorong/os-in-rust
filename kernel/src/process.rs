@@ -117,7 +117,7 @@ pub fn process_execute(process_name: &'static str, func: extern "C" fn()) {
     thread_management::get_all_thread().append(&mut pcb_page.task_struct.all_tag);
     
     // 加入就绪任务队列
-    thread_management::get_ready_thread().append(&mut pcb_page.task_struct.general_tag);
+    thread_management::append_read_thread(&mut pcb_page.task_struct);
 
     // println!("pcb_page:{}", pcb_page);
     instruction::set_interrupt(old_status);

@@ -47,7 +47,7 @@ static PROCESS_NAME: &str = "user process";
 #[link_section = ".start"]
 pub extern "C" fn _start(boot_info: &BootContext) {
     // printkln!("I'm Kernel!");
-    
+
     init::init_all(boot_info);
     
     // 打印线程信息
@@ -88,7 +88,7 @@ pub extern "C" fn _start(boot_info: &BootContext) {
 }
 
 fn print_cur_part() {
-    let cur_part = filesystem::fs::get_filesystem();
+    let cur_part = filesystem::init::get_filesystem();
     if cur_part.is_none() {
         printkln!("no part mounted");
         return 
@@ -324,7 +324,7 @@ fn dummy_sleep(instruction_cnt: u32) {
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
     instruction::disable_interrupt();
-    printkln!("panic");
+    printkln!("panic, {}", info);
     ASSERT!(info.message().is_some());
     vga::print(*info.message().unwrap());
     loop {}

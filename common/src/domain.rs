@@ -40,9 +40,9 @@ impl LbaAddr {
      */
     pub fn is_empty(&self) -> bool {
         if self.data <= 0 {
-            return false;
+            return true;
         }
-        return true;
+        return false;
     }
     
 }

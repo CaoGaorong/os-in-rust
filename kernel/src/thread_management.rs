@@ -23,7 +23,7 @@ lazy_static! {
      * idle 线程
      */
     // pub static ref IDLE_TASK: &TaskStruct = (&thread_start(constants::IDLE_THREAD_NAME, constants::TASK_DEFAULT_PRIORITY, idle_thread, 0).task_struct);
-    pub static ref IDLE_TASK_ADDR: RacyCell<u32> = RacyCell::new((&thread_start(constants::IDLE_THREAD_NAME, constants::TASK_DEFAULT_PRIORITY, idle_thread, 0).task_struct) as *const TaskStruct as u32);
+    pub static ref IDLE_TASK_ADDR: RacyCell<u32> = RacyCell::new((&(thread_start(constants::IDLE_THREAD_NAME, constants::TASK_DEFAULT_PRIORITY, idle_thread, 0).task_struct)) as *const TaskStruct as u32);
     // pub static ref IDLE_TASK_ADDR: RacyCell<usize> = RacyCell::new(IDLE_TASK_ADDR);
     // pub static ref IDLE_THREAD: &'static mut TaskStruct = unsafe {&mut IDLE_TASK};
 }
@@ -39,6 +39,10 @@ pub fn get_all_thread() -> &'static mut LinkedList{
 
 pub fn get_ready_thread() -> &'static mut LinkedList{
     unsafe { READY_THREAD_LIST.get_mut() }
+}
+
+pub fn append_read_thread(thread: &mut TaskStruct) {
+    get_ready_thread().append(&mut thread.general_tag);
 }
 
 
@@ -84,9 +88,10 @@ pub fn make_thread_main() {
 }
 
 pub fn make_idle_thread() {
-    let idle_task = &mut thread_start(constants::IDLE_THREAD_NAME, constants::TASK_DEFAULT_PRIORITY, idle_thread, 0).task_struct;
+    // let idle_task = &mut thread_start(constants::IDLE_THREAD_NAME, constants::TASK_DEFAULT_PRIORITY, idle_thread, 0).task_struct;
     let mut global_idle_thread = get_idle_thread();
-    global_idle_thread = idle_task;
+    // global_idle_thread = idle_task;
+    global_idle_thread.task_status = TaskStatus::TaskWaiting;
 }
 
 /**
@@ -192,16 +197,15 @@ pub fn wake_thread(task: &mut TaskStruct)  {
     let old_status = instruction::disable_interrupt();
     // 只能是这三种状态之一
     let allow_status = [TaskStatus::TaskBlocked, TaskStatus::TaskHanging, TaskStatus::TaskWaiting];
-    ASSERT!(allow_status.contains(&task.task_status));
     if !allow_status.contains(&task.task_status) {
-        MY_PANIC!("could not wake up [{:?}] thread", &task.task_status);
+        MY_PANIC!("could not wake up thread; name:{}, status:{:?}", task.name, &task.task_status);
     }
 
     ASSERT!(task.task_status != TaskStatus::TaskReady);
     // 设置为就绪状态
     task.task_status = TaskStatus::TaskReady;
     // 放入就绪队列
-    get_ready_thread().append(&mut task.general_tag);
+    append_read_thread(task);
 
     // 恢复中断
     instruction::set_interrupt(old_status);
@@ -219,7 +223,7 @@ pub fn thread_yield() {
     ASSERT!(!get_ready_thread().contains(&cur_task.general_tag));
     
     // 当前线程加入就绪队列
-    get_ready_thread().append(&mut cur_task.general_tag);
+    append_read_thread(cur_task);
     cur_task.set_status(TaskStatus::TaskReady);
 
     // 切换到其他线程执行

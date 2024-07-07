@@ -49,4 +49,11 @@ pub fn init_all(boot_info: &BootContext) {
     // 初始化文件系统
     filesystem::mount_part("sdb5");
 
+    // 初始化根目录
+    filesystem::init_root_dir();
+
+    // 创建文件
+    // filesystem::create_file()
+
+
 }

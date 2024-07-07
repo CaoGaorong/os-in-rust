@@ -27,6 +27,8 @@ impl CR3 {
             data: (addr_val >> 12) << 12
         }
     }
+    #[no_mangle]
+    #[inline(never)]
     #[cfg(all(not(test), target_arch = "x86"))]
     pub fn load_cr3(&self) {
         unsafe { asm!("mov cr3, {:e}", in(reg) self.data) };

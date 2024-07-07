@@ -3,6 +3,7 @@ use core::{fmt::Display, mem::{self, size_of}, ops::Index, ptr, slice};
 use os_in_rust_common::{bitmap::BitMap, constants, cstr_write, domain::{InodeNo, LbaAddr}, linked_list::LinkedList, printkln, racy_cell::RacyCell, ASSERT, MY_PANIC, utils};
 
 use crate::{device::ata::{Disk, Partition}, memory, thread};
+use crate::filesystem::init::get_filesystem;
 
 use super::{constant, inode::{Inode, InodeLocation, OpenedInode}, superblock::SuperBlock};
 
@@ -13,7 +14,29 @@ use super::{constant, inode::{Inode, InodeLocation, OpenedInode}, superblock::Su
 /**
  * 根目录
  */
-static ROOT_DIR: RacyCell<Dir> = RacyCell::new(Dir::empty());
+static ROOT_DIR: RacyCell<Option<Dir>> = RacyCell::new(Option::None);
+
+pub fn get_root_dir() -> Option<&'static mut Dir> {
+    let root_dir = unsafe { ROOT_DIR.get_mut() };
+    if root_dir.is_none() {
+        return Option::None;
+    }
+    root_dir.as_mut()
+}
+
+// #[inline(never)]
+pub fn init_root_dir() {
+    // printkln!("init root dir");
+    let file_system = get_filesystem();
+    if file_system.is_none() {
+        MY_PANIC!("file system is not loaded");
+    }
+    let file_system = file_system.unwrap();
+    // 打开根目录
+    let root_inode = file_system.inode_open(file_system.super_block.root_inode_no);
+    let root_dir = unsafe { ROOT_DIR.get_mut() };
+    *root_dir = Option::Some(Dir::new(root_inode));
+}
 
 /**
  * 文件的类型
@@ -37,16 +60,15 @@ pub enum FileType {
  * 目录的结构。位于内存的逻辑结构
  */
 pub struct Dir {
-    pub inode: RacyCell<Option<OpenedInode>>,
+    pub inode: &'static mut OpenedInode,
 }
 
 impl Dir {
-    pub const fn empty () -> Self {
+    pub fn new(inode: &'static mut OpenedInode) -> Self {
         Self {
-            inode: RacyCell::new(Option::None)
+            inode,
         }
     }
-
 }
 /**
  * 目录项的结构。物理结构，保存到硬盘中
@@ -82,16 +104,5 @@ impl DirEntry {
 
     pub fn is_valid(&self) -> bool {
         usize::from(self.i_no) != 0
-    }
-
-    /**
-     * 把当前的目录项写入parent_dir目录内，保存到硬盘中
-     */
-    pub fn write_to_disk(&self, parent_dir: &Dir) {
-        let parent_inode = unsafe { parent_dir.inode.get_mut() }.as_mut();
-        ASSERT!(parent_inode.is_some());
-        let parent_inode = parent_inode.unwrap();
-
-        // TODO
     }
 }

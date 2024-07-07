@@ -1,6 +1,6 @@
 use core::{arch::asm, fmt::{write, Display, Pointer}, mem::size_of, ptr};
 
-use os_in_rust_common::{constants, elem2entry, instruction::{self, enable_interrupt}, linked_list::LinkedNode, paging::{self, PageTable}, pool::MemPool, printkln, reg_cr3::{self, CR3}, reg_eflags::{self, EFlags, FlagEnum}, selector::SegmentSelector};
+use os_in_rust_common::{constants, elem2entry, instruction::{self, enable_interrupt}, linked_list::LinkedNode, paging::{self, PageTable}, pool::MemPool, printkln, reg_cr3::{self, CR3}, reg_eflags::{self, EFlags, FlagEnum}, selector::SegmentSelector, MY_PANIC};
 
 use crate::{console_println, filesystem::file_descriptor::FileDescriptorTable, memory::mem_block::MemBlockAllocator, page_util, pid_allocator, tss};
 
@@ -243,6 +243,9 @@ impl TaskStruct {
     }
 
     pub fn activate_process(&mut self) {
+        // if self as *const _ as usize == self.pgdir as usize {
+        //     self.pgdir = ptr::null_mut();
+        // }
         // 激活页表
         self.activate_pgdir();
         if self.pgdir == ptr::null_mut() {
@@ -256,16 +259,18 @@ impl TaskStruct {
     /**
      * 激活该任务的页表
      */
+    #[no_mangle]
+    #[inline(never)]
     fn activate_pgdir(&self) {
-        let page_dir_phy_addr: usize;
         // 如果该任务没有页表
-        if self.pgdir == ptr::null_mut() {
+        let page_dir_phy_addr = if self.pgdir.is_null() {
             // 取内核的页表物理地址。
-            page_dir_phy_addr = constants::KERNEL_PAGE_DIR_ADDR;
+            constants::KERNEL_PAGE_DIR_ADDR
         } else {
-            // 取自己的页表，转成物理地址
-            page_dir_phy_addr = page_util::get_phy_from_virtual_addr(self.pgdir as usize);
-        }
+            // TODO 奇怪这里两个地址居然相同，这不可能
+            MY_PANIC!("0x{:x}, 0x{:x}", self as *const _ as usize, self.pgdir as usize);
+            page_util::get_phy_from_virtual_addr(self.pgdir as usize)
+        };
 
         // 把物理地址放入cr3寄存器
         let cr3 = reg_cr3::CR3::new(page_dir_phy_addr as *const PageTable);

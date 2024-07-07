@@ -43,9 +43,7 @@ impl Semaphore {
      * 信号量减少操作。**阻塞操作**
      */
     pub fn down(&mut self) {
-        // let old_status = instruction::disable_interrupt();
-
-        
+        let old_status = instruction::disable_interrupt();
         // 信号量的值小于等于0，需要每次都阻塞，然后被唤醒后重新判断信号量的值
         while self.value <= 0 {
             let current_thread = &mut thread::current_thread().task_struct;
@@ -56,7 +54,7 @@ impl Semaphore {
         }
         // 把信号量减一
         self.value -= 1;
-        // instruction::set_interrupt(old_status);
+        instruction::set_interrupt(old_status);
     }
 
     /**

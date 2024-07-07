@@ -44,7 +44,7 @@ pub fn schedule() {
         // 确保不在就绪队列中
         ASSERT!(!thread_management::get_ready_thread().contains(&cur_task.general_tag));
         // 把当前线程加入到就绪队列
-        thread_management::get_ready_thread().append(&mut cur_task.general_tag);
+        thread_management::append_read_thread(cur_task);
         // 重置剩余的ticks
         cur_task.reset_ticks();
         // 设置为就绪
@@ -66,9 +66,8 @@ pub fn schedule() {
     task_to_run.set_status(TaskStatus::TaskRunning);
 
     // 当前是内核程序，更换页表之前，可以使用输出语句
-    if cur_task.pgdir == ptr::null_mut() {
-        // println!("switch from:{}, to:{}", cur_task.name as &str, task_to_run.name as &str);
-    }
+    // console_println!("cur task:(addr:0x{:x}, name:{}, status:{:?})", cur_task as *const _ as usize, cur_task.name as &str, cur_task.task_status);
+    // console_println!("to task:(addr:0x{:x}, name:{}, status:{:?})",task_to_run as *const _ as usize, task_to_run.name as &str, task_to_run.task_status);
 
     // 激活这个进程
     task_to_run.activate_process();

@@ -5,7 +5,7 @@ use os_in_rust_common::racy_cell::RacyCell;
 
 use crate::{device::ata::Disk, memory, sync::Lock, thread};
 
-use super::{constant, filesystem::FileSystem};
+use super::{constant, fs::FileSystem};
 
 
 /**
@@ -53,6 +53,14 @@ impl Inode {
             indirect_sector: LbaAddr::empty(),
         }
     }
+
+    pub fn from(&mut self, opened_inode: &OpenedInode) {
+        self.i_no = self.i_no;
+        self.i_size = self.i_size;
+        self.direct_sectors.copy_from_slice(opened_inode.get_direct_data_blocks_ref());
+        self.indirect_sector = unsafe {*opened_inode.indirect_block_lba.get_mut()};
+    }
+
 }
 
 /**
@@ -111,7 +119,7 @@ impl OpenedInode {
             data_block_list: [LbaAddr::empty(); constant::INODE_DIRECT_DATA_SECS + (constant::INODE_INDIRECT_DATA_SECS * constants::DISK_SECTOR_SIZE) / size_of::<LbaAddr>()],
         };
         // 把硬盘中的该inode数据区，复制到缓冲区中
-        inode.data_block_list.copy_from_slice(&base_inode.direct_sectors);
+        inode.data_block_list[0..base_inode.direct_sectors.len()].copy_from_slice(&base_inode.direct_sectors);
         inode
     }
     pub fn parse_by_tag(tag: *mut LinkedNode) -> &'static mut OpenedInode {
@@ -125,11 +133,19 @@ impl OpenedInode {
         &mut self.data_block_list[0 .. constant::INODE_DIRECT_DATA_SECS - 1]
     }
 
+    pub fn get_direct_data_blocks_ref(&self) -> &[LbaAddr] {
+        &self.data_block_list[0 .. constant::INODE_DIRECT_DATA_SECS - 1]
+    }
+
     /**
      * 得到间接数据块的地址（存放在inode的间接块内）
      */
     pub fn get_indirect_data_blocks(&mut self) -> &mut[LbaAddr] {
         &mut self.data_block_list[constant::INODE_DIRECT_DATA_SECS - 1 .. ]
+    }
+
+    pub fn get_indirect_data_blocks_ref(&self) -> &[LbaAddr] {
+        &self.data_block_list[constant::INODE_DIRECT_DATA_SECS - 1 .. ]
     }
 
     /**
@@ -154,38 +170,44 @@ impl OpenedInode {
     }
 
     /**
-     * 同步一个inode的包含的数据扇区地址。也就是i_sectors字段（包括间接的块地址），从内存同步到硬盘
-     *  - 如果是直接块，那么修改inode的i_sectors字段（修改的是inode所在的扇区）
-     *  - 如果是间接块，修改的是inode的i_sectors[12]指向的整个扇区（这个扇区里全部都是二级块地址，我们用内存数据覆盖掉硬盘数据）
+     * 把内存中的inode数据同步到硬盘中
+     *  1. 同步inode自身的数据（包含直接块的地址）
+     *  2. 同步inode间接块的数据
      */
-    pub fn sync_data_block(&mut self, fs: &FileSystem, sync_inode: bool) {
+    pub fn sync_inode(&mut self, fs: &FileSystem) {
         let disk = unsafe { &mut *fs.base_part.from_disk };
 
         let buff_addr = memory::sys_malloc(constants::DISK_SECTOR_SIZE * 2);
         let buf = unsafe { slice::from_raw_parts_mut(buff_addr as *mut u8, constants::DISK_SECTOR_SIZE * 2) };
 
-        // 如果是直接块，只需要同步inode
-        if sync_inode {
-            // 当前inode，所处磁盘的位置
-            let i_location = fs.locate_inode(self.i_no);
-            // 读取出inode所在的扇区
-            disk.read_sectors(i_location.lba, i_location.sec_cnt, buf);
-            let inode_from_disk = unsafe { &mut *(buf.as_mut_ptr().add(i_location.bytes_off) as *mut Inode) };
-            // 间接块的地址，也同步过去
-            inode_from_disk.indirect_sector = unsafe {*self.indirect_block_lba.get_mut()};
-            // 用内存的数据块，覆盖硬盘中的数据块
-            inode_from_disk.direct_sectors.copy_from_slice(self.get_direct_data_blocks());
-            // 把inode写回到硬盘中
-            disk.write_sector(buf, i_location.lba, i_location.sec_cnt);
+        /*****1. 同步inode自身（包含直接块的地址）*************/
+        // 当前inode，所处磁盘的位置
+        let i_location = fs.locate_inode(self.i_no);
+        // 读取出inode所在的扇区
+        disk.read_sectors(i_location.lba, i_location.sec_cnt, buf);
+
+        // 硬盘中的inode结构
+        let inode_from_disk = unsafe { &mut *(buf.as_mut_ptr().add(i_location.bytes_off) as *mut Inode) };
+        // 把内存中的inode结构，复制到硬盘的inode结构中
+        inode_from_disk.from(self);
+
+        // 把inode写回到硬盘中
+        disk.write_sector(buf, i_location.lba, i_location.sec_cnt);
+
+
+        /*****2. 处理inode的间接块***************/
+        let indirect_block_lba = unsafe { self.indirect_block_lba.get_mut() };
+        // 没有间接块地址，也不用同步了
+        if indirect_block_lba.is_empty() {
             return;
         }
 
-        // 里面全部都是LBA地址
+        // 间接块里面全部都是LBA地址
         let indirect_block_sec_lba = unsafe { slice::from_raw_parts_mut(buff_addr as *mut LbaAddr, constants::DISK_SECTOR_SIZE * 2) };
         // 用内存的数据，覆盖硬盘的数据
-        indirect_block_sec_lba.copy_from_slice(self.get_indirect_data_blocks());
+        indirect_block_sec_lba.copy_from_slice(self.get_indirect_data_blocks_ref());
         // 写回到硬盘中
-        disk.write_sector(buf, unsafe {*self.indirect_block_lba.get_mut()}, 1);
+        disk.write_sector(buf, *indirect_block_lba, 1);
     }
 
     /**
