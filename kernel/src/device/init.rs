@@ -2,6 +2,7 @@ use core::{borrow::{Borrow, BorrowMut}, ffi::CStr, mem::size_of, sync::atomic::A
 
 use lazy_static::lazy_static;
 use os_in_rust_common::{constants, cstr_write, cstring_utils, domain::LbaAddr, linked_list::LinkedList, printkln, racy_cell::RacyCell, utils, ASSERT};
+use os_in_rust_common::array_deque::ArrayDeque;
 
 use crate::{filesystem, init, memory, println};
 use crate::device::ata::Partition;
@@ -150,7 +151,7 @@ pub fn main_part_init(disk: &mut Disk) {
         *main_extend_lba_base = part_entry.start_lba;
 
         // 进入扩展分区的扫描。总逻辑分区LBA地址，逻辑分区号是0
-        extended_part_init(disk, part_entry.start_lba, 0);
+        extended_part_init(disk, part_entry.start_lba);
     }
 }
 
@@ -160,43 +161,57 @@ pub fn main_part_init(disk: &mut Disk) {
  *  - main_ext_lba: 总扩展分区的起始地址。所有子扩展分区的LBA地址都基于该地址
  *  - logic_part_no: 在该扩展分区中，逻辑分区起始的编号
  */
-pub fn extended_part_init(disk: &mut Disk, main_ext_lba: LbaAddr, mut logic_part_no: usize) {
-    
-    let disk_ptr = disk as *mut _;
-    // 申请内存。为了防止栈溢出，因此不使用局部变量
-    let boot_sec_addr = memory::sys_malloc(size_of::<BootSector>());
-    let buf = unsafe { core::slice::from_raw_parts_mut(boot_sec_addr as *mut u8, size_of::<BootSector>()) };
-    // 读取该分区的第一个扇区，启动记录
-    disk.read_sectors(main_ext_lba, 1, buf);
-    let boot_sector = unsafe { &*(boot_sec_addr as *const BootSector) };
+pub fn extended_part_init(disk: &mut Disk, main_ext_lba: LbaAddr) {
 
-    let mut buf = [0u8; 100];
-    // 得到分区表
-    let part_table = &boot_sector.part_table;
-    for (idx, part_entry) in part_table.iter().enumerate() {
-        if part_entry.is_empty() {
-            continue;
-        }
-        // 不是扩展分区，那么是真正有数据的逻辑分区
-        if !part_entry.is_extended() {
-            // 该分区名称 = 磁盘名称 + i
-            cstr_write!(&mut buf, "{}{}", disk.get_name(), logic_part_no + 4);
-            
-            // 填充分区信息
-            let mut logical_part = &mut disk.logical_parts[logic_part_no];
-            logic_part_no += 1;
-            
-            *logical_part = Option::Some(Partition::new(&buf, main_ext_lba + part_entry.start_lba, part_entry.sec_cnt, disk_ptr));
-            
-            let part = logical_part.as_mut().unwrap();
-            // 把该逻辑分区加入队列
-            get_all_partition().append(&mut part.tag);
-            continue;
-        }
+    let mut array = [(LbaAddr::empty(), 0); 20];
+    let mut stack = ArrayDeque::new(&mut array);
+    stack.append((main_ext_lba, 4));
 
-        // 扩展分区，递归扫描
-        let main_extend_lba_base = main_extended_lba_base();
-        extended_part_init(disk, part_entry.start_lba + *main_extend_lba_base, logic_part_no);
+    loop {
+        let ele = stack.pop();
+        if ele.is_none() {
+            break;
+        }
+        let (extend_part_lba, mut part_no) = ele.unwrap();
+
+        let disk_ptr = disk as *mut _;
+        // 申请内存。为了防止栈溢出，因此不使用局部变量
+        let boot_sec_addr = memory::sys_malloc(size_of::<BootSector>());
+        let buf = unsafe { core::slice::from_raw_parts_mut(boot_sec_addr as *mut u8, size_of::<BootSector>()) };
+        // 读取该分区的第一个扇区，启动记录
+        disk.read_sectors(extend_part_lba, 1, buf);
+        let boot_sector = unsafe { &*(boot_sec_addr as *const BootSector) };
+
+        // 得到分区表
+        let part_table = &boot_sector.part_table;
+        for (idx, part_entry) in part_table.iter().enumerate() {
+            if part_entry.is_empty() {
+                continue;
+            }
+            // 不是扩展分区，那么是真正有数据的逻辑分区
+            if !part_entry.is_extended() {
+                let mut buf = [0u8; 100];
+                // 该分区名称 = 磁盘名称 + i
+                cstr_write!(&mut buf, "{}{}", disk.get_name(), part_no);
+
+                // 填充分区信息
+                let mut logical_part = &mut disk.logical_parts[part_no];
+                part_no += 1;
+
+                *logical_part = Option::Some(Partition::new(&buf, extend_part_lba + part_entry.start_lba, part_entry.sec_cnt, disk_ptr));
+
+                let part = logical_part.as_mut().unwrap();
+                // 把该逻辑分区加入队列
+                get_all_partition().append(&mut part.tag);
+                continue;
+            }
+
+            // 扩展分区，递归扫描
+            let main_extend_lba_base = main_extended_lba_base();
+
+            // 把参数入栈
+            stack.append((part_entry.start_lba + *main_extend_lba_base, part_no));
+        }
     }
 }
 
@@ -207,9 +222,11 @@ pub fn extended_part_init(disk: &mut Disk, main_ext_lba: LbaAddr, mut logic_part
 pub fn install_filesystem_for_all_part() {
     // 取出所有分区
     let all_partition = get_all_partition();
+
     // 遍历每个分区，安装文件系统
     all_partition.iter().for_each(|part_tag| {
         let part = Partition::parse_by_tag(part_tag);
         filesystem::install_filesystem(part);
-    })
+        printkln!("install file system");
+    });
 }

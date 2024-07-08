@@ -2,7 +2,7 @@ use core::mem::{self, size_of};
 
 use lazy_static::lazy_static;
 use os_in_rust_common::{constants, elem2entry, linked_list::{LinkedList, LinkedNode}, printk, printkln, racy_cell::RacyCell, vga::print, ASSERT, MY_PANIC};
-use crate::println;
+use crate::{println, thread};
 
 use crate::sync::Lock;
 
@@ -117,6 +117,8 @@ impl MemBlockContainer {
     /**
      * 从容器里面申请1个内存块
      */
+    #[no_mangle]
+    #[inline(never)]
     pub fn apply(&mut self) -> Option<&'static mut MemBlock>{
         // 终于找到一个合适的规格。从里面空余链表找一个
         let block_list = &mut self.available_blocks_list;
@@ -124,8 +126,6 @@ impl MemBlockContainer {
         if block_list.is_empty() {
             return Option::None;
         }
-        // printkln!("before pop");
-        // block_list.print_list();
         // 从可用内存块列表中，取出一个内存块
         let mem_block_tag = block_list.pop();
         let mem_block = MemBlock::parse_by_tag(mem_block_tag);

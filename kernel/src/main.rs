@@ -57,6 +57,7 @@ pub extern "C" fn _start(boot_info: &BootContext) {
     // thread_management::thread_start("thread_a", 5, kernel_thread, 0);
 
     printkln!("-----system started-----");
+    loop {}
     // 主通道。挂在2个硬盘
     let channel_idx = 0;
     let primary = device::init::get_ata_channel(&channel_idx);

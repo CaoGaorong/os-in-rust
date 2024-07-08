@@ -42,12 +42,12 @@ fn free_bytes(addr_pool: &mut MemPool, mem_pool: &mut MemPool, vaddr_to_free: us
     let mem_block = unsafe { &mut *(vaddr_to_free as *mut MemBlock) };
     // 然后找到该内存块归属的arena
     let arena = mem_block.arena_addr();
-    // 如果arena已经不在使用了
-    if !arena.in_use() && arena.supply_for() == ptr::null_mut() {
-        // 释放整页。把该arena占用的内存页直接释放
-        free_page(addr_pool, mem_pool, arena as *const _ as usize, arena.occupy_pages());
-        return;
-    }
+    // // 如果arena已经不在使用了
+    // if !arena.in_use() && arena.supply_for() == ptr::null_mut() {
+    //     // 释放整页。把该arena占用的内存页直接释放
+    //     free_page(addr_pool, mem_pool, arena as *const _ as usize, arena.occupy_pages());
+    //     return;
+    // }
     // 如果arena整整齐齐了，那么可以释放整个页了
 
     // 1. 根据根据arena的内存块所述的容器

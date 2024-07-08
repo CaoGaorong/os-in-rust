@@ -116,7 +116,7 @@ pub type HandlerFuncWithErrCode = fn(InterruptStackFrame, error_code: u32);
  *
  * > 注意，这里不包括「中断处理程序」自身保存的寄存器上下文的值，仅仅是CPU保存上下文的值
  */
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 #[repr(C, packed)]
 pub struct InterruptStackFrame {
     pub ip: u32,

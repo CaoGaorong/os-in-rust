@@ -1,4 +1,5 @@
 use core::{arch::asm, mem::{size_of, size_of_val}, slice};
+use core::ptr::addr_of;
 
 use os_in_rust_common::{constants, cstr_write, domain::{InodeNo, LbaAddr}, printkln, racy_cell::RacyCell, utils, ASSERT, MY_PANIC};
 
@@ -69,7 +70,7 @@ pub fn mount_part(part_name: &str) {
                 set_filesystem(fs);
             }
         });
-    printkln!("{} mounted", part_name);
+    // printkln!("{} mounted", part_name);
 }
 
 pub fn init() {
@@ -106,10 +107,13 @@ pub fn init() {
 #[inline(never)]
 #[no_mangle]
 pub fn install_filesystem(part: &mut Partition) {
-    
+
+    // 申请空间，给超级块
+    let super_block: &mut SuperBlock =  memory::malloc(size_of::<SuperBlock>());
+    *super_block = SuperBlock::new(part.abs_lba_start(0), part.sec_cnt);
+
     // 安装superBlock
-    let super_block = SuperBlock::new(part.abs_lba_start(0), part.sec_cnt);
-    self::install_super_block(part, &super_block);
+    install_super_block(part, &super_block);
 
     // 先创建一个缓冲区，取三者的最大者
     let buff_max_secs = super_block.block_bitmap_secs
@@ -119,17 +123,18 @@ pub fn install_filesystem(part: &mut Partition) {
     let buff = unsafe { slice::from_raw_parts_mut(memory::sys_malloc(buff_bytes) as *mut u8, buff_bytes) };
 
     // 安装inode位图
-    self::install_inode_bitmap(part, &super_block, buff);
+    install_inode_bitmap(part, &super_block, buff);
 
     // 安装inode表（数组）
-    self::install_inode_table(part, &super_block, buff);
+    install_inode_table(part, &super_block, buff);
 
     // 安装块位图
-    self::install_block_bitmap(part, &super_block, buff);
+    install_block_bitmap(part, &super_block, buff);
 
     // 安装根目录
-    self::install_root_dir(part, &super_block, buff);
+    install_root_dir(part, &super_block, buff);
 
+    memory::sys_free(super_block as *const _ as usize);
     // 释放缓冲区
     memory::sys_free(buff.as_ptr() as usize);
 }
@@ -149,6 +154,10 @@ fn install_super_block(part: &mut Partition, super_block: &SuperBlock) {
 #[inline(never)]
 #[no_mangle]
 fn install_block_bitmap(part: &mut Partition, super_block: &SuperBlock, buff: &mut [u8]) {
+    ASSERT!(buff.len() > 0);
+    // 清零
+    unsafe { buff.as_mut_ptr().write_bytes(0x00, buff.len()) };
+
     // 块位图长度是扇区大小的倍数，当初是向上去整了的
     // 块位图中，位图的长度（按位计算）
     let block_bitmap_bit_len = super_block.block_bitmap_secs * constants::DISK_SECTOR_SIZE as u32 * 8;
@@ -185,6 +194,7 @@ fn install_block_bitmap(part: &mut Partition, super_block: &SuperBlock, buff: &m
 #[inline(never)]
 #[no_mangle]
 fn install_inode_bitmap(part: &mut Partition, super_block: &SuperBlock, buff: &mut [u8]) {
+    ASSERT!(buff.len() > 0);
     // 清零
     unsafe { buff.as_mut_ptr().write_bytes(0x00, buff.len()) };
     // buf[0] = 0b00000001
@@ -200,7 +210,10 @@ fn install_inode_bitmap(part: &mut Partition, super_block: &SuperBlock, buff: &m
 /**
  * 安装inode列表
  */
+#[inline(never)]
+#[no_mangle]
 fn install_inode_table(part: &mut Partition, super_block: &SuperBlock, buff: &mut [u8]) {
+    ASSERT!(buff.len() > 0);
     // 清零
     unsafe { buff.as_mut_ptr().write_bytes(0x00, buff.len()) };
     // 转成Inode数组
@@ -222,7 +235,10 @@ fn install_inode_table(part: &mut Partition, super_block: &SuperBlock, buff: &mu
  * 安装根目录项
  *  根目录有两项：.和..，都放在块的数据区
  */
+#[inline(never)]
+#[no_mangle]
 fn install_root_dir(part: &mut Partition, super_block: &SuperBlock, buff: &mut [u8]) {
+    ASSERT!(buff.len() > 0);
     // 清零
     unsafe { buff.as_mut_ptr().write_bytes(0x00, buff.len()) };
     // 转成目录项数组
@@ -230,7 +246,7 @@ fn install_root_dir(part: &mut Partition, super_block: &SuperBlock, buff: &mut [
     {
         // . 目录项项
         let cur_dir = &mut dir_table[0];
-        cstr_write!(&mut cur_dir.name, ".");
+        cstr_write!(&mut cur_dir.name, "{}", ".");
         cur_dir.i_no = InodeNo::from(0u32);
         cur_dir.file_type = FileType::Directory;
     }
@@ -238,7 +254,7 @@ fn install_root_dir(part: &mut Partition, super_block: &SuperBlock, buff: &mut [
     {
         // .. 目录项
         let last_dir = &mut dir_table[1];
-        cstr_write!(&mut last_dir.name, "..");
+        cstr_write!(&mut last_dir.name, "{}", "..");
         last_dir.i_no = InodeNo::from(0u32);
         last_dir.file_type = FileType::Directory;
     }

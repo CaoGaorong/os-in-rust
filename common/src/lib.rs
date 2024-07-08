@@ -30,3 +30,4 @@ pub mod reg_eflags;
 pub mod queue;
 pub mod cstring_utils;
 pub mod domain;
+pub mod array_deque;

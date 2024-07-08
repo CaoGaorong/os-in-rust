@@ -150,8 +150,8 @@ impl LinkedList {
 
         self.refresh();
         self.unlock();
-        target_node.pre == ptr::null_mut();
-        target_node.next == ptr::null_mut();
+        target_node.pre = ptr::null_mut();
+        target_node.next = ptr::null_mut();
         target_node
     }
 
@@ -220,13 +220,15 @@ impl LinkedList {
     }
 
     pub fn print_list(&self) {
+        printkln!("print list:");
         self.iter().for_each(|node| {
             if node  == ptr::null_mut() {
                 return;
             }
             let cur_node = unsafe { &*node };
-            printkln!("0x{:x}: {:?}", node as usize, cur_node)
-        })
+            printk!("0x{:x}: {:?} ", node as usize, cur_node)
+        });
+        printkln!();
     }
 
 }

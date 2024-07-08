@@ -267,8 +267,6 @@ impl TaskStruct {
             // 取内核的页表物理地址。
             constants::KERNEL_PAGE_DIR_ADDR
         } else {
-            // TODO 奇怪这里两个地址居然相同，这不可能
-            MY_PANIC!("0x{:x}, 0x{:x}", self as *const _ as usize, self.pgdir as usize);
             page_util::get_phy_from_virtual_addr(self.pgdir as usize)
         };
 

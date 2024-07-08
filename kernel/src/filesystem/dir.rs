@@ -41,6 +41,7 @@ pub fn init_root_dir() {
 /**
  * 文件的类型
  */
+#[repr(C)]
 #[derive(Copy, Clone)]
 pub enum FileType {
     /**
