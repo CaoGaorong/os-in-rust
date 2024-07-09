@@ -7,7 +7,7 @@ use crate::{device::{self, ata::Partition}, filesystem, filesystem::dir::FileTyp
 use crate::filesystem::dir::Dir;
 use crate::memory;
 
-use super::{dir::DirEntry, file, fs::FileSystem, inode::Inode, superblock::SuperBlock};
+use super::{dir::{self, DirEntry}, file, fs::FileSystem, inode::Inode, superblock::SuperBlock};
 
 /**
  * 当前的挂载的分区
@@ -22,6 +22,12 @@ pub fn get_filesystem() -> Option<&'static mut FileSystem> {
     unsafe { CUR_FILE_SYSTEM.get_mut() }.as_mut()
 }
 
+#[inline(never)]
+pub fn create_file_in_root(file_name: &str) {
+    let root_dir = dir::get_root_dir();
+    ASSERT!(root_dir.is_some());
+    create_file(root_dir.unwrap(), file_name);
+}
 pub fn create_file(parent_dir: &mut Dir, file_name: &str) {
     let file_system = get_filesystem();
     ASSERT!(file_system.is_some());

@@ -167,6 +167,21 @@ impl LinkedList {
             self.unlock();
             return;
         }
+        // 如果要移除的是头节点
+        if node as *const _ as usize == self.head as usize {
+            self.head = node.next;
+            self.refresh();
+            self.unlock();
+            return;
+        }
+        // 如果要移除的是尾结点
+        if node as *const _ as usize == self.tail as usize {
+            self.tail = node.pre;
+            self.refresh();
+            self.unlock();
+            return;
+        }
+        
         // 该节点的上一个节点
         let pre = unsafe { &mut *node.pre };
         // 该节点的下一个节点

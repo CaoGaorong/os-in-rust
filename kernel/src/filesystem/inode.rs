@@ -11,6 +11,7 @@ use super::{constant, fs::FileSystem};
 /**
  * inode的元信息。存储在硬盘的物理结构
  */
+#[derive(Debug)]
 #[derive(Clone, Copy)]
 #[repr(C, packed)]
 pub struct Inode {
@@ -130,22 +131,22 @@ impl OpenedInode {
      * 得到直接数据块地址（存放在inode中）
      */
     pub fn get_direct_data_blocks(&mut self) -> &mut[LbaAddr] {
-        &mut self.data_block_list[0 .. constant::INODE_DIRECT_DATA_SECS - 1]
+        &mut self.data_block_list[0 .. constant::INODE_DIRECT_DATA_SECS]
     }
 
     pub fn get_direct_data_blocks_ref(&self) -> &[LbaAddr] {
-        &self.data_block_list[0 .. constant::INODE_DIRECT_DATA_SECS - 1]
+        &self.data_block_list[0 .. constant::INODE_DIRECT_DATA_SECS]
     }
 
     /**
      * 得到间接数据块的地址（存放在inode的间接块内）
      */
     pub fn get_indirect_data_blocks(&mut self) -> &mut[LbaAddr] {
-        &mut self.data_block_list[constant::INODE_DIRECT_DATA_SECS - 1 .. ]
+        &mut self.data_block_list[constant::INODE_DIRECT_DATA_SECS .. ]
     }
 
     pub fn get_indirect_data_blocks_ref(&self) -> &[LbaAddr] {
-        &self.data_block_list[constant::INODE_DIRECT_DATA_SECS - 1 .. ]
+        &self.data_block_list[constant::INODE_DIRECT_DATA_SECS.. ]
     }
 
     /**

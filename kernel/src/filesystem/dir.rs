@@ -1,6 +1,6 @@
 use core::{fmt::Display, mem::{self, size_of}, ops::Index, ptr, slice};
 
-use os_in_rust_common::{bitmap::BitMap, constants, cstr_write, domain::{InodeNo, LbaAddr}, linked_list::LinkedList, printkln, racy_cell::RacyCell, ASSERT, MY_PANIC, utils};
+use os_in_rust_common::{bitmap::BitMap, constants, cstr_write, cstring_utils, domain::{InodeNo, LbaAddr}, linked_list::LinkedList, printkln, racy_cell::RacyCell, utils, ASSERT, MY_PANIC};
 
 use crate::{device::ata::{Disk, Partition}, memory, thread};
 use crate::filesystem::init::get_filesystem;
@@ -41,6 +41,7 @@ pub fn init_root_dir() {
 /**
  * 文件的类型
  */
+#[derive(Debug, PartialEq, Eq)]
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub enum FileType {
@@ -74,6 +75,7 @@ impl Dir {
 /**
  * 目录项的结构。物理结构，保存到硬盘中
  */
+#[derive(Debug)]
 #[derive(Copy, Clone)]
 #[repr(C, packed)]
 pub struct DirEntry {
@@ -103,7 +105,17 @@ impl DirEntry {
         dir_entry
     }
 
+    pub fn get_name(&self) -> &str {
+        let name = cstring_utils::read_from_bytes(&self.name);
+        ASSERT!(name.is_some());
+        name.unwrap()
+    }
+
     pub fn is_valid(&self) -> bool {
-        usize::from(self.i_no) != 0
+        let i = usize::from(self.i_no);
+        if i == 0 && self.file_type as FileType  == FileType::Directory {
+            return true;
+        }
+        return i != 0;
     }
 }

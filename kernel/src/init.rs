@@ -50,10 +50,10 @@ pub fn init_all(boot_info: &BootContext) {
     filesystem::mount_part("sdb5");
 
     // 初始化根目录
-    // filesystem::init_root_dir();
+    filesystem::init_root_dir();
 
     // 创建文件
-    // filesystem::create_file()
+    filesystem::create_file_in_root("test.txt");
 
 
 }

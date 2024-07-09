@@ -57,7 +57,6 @@ pub extern "C" fn _start(boot_info: &BootContext) {
     // thread_management::thread_start("thread_a", 5, kernel_thread, 0);
 
     printkln!("-----system started-----");
-    loop {}
     // 主通道。挂在2个硬盘
     let channel_idx = 0;
     let primary = device::init::get_ata_channel(&channel_idx);
@@ -72,9 +71,6 @@ pub extern "C" fn _start(boot_info: &BootContext) {
     let disk =  &mut primary.disks[1];
     print_disk(disk.as_ref().unwrap());
 
-    printkln!("print_super_blocksss");
-    print_super_block(disk.as_mut().unwrap());
-    
     print_cur_part();
     
     // // 测试一样空间的分配和释放
@@ -99,13 +95,6 @@ fn print_cur_part() {
     printkln!("{:?}", cur_part.super_block);
 }
 
-#[inline(never)]
-fn print_super_block(disk: &mut Disk) {
-    let super_block = memory::sys_malloc(size_of::<SuperBlock>()) as *mut SuperBlock;
-    let buf = unsafe { slice::from_raw_parts_mut(super_block as *mut u8, size_of::<SuperBlock>()) };
-    disk.read_sectors(LbaAddr::new(59895), 1, buf);
-    printkln!("{:?}", unsafe {&*super_block});
-}
 fn print_disk(disk: &Disk) {
     let disk_name =  cstring_utils::read_from_bytes(&disk.name);
     ASSERT!(disk_name.is_some());

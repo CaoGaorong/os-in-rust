@@ -270,7 +270,7 @@ impl Disk {
         }
         // 缓冲区的数据，只能多，不能少
         if buf.len() < sec_cnt * constants::DISK_SECTOR_SIZE {
-            printkln!("error to read sector. buffer capacity not enough. lba:{}, sec_cnt:{}, buf len:{}", lba_start, sec_cnt, buf.len());
+            printkln!("error to write sector. buffer capacity not enough. lba:{}, sec_cnt:{}, buf len:{}", lba_start, sec_cnt, buf.len());
             MY_PANIC!("");
         }
         self.lock_channel();

@@ -13,3 +13,4 @@ pub use init::install_filesystem;
 pub use init::mount_part;
 pub use dir::init_root_dir;
 pub use init::create_file;
+pub use init::create_file_in_root;

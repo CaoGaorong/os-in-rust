@@ -47,7 +47,7 @@ pub fn init() {
  */
 #[cfg(all(not(test), target_arch = "x86"))]
 extern "x86-interrupt" fn invalid_opcode_handler(frame: InterruptStackFrame) {
-    MY_PANIC!("invalid opcode");
+    MY_PANIC!("invalid opcode eip: 0x{:x}, cs:0x{:x}, eflags:0x{:x}, sp: 0x{:x}, ss:{:x}", frame.ip as u32, frame.cs as u32, frame.eflags as u32, frame.sp as u32, frame.ss as u32);
 }
 
 
@@ -62,7 +62,7 @@ fn invalid_opcode_handler(frame: InterruptStackFrame) {
  */
 #[cfg(all(not(test), target_arch = "x86"))]
 extern "x86-interrupt" fn general_protection_handler(frame: InterruptStackFrame, error_code: u32) {
-    MY_PANIC!("!!!!general protection exception occur, error code:0x{:x}!!!", error_code);
+    MY_PANIC!("!!!!general protection exception occur, error code:0x{:x}!!!eip: 0x{:x}, cs:0x{:x}, eflags:0x{:x}, sp: 0x{:x}, ss:{:x}", error_code, frame.ip as u32, frame.cs as u32, frame.eflags as u32, frame.sp as u32, frame.ss as u32);
 }
 
 #[cfg(all(not(target_arch = "x86")))]
@@ -75,7 +75,7 @@ fn general_protection_handler(frame: InterruptStackFrame, error_code: u32) {
  */
 #[cfg(all(not(test), target_arch = "x86"))]
 extern "x86-interrupt" fn double_fault_handler(frame: InterruptStackFrame, error_code: u32) {
-    MY_PANIC!("!!!!!DOUBLE FAULT OCCUR !!!!, error code: 0x{:x}", error_code);
+    MY_PANIC!("!!!!!DOUBLE FAULT OCCUR !!!!, error code: 0x{:x} eip: 0x{:x}, cs:0x{:x}, eflags:0x{:x}, sp: 0x{:x}, ss:{:x}", error_code, frame.ip as u32, frame.cs as u32, frame.eflags as u32, frame.sp as u32, frame.ss as u32);
     loop {}
 }
 #[cfg(all(not(target_arch = "x86")))]

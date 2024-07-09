@@ -227,6 +227,5 @@ pub fn install_filesystem_for_all_part() {
     all_partition.iter().for_each(|part_tag| {
         let part = Partition::parse_by_tag(part_tag);
         filesystem::install_filesystem(part);
-        printkln!("install file system");
     });
 }

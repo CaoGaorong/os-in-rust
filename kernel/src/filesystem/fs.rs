@@ -160,7 +160,7 @@ impl FileSystem {
         // inode结束的偏移量，换算成扇区偏移数
         let sec_end: usize = utils::div_ceil(i_idx_end as u32, constants::DISK_SECTOR_SIZE  as u32).try_into().unwrap();
 
-        InodeLocation::new(self.super_block.inode_table_lba.add(sec_start.try_into().unwrap()), i_idx_start % constants::DISK_SECTOR_SIZE, sec_end - sec_start + 1)
+        InodeLocation::new(self.super_block.inode_table_lba.add(sec_start.try_into().unwrap()), i_idx_start % constants::DISK_SECTOR_SIZE, sec_end - sec_start)
     }
 
 
@@ -174,8 +174,8 @@ impl FileSystem {
      *    - Option<(&'a mut LbaAddr, &'b mut DirEntry)> 是否找到空闲目录项(该目录项所在扇区的LBA地址，该目录项在buf参数中的地址)
      *  比如buf[512]，发现第100项可用，那么返回值是 &buf[100]
      */
-    fn find_available_entry<'a, 'b>(data_blocks: &'a mut [LbaAddr], buf: &'b mut[DirEntry], disk: &mut Disk) -> Option<(&'a mut LbaAddr, &'b mut DirEntry)> {
-        let u8buf = unsafe { slice::from_raw_parts_mut(buf.as_mut_ptr() as *mut u8, constants::DISK_SECTOR_SIZE / size_of::<DirEntry>()) };
+    fn find_available_entry<'a, 'b>(data_blocks: &'a mut [LbaAddr], dir_buf: &'b mut[DirEntry], disk: &mut Disk) -> Option<(&'a mut LbaAddr, &'b mut DirEntry)> {
+        let u8buf = unsafe { slice::from_raw_parts_mut(dir_buf.as_mut_ptr() as *mut u8, dir_buf.len() * size_of::<DirEntry>()) };
         // 清空缓冲区
         unsafe { u8buf.as_mut_ptr().write_bytes(0, u8buf.len()); }
         // 先找空的直接块
@@ -190,24 +190,24 @@ impl FileSystem {
         if empty_dix.is_none() {
             // 看看这个最后一个块，有没有空位
             disk.read_sectors(data_blocks[data_blocks.len() - 1], 1, u8buf);
-            return buf.iter().enumerate()
+            return dir_buf.iter().enumerate()
                 .find(|(idx, &entry)| entry.is_valid())
                 .map(|(idx, &entry)| idx)
                 // 有空目录项。那么很好，就是这里了。也不用开辟新数据块
-                .map(|idx | (&mut data_blocks[data_blocks.len() - 1], &mut buf[idx]))
+                .map(|idx | (&mut data_blocks[data_blocks.len() - 1], &mut dir_buf[idx]))
         }
 
         // 如果有空的数据块，那么往前找一个,有没有空位
         disk.read_sectors(data_blocks[empty_dix.unwrap() - 1], 1, u8buf);
-        let result = buf.iter().enumerate()
+        let result = dir_buf.iter().enumerate()
             .find(|(idx, &entry)| entry.is_valid())
             .map(|(idx, &entry)| idx);
 
         // 有空目录项。那么很好，就是这里了。也不用开辟新数据块
         if result.is_some() {
-            Option::Some((&mut data_blocks[empty_dix.unwrap() - 1], &mut buf[result.unwrap()]))
+            Option::Some((&mut data_blocks[empty_dix.unwrap() - 1], &mut dir_buf[result.unwrap()]))
         } else {
-            return Option::Some((&mut data_blocks[empty_dix.unwrap()], &mut buf[0]));
+            return Option::Some((&mut data_blocks[empty_dix.unwrap()], &mut dir_buf[0]));
         }
     }
 
@@ -224,7 +224,7 @@ impl FileSystem {
         let buff_addr = memory::sys_malloc(constants::DISK_SECTOR_SIZE);
         let buf = unsafe { slice::from_raw_parts_mut(buff_addr as *mut u8, constants::DISK_SECTOR_SIZE) };
         // 缓冲区格式转成 目录项
-        let dir_list = unsafe { slice::from_raw_parts_mut(buff_addr as *mut DirEntry, constants::DISK_SECTOR_SIZE / size_of::<DirEntry>()) };
+        let dir_list = unsafe { slice::from_raw_parts_mut(buff_addr as *mut DirEntry, utils::div_ceil(constants::DISK_SECTOR_SIZE as u32, size_of::<DirEntry>() as u32) as usize ) };
 
 
         let  mut direct = false;

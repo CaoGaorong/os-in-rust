@@ -80,17 +80,17 @@ impl From<LbaAddr> for usize {
 #[derive(Clone, Copy, Debug)]
 #[repr(C, packed)]
 pub struct InodeNo {
-    data: usize,
+    data: u32,
 }
 impl InodeNo {
-    pub fn new(idx: usize) -> Self {
+    pub fn new(idx: u32) -> Self {
         Self {
             data: idx,
         }
     }
 
     pub fn add(&self, offset: usize) -> Self {
-        Self::new(self.data + offset)
+        Self::new(self.data + offset as u32)
     }
 }
 
@@ -109,24 +109,24 @@ impl PartialEq for InodeNo {
 }
 impl From<usize> for InodeNo {
     fn from(value: usize) -> Self {
-        InodeNo::new(value)
+        InodeNo::new(value as u32)
     }
 }
 
 impl From<u32> for InodeNo {
     fn from(value: u32) -> Self {
-        InodeNo::new(value as usize)
+        InodeNo::new(value)
     }
 }
 
 impl From<InodeNo> for u32 {
     fn from(value: InodeNo) -> Self {
-        value.data.try_into().unwrap()
+        value.data
     }
 }
 impl From<InodeNo> for usize {
     fn from(value: InodeNo) -> Self {
-        value.data
+        value.data.try_into().unwrap()
     }
 }
 
