@@ -28,6 +28,8 @@ pub fn create_file_in_root(file_name: &str) {
     ASSERT!(root_dir.is_some());
     create_file(root_dir.unwrap(), file_name);
 }
+
+#[inline(never)]
 pub fn create_file(parent_dir: &mut Dir, file_name: &str) {
     let file_system = get_filesystem();
     ASSERT!(file_system.is_some());
@@ -38,7 +40,6 @@ pub fn create_file(parent_dir: &mut Dir, file_name: &str) {
 
 #[inline(never)]
 pub fn mount_part(part_name: &str) {
-    printkln!("mount {}", part_name);
     // 找到所有分区
     let all_part = device::get_all_partition();
     // 遍历所有分区

@@ -1,4 +1,4 @@
-mod constant;
+pub mod constant;
 pub mod superblock;
 pub mod inode;
 pub mod dir;

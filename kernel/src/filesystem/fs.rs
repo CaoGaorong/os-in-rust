@@ -191,7 +191,7 @@ impl FileSystem {
             // 看看这个最后一个块，有没有空位
             disk.read_sectors(data_blocks[data_blocks.len() - 1], 1, u8buf);
             return dir_buf.iter().enumerate()
-                .find(|(idx, &entry)| entry.is_valid())
+                .find(|(idx, &entry)| entry.is_empty())
                 .map(|(idx, &entry)| idx)
                 // 有空目录项。那么很好，就是这里了。也不用开辟新数据块
                 .map(|idx | (&mut data_blocks[data_blocks.len() - 1], &mut dir_buf[idx]))
@@ -200,7 +200,7 @@ impl FileSystem {
         // 如果有空的数据块，那么往前找一个,有没有空位
         disk.read_sectors(data_blocks[empty_dix.unwrap() - 1], 1, u8buf);
         let result = dir_buf.iter().enumerate()
-            .find(|(idx, &entry)| entry.is_valid())
+            .find(|(idx, &entry)| entry.is_empty())
             .map(|(idx, &entry)| idx);
 
         // 有空目录项。那么很好，就是这里了。也不用开辟新数据块
@@ -216,6 +216,7 @@ impl FileSystem {
      *  - 目录项存放在目录inode的数据扇区中
      *  - 先遍历数据扇区，找到空闲可以存放目录项的地方，然后放进去
      */
+    #[inline(never)]
     pub fn sync_dir_entry(&mut self, parent: &mut Dir, dir_entry: &DirEntry) {
 
         let disk = unsafe { &mut *self.base_part.from_disk };
@@ -301,10 +302,13 @@ impl InodePool {
     /**
      * 从inode池中申请一个inode
      */
+    #[inline(never)]
     pub fn apply_inode(&mut self, inodes: usize) -> InodeNo {
         let bit_res = self.inode_bitmap.apply_bits(inodes);
         ASSERT!(bit_res.is_ok());
         let bit_off = bit_res.unwrap();
+        // 设置这位为占用
+        self.inode_bitmap.set_bit(bit_off, true);
         // 申请到的inode地址 = inode起始号 + 申请的第x个inode
         let i_no = self.start_ino.add(bit_off);
         // 申请了inode，同步到硬盘

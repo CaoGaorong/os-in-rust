@@ -175,6 +175,7 @@ impl OpenedInode {
      *  1. 同步inode自身的数据（包含直接块的地址）
      *  2. 同步inode间接块的数据
      */
+    #[inline(never)]
     pub fn sync_inode(&mut self, fs: &FileSystem) {
         let disk = unsafe { &mut *fs.base_part.from_disk };
 

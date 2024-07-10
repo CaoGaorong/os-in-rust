@@ -24,7 +24,7 @@ pub fn get_root_dir() -> Option<&'static mut Dir> {
     root_dir.as_mut()
 }
 
-// #[inline(never)]
+#[inline(never)]
 pub fn init_root_dir() {
     // printkln!("init root dir");
     let file_system = get_filesystem();
@@ -111,11 +111,12 @@ impl DirEntry {
         name.unwrap()
     }
 
-    pub fn is_valid(&self) -> bool {
+    pub fn is_empty(&self) -> bool {
         let i = usize::from(self.i_no);
+        // 这是根目录，非空
         if i == 0 && self.file_type as FileType  == FileType::Directory {
-            return true;
+            return false;
         }
-        return i != 0;
+        return i == 0;
     }
 }

@@ -83,9 +83,6 @@ fn double_fault_handler(frame: InterruptStackFrame, error_code: u32) {
     todo!()
 }
 
-/**
- * 通用的中断处理程序
- */
 #[cfg(all(not(test), target_arch = "x86"))]
 extern "x86-interrupt" fn page_fault_handler(frame: InterruptStackFrame, error_code: u32) {
     MY_PANIC!("page fault, code:0x{:x}. eip: 0x{:x}, cs:0x{:x}, eflags:0x{:x}, sp: 0x{:x}, ss:{:x}", error_code, frame.ip as u32, frame.cs as u32, frame.eflags as u32, frame.sp as u32, frame.ss as u32);

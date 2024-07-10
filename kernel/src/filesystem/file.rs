@@ -61,6 +61,7 @@ pub enum StdFileDescriptor {
  *   - 创建文件（inode）以及对应的目录项（文件名称）
  *   - 把这个inode挂到该目录下（把目录项放写入到目录对应的数据区）
  */
+#[inline(never)]
 pub fn create_file(filesystem: &mut FileSystem, parent_dir: &mut Dir, file_name: &str) {
 
     /***1. 创建文件的inode。物理结构，同步到硬盘中*****/

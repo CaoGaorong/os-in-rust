@@ -164,6 +164,7 @@ impl Writer {
             buffer,
         }
     }
+    #[inline(never)]
     fn _backspace(&mut self) {
         // 如果是第一列，没法后退了
         if self.col_pos == 0 {
@@ -176,7 +177,7 @@ impl Writer {
         // 如果不是第一列，那么直接后退
         self.col_pos -= 1;
     }
-    #[no_mangle]
+    #[inline(never)]
     fn _new_line(&mut self) {
         let max_width = self.get_buffer().buffer[0].len() - 1;
         let max_height = self.get_buffer().buffer.len() - 1;
@@ -198,6 +199,7 @@ impl Writer {
         // 把最后一行清空
         self._clear_row(max_height);
     }
+    #[inline(never)]
     fn _clear_row(&mut self, row_idx: usize) {
         let buffer = self.get_buffer().buffer.as_mut();
         if buffer.is_empty() {
@@ -215,6 +217,7 @@ impl Writer {
     /**
      * 清屏
      */
+    #[inline(never)]
     fn _clear_all(&mut self) {
         let buffer = self.get_buffer().buffer.as_mut();
         if buffer.is_empty() {
@@ -229,7 +232,7 @@ impl Writer {
     /**
      * 光标后移
      */
-    #[no_mangle]
+    #[inline(never)]
     fn _cursor_next(&mut self) {
         let max_width = self.get_buffer().buffer[0].len() - 1;
         // 到最后一列，换行
@@ -243,6 +246,7 @@ impl Writer {
     /**
      * 把字节数据（不解析），写入到缓冲区
      */
+    #[inline(never)]
     fn do_write_byte(&mut self, data: u8) {
         self.get_buffer().buffer[self.row_pos][self.col_pos]
             .write(SingleChar::new(data, self.default_attr));
@@ -251,6 +255,7 @@ impl Writer {
     /**
      * 输出字节数据，解析
      */
+    #[inline(never)]
     pub fn write_byte(&mut self, byte: u8) {
         if b'\n' == byte {
             self._new_line();
@@ -272,17 +277,20 @@ impl Writer {
     /**
      * 输出字符串
      */
+    #[inline(never)]
     pub fn write_string(&mut self, s: &str) {
         for byte in s.bytes() {
             self.write_byte(byte);
         }
     }
 
+    #[inline(never)]
     pub fn clear_current_row(&mut self) {
         self._clear_row(self.row_pos);
         self.col_pos = 0;
     }
 
+    #[inline(never)]
     pub fn clear_all(&mut self) {
         self._clear_all();
         self.col_pos = 0;

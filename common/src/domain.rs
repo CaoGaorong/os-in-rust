@@ -24,6 +24,7 @@ impl LbaAddr {
     /**
      * 累加一个地址。不改变原地址的值
      */
+    #[inline(never)]
     pub fn add(&self, addr: u32) -> Self {
         Self {
             data: self.data + addr,

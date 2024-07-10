@@ -54,6 +54,8 @@ pub fn init_all(boot_info: &BootContext) {
 
     // 创建文件
     filesystem::create_file_in_root("test.txt");
+    filesystem::create_file_in_root("a.txt");
+    filesystem::create_file_in_root("b.txt");
 
 
 }
