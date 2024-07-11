@@ -133,6 +133,7 @@ impl LinkedList {
 
         self.tail = node;
 
+        self.refresh();
         self.unlock();
     }
 
@@ -145,6 +146,13 @@ impl LinkedList {
         ASSERT!(!self.is_empty());
         // 要弹出的节点
         let target_node = unsafe { &mut *self.head };
+        // 如果是最后一个元素，弹出，那么剩下的就是空的了
+        if self.head == self.tail {
+            self.head = ptr::null_mut();
+            self.tail = ptr::null_mut();
+            self.unlock();
+            return target_node;
+        }
         // 下一个节点变成了头节点
         self.head = target_node.next;
 
@@ -212,10 +220,14 @@ impl LinkedList {
      * 因为在遍历元素的时候，是通过是否为null，从而判断是否结束的
      */
     fn refresh(&mut self) {
-        // 头结点没有上级
-        unsafe { &mut *self.head}.pre = ptr::null_mut();
-        // 尾结点没有上级
-        unsafe { &mut *self.tail}.next = ptr::null_mut();
+        if !self.head.is_null() {
+            // 头结点没有上级
+            unsafe { &mut *self.head}.pre = ptr::null_mut();
+        }
+        if !self.tail.is_null() {
+            // 尾结点没有上级
+            unsafe { &mut *self.tail}.next = ptr::null_mut();
+        }
     }
 
     pub fn size(&self) -> usize {

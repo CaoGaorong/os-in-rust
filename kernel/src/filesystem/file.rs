@@ -1,6 +1,6 @@
 use core::mem::size_of;
 
-use os_in_rust_common::{constants, racy_cell::RacyCell, ASSERT};
+use os_in_rust_common::{constants, domain::InodeNo, racy_cell::RacyCell, ASSERT};
 
 use crate::{filesystem::{dir::{DirEntry, FileType}, global_file_table}, memory, thread};
 

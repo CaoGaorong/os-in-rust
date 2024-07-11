@@ -58,4 +58,9 @@ pub fn init_all(boot_info: &BootContext) {
     filesystem::create_file_in_root("b.txt");
 
 
+    let result = filesystem::dir::search("/a.txt");
+    ASSERT!(result.is_ok());
+    let result = result.unwrap();
+    printkln!("{}", result.get_name());
+
 }

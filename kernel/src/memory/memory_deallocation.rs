@@ -2,7 +2,7 @@
 
 use core::ptr;
 
-use os_in_rust_common::{constants, pool::MemPool, printk, printkln, ASSERT};
+use os_in_rust_common::{constants, pool::MemPool, printk, printkln, ASSERT, MY_PANIC};
 
 use crate::{page_util, thread};
 
@@ -37,6 +37,7 @@ pub fn sys_free(vaddr_to_free: usize) {
  *   - mem_pool：物理空间内存池
  *   - vaddr_to_free：要释放的地址（注意这个是mem_block的地址，而不是arena的地址）
  */
+#[inline(never)]
 fn free_bytes(addr_pool: &mut MemPool, mem_pool: &mut MemPool, vaddr_to_free: usize) {
     // 根据要释放的那个地址，转成mem_block
     let mem_block = unsafe { &mut *(vaddr_to_free as *mut MemBlock) };
@@ -95,7 +96,9 @@ fn free_page(addr_pool: &mut MemPool, mem_pool: &mut MemPool, vaddr_start: usize
 
     // 确保释放的物理地址，也在物理地址池中
     let phy_addr_start = page_util::get_phy_from_virtual_addr(vaddr_start);
-    ASSERT!(mem_pool.in_pool(phy_addr_start));
+    if !mem_pool.in_pool(phy_addr_start) {
+        MY_PANIC!("phy addr(0x{:x}) not in mem pool", phy_addr_start);
+    }
     ASSERT!(phy_addr_start % constants::PAGE_SIZE as usize == 0);
 
     // 遍历每一页

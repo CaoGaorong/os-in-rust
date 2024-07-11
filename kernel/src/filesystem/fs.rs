@@ -1,6 +1,6 @@
-use core::{mem::size_of, slice};
+use core::{mem::{self, size_of}, slice};
 
-use os_in_rust_common::{bitmap::BitMap, constants, domain::{InodeNo, LbaAddr}, linked_list::LinkedList, utils, ASSERT, MY_PANIC};
+use os_in_rust_common::{bitmap::BitMap, constants, domain::{InodeNo, LbaAddr}, linked_list::LinkedList, racy_cell::RacyCell, utils, ASSERT, MY_PANIC};
 
 use crate::{device::ata::{Disk, Partition}, memory};
 
@@ -25,6 +25,11 @@ pub struct FileSystem {
      * 该挂载的分区的超级块所在的内存地址
      */
     pub super_block: &'static SuperBlock,
+
+    /**
+     * 根目录
+     */
+    pub root_dir: Option<Dir<'static>>,
 
     /**
      * inode池子
@@ -53,6 +58,7 @@ impl FileSystem {
         Self {
             base_part: part,
             super_block: super_block,
+            root_dir: Option::None,
             inode_pool: InodePool::new(part.from_disk, super_block.inode_bitmap_lba, InodeNo::new(0), inode_bits),
             data_block_pool: DataBlockPool::new(part.from_disk, super_block.block_bitmap_lba, super_block.data_lba_start, block_bits),
             open_inodes: LinkedList::new(),
@@ -60,9 +66,17 @@ impl FileSystem {
     }
 
     /**
+     * 加载根目录。
+     */
+    pub fn load_root_dir(&mut self) {
+        let root_inode = self.inode_open(self.super_block.root_inode_no);
+        self.root_dir = Option::Some(Dir::new(root_inode));
+    }
+    /**
      * 从该文件系统中，根据inode_no打开一个Inode
      */
-    pub fn inode_open(&mut self, i_no: InodeNo) -> &mut OpenedInode {
+    #[inline(never)]
+    pub fn inode_open(&mut self, i_no: InodeNo) -> &'static mut OpenedInode {
         // 现在已打开的列表中找到这个inode
         for inode_tag in self.open_inodes.iter() {
             let inode = OpenedInode::parse_by_tag(inode_tag);

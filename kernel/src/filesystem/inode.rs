@@ -100,7 +100,7 @@ pub struct OpenedInode {
      * 数据块的缓存。每个元素是一个LBA地址
      * 不包括间接块（因为间接块没有存放数据）
      */
-    pub data_block_list: [LbaAddr; constant::INODE_DIRECT_DATA_SECS + (constant::INODE_INDIRECT_DATA_SECS * constants::DISK_SECTOR_SIZE) / size_of::<LbaAddr>()],
+    data_block_list: [LbaAddr; constant::INODE_DIRECT_DATA_SECS + (constant::INODE_INDIRECT_DATA_SECS * constants::DISK_SECTOR_SIZE) / size_of::<LbaAddr>()],
     /**
      * 间接块的地址（这个块内，就是很多的间接数据块的LBA地址）
      */
@@ -125,6 +125,11 @@ impl OpenedInode {
     }
     pub fn parse_by_tag(tag: *mut LinkedNode) -> &'static mut OpenedInode {
         unsafe { &mut *elem2entry!(OpenedInode, tag, tag) }
+    }
+
+
+    pub fn get_data_blocks(&self) -> &[LbaAddr] {
+        &self.data_block_list
     }
 
     /**

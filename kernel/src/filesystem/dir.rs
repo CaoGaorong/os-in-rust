@@ -1,27 +1,22 @@
 use core::{fmt::Display, mem::{self, size_of}, ops::Index, ptr, slice};
 
-use os_in_rust_common::{bitmap::BitMap, constants, cstr_write, cstring_utils, domain::{InodeNo, LbaAddr}, linked_list::LinkedList, printkln, racy_cell::RacyCell, utils, ASSERT, MY_PANIC};
+use os_in_rust_common::{bitmap::BitMap, constants, cstr_write, cstring_utils::{self, sprintf_fn}, domain::{InodeNo, LbaAddr}, linked_list::LinkedList, printkln, racy_cell::RacyCell, utils, ASSERT, MY_PANIC};
 
-use crate::{device::ata::{Disk, Partition}, memory, thread};
-use crate::filesystem::init::get_filesystem;
+use crate::{filesystem::init::get_filesystem, memory};
 
-use super::{constant, inode::{Inode, InodeLocation, OpenedInode}, superblock::SuperBlock};
+use super::{constant, fs::{self, FileSystem}, inode::{Inode, InodeLocation, OpenedInode}, superblock::SuperBlock};
 
 /**
  * 文件系统中的目录的结构以及操作
  */
 
-/**
- * 根目录
- */
-static ROOT_DIR: RacyCell<Option<Dir>> = RacyCell::new(Option::None);
-
-pub fn get_root_dir() -> Option<&'static mut Dir> {
-    let root_dir = unsafe { ROOT_DIR.get_mut() };
-    if root_dir.is_none() {
-        return Option::None;
+pub fn get_root_dir() -> Option<&'static mut Dir<'static>> {
+    let file_system = get_filesystem();
+    if file_system.is_none() {
+        MY_PANIC!("file system is not loaded");
     }
-    root_dir.as_mut()
+    let file_system =  file_system.unwrap();
+    file_system.root_dir.as_mut()
 }
 
 #[inline(never)]
@@ -32,10 +27,7 @@ pub fn init_root_dir() {
         MY_PANIC!("file system is not loaded");
     }
     let file_system = file_system.unwrap();
-    // 打开根目录
-    let root_inode = file_system.inode_open(file_system.super_block.root_inode_no);
-    let root_dir = unsafe { ROOT_DIR.get_mut() };
-    *root_dir = Option::Some(Dir::new(root_inode));
+    file_system.load_root_dir();
 }
 
 /**
@@ -61,12 +53,12 @@ pub enum FileType {
 /**
  * 目录的结构。位于内存的逻辑结构
  */
-pub struct Dir {
-    pub inode: &'static mut OpenedInode,
+pub struct Dir<'a> {
+    pub inode: &'a mut OpenedInode,
 }
 
-impl Dir {
-    pub fn new(inode: &'static mut OpenedInode) -> Self {
+impl <'a>Dir<'a> {
+    pub fn new(inode: &'a mut OpenedInode) -> Self {
         Self {
             inode,
         }
@@ -82,15 +74,15 @@ pub struct DirEntry {
     /**
      * 该目录项对应的inode编号
      */
-    pub i_no: InodeNo, 
+    i_no: InodeNo, 
     /**
      * 目录项名称
      */
-    pub name:  [u8; constant::MAX_FILE_NAME],
+    name:  [u8; constant::MAX_FILE_NAME],
     /**
      * 文件类型
      */
-    pub file_type: FileType,
+    file_type: FileType,
 }
 
 impl DirEntry {
@@ -105,6 +97,7 @@ impl DirEntry {
         dir_entry
     }
 
+    #[inline(never)]
     pub fn get_name(&self) -> &str {
         let name = cstring_utils::read_from_bytes(&self.name);
         ASSERT!(name.is_some());
@@ -119,4 +112,101 @@ impl DirEntry {
         }
         return i == 0;
     }
+}
+
+
+#[derive(Debug)]
+pub enum FindFileError {
+    FileNotFound
+}
+
+#[inline(never)]
+pub fn search(file_path: &str) -> Result<DirEntry, FindFileError> {
+    let fs  = get_filesystem();
+    ASSERT!(fs.is_some());
+    search_file(fs.unwrap(), file_path)
+}
+
+#[inline(never)]
+pub fn search_file(filesystem: &mut FileSystem, file_path: &str) -> Result<DirEntry, FindFileError> {
+
+    let root_inode_no = filesystem.root_dir.as_ref().unwrap().inode.i_no;
+    
+    // 如果就是根目录
+    if file_path == "/" {
+        return Result::Ok(DirEntry::new(root_inode_no, file_path, FileType::Directory));
+    }
+
+    // 成功搜索过的路径
+    let mut searched_path = "/";
+    // 当前的inode，是根目录的inode
+    let mut cur_inode = filesystem.inode_open(root_inode_no);
+    // 当前的目录项。默认是根目录
+    let mut cur_dir_entry = DirEntry::new(root_inode_no, "/", FileType::Directory);
+
+    // 把要搜索的路径，分隔
+    let mut file_entry_split = file_path.split("/");
+    loop {
+        // 当前目录项的名称
+        let file_entry_name = file_entry_split.next();
+        if file_entry_name.is_none() {
+            break;
+        }
+        let file_entry_name = file_entry_name.unwrap();
+        
+        // 根据名称搜索目录项
+        let dir_entry = search_dir_entry(filesystem, &mut cur_inode, file_entry_name);
+        // 如果目录项不存在
+        if dir_entry.is_none() {
+            return Result::Err(FindFileError::FileNotFound);
+        }
+
+        let dir_entry = dir_entry.unwrap();
+        // 根据inode号，打开
+        let opened_inode = filesystem.inode_open(dir_entry.i_no);
+        cur_inode = opened_inode;
+
+        // 搜索下一个目录项
+        cur_dir_entry = dir_entry;
+
+        // 搜索过的路径
+        // searched_path = searched_path + "/" +  dir_entry.get_name();
+    }
+    // 返回找到的最后的那个目录项
+    return Result::Ok(cur_dir_entry);
+}
+
+
+/**
+ * 查找某个目录下，名为entry_name的目录项
+ */
+fn search_dir_entry(fs: &mut FileSystem, dir_inode: &mut OpenedInode, entry_name: &str) -> Option<DirEntry> {
+    // 如果直接块都满了，那么就需要加载间接块
+    if dir_inode.get_direct_data_blocks_ref().iter().all(|block| !block.is_empty()) {
+        dir_inode.load_data_block(fs);
+    }
+
+    // 取出所有的数据块
+    let data_blocks = dir_inode.get_data_blocks();
+
+    let disk = unsafe { &mut *fs.base_part.from_disk };
+    
+    // 开辟缓冲区
+    let buff_addr = memory::sys_malloc(constants::DISK_SECTOR_SIZE);
+    let buff_u8 = unsafe { slice::from_raw_parts_mut(buff_addr as *mut u8, constants::DISK_SECTOR_SIZE) };
+
+    // 遍历所有的数据区，根据名称找目录项
+    for block_lba in data_blocks {
+        disk.read_sectors(*block_lba, 1, buff_u8);
+
+        // 读取出的数据，转成页目录项列表
+        let dir_entry_list = unsafe { slice::from_raw_parts(buff_addr as *const DirEntry, constants::DISK_SECTOR_SIZE / size_of::<DirEntry>()) };
+        let find = dir_entry_list.iter().find(|entry| entry.get_name() == entry_name);
+        
+        // 找到了，直接返回
+        if find.is_some() {
+            return Option::Some(*find.unwrap());
+        }
+    }
+    return Option::None;
 }

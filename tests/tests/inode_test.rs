@@ -10,7 +10,7 @@ mod tests {
     #[test]
     fn test_opened_inode() {
         let opened_inode = OpenedInode::new(Inode::empty());
-        println!("cache size:{}", opened_inode.data_block_list.len())
+        println!("cache size:{}", opened_inode.get_data_blocks())
     }
 
     #[test]

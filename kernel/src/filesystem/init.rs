@@ -253,17 +253,13 @@ fn install_root_dir(part: &mut Partition, super_block: &SuperBlock, buff: &mut [
     {
         // . 目录项项
         let cur_dir = &mut dir_table[0];
-        cstr_write!(&mut cur_dir.name, "{}", ".");
-        cur_dir.i_no = InodeNo::from(0u32);
-        cur_dir.file_type = FileType::Directory;
+        *cur_dir = DirEntry::new(InodeNo::from(0u32), ".", FileType::Directory);
     }
 
     {
         // .. 目录项
         let last_dir = &mut dir_table[1];
-        cstr_write!(&mut last_dir.name, "{}", "..");
-        last_dir.i_no = InodeNo::from(0u32);
-        last_dir.file_type = FileType::Directory;
+        *last_dir = DirEntry::new(InodeNo::from(0u32), "..", FileType::Directory);
     }
     // 把根目录的两个项：.和..，写入到数据扇区
     let disk = unsafe { &mut *part.from_disk };
