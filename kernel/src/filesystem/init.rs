@@ -3,39 +3,25 @@ use core::ptr::addr_of;
 
 use os_in_rust_common::{constants, cstr_write, domain::{InodeNo, LbaAddr}, printkln, racy_cell::RacyCell, utils, ASSERT, MY_PANIC};
 
-use crate::{device::{self, ata::Partition}, filesystem, filesystem::dir::FileType};
+use crate::{device::{self, ata::Partition}, filesystem::{dir::FileType, fs}};
 use crate::filesystem::dir::Dir;
 use crate::memory;
 
-use super::{dir::{self, DirEntry}, file, fs::FileSystem, inode::Inode, superblock::SuperBlock};
-
-/**
- * 当前的挂载的分区
- */
-static CUR_FILE_SYSTEM: RacyCell<Option<FileSystem>> = RacyCell::new(Option::None);
-
-pub fn set_filesystem(cur_part: FileSystem) {
-    *unsafe { CUR_FILE_SYSTEM.get_mut() } = Option::Some(cur_part);
-}
-
-pub fn get_filesystem() -> Option<&'static mut FileSystem> {
-    unsafe { CUR_FILE_SYSTEM.get_mut() }.as_mut()
-}
+use super::{dir::{self, CreateDirError, DirEntry}, file, fs::FileSystem, inode::Inode, superblock::SuperBlock};
 
 #[inline(never)]
-pub fn create_file_in_root(file_name: &str) {
+pub fn create_file_in_root(file_name: &str)  -> Result<DirEntry, CreateDirError> {
     let root_dir = dir::get_root_dir();
     ASSERT!(root_dir.is_some());
-    create_file(root_dir.unwrap(), file_name);
+    create_file(root_dir.unwrap(), file_name)
 }
 
 #[inline(never)]
-pub fn create_file(parent_dir: &mut Dir, file_name: &str) {
-    let file_system = get_filesystem();
+pub fn create_file(parent_dir: &mut Dir, file_name: &str) -> Result<DirEntry, CreateDirError> {
+    let file_system = fs::get_filesystem();
     ASSERT!(file_system.is_some());
-    file::create_file(file_system.unwrap(), parent_dir, file_name);
+    dir::create_dir_entry(file_system.unwrap(), parent_dir, file_name, FileType::Regular)
 }
-
 
 
 #[inline(never)]
@@ -74,7 +60,7 @@ pub fn mount_part(part_name: &str) {
                 let fs =  FileSystem::new(part, super_block, inode_bitmap_bits, block_bitmap_bits);
 
                 // 设置当前挂载的分区
-                set_filesystem(fs);
+                fs::set_filesystem(fs);
             }
         });
     // printkln!("{} mounted", part_name);

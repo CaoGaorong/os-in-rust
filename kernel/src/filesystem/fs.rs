@@ -10,6 +10,18 @@ use super::{constant, dir::{Dir, DirEntry}, inode::{Inode, InodeLocation, Opened
  * 文件系统。中任何操作都是基于分区的
  */
 
+ /**
+ * 当前的挂载的分区
+ */
+static CUR_FILE_SYSTEM: RacyCell<Option<FileSystem>> = RacyCell::new(Option::None);
+
+pub fn set_filesystem(cur_part: FileSystem) {
+    *unsafe { CUR_FILE_SYSTEM.get_mut() } = Option::Some(cur_part);
+}
+
+pub fn get_filesystem() -> Option<&'static mut FileSystem> {
+    unsafe { CUR_FILE_SYSTEM.get_mut() }.as_mut()
+}
 
 /**
  * 文件系统的逻辑结构。
@@ -174,7 +186,7 @@ impl FileSystem {
         // inode结束的偏移量，换算成扇区偏移数
         let sec_end: usize = utils::div_ceil(i_idx_end as u32, constants::DISK_SECTOR_SIZE  as u32).try_into().unwrap();
 
-        InodeLocation::new(self.super_block.inode_table_lba.add(sec_start.try_into().unwrap()), i_idx_start % constants::DISK_SECTOR_SIZE, sec_end - sec_start)
+        InodeLocation::new(self.super_block.inode_table_lba.add(sec_start.try_into().unwrap()), (i_idx_start % constants::DISK_SECTOR_SIZE).try_into().unwrap(), (sec_end - sec_start).try_into().unwrap())
     }
 
 

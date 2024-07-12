@@ -5,6 +5,7 @@ use os_in_rust_common::{bios_mem::{ARDSType, AddressRangeDescriptorStructure}, c
 
 use crate::{console, console_println, device, filesystem, interrupt, memory, sys_call, thread_management, tss};
 
+#[inline(never)]
 pub fn init_all(boot_info: &BootContext) {
     // 初始化中断描述符和中断控制器
     interrupt::init();
@@ -53,14 +54,19 @@ pub fn init_all(boot_info: &BootContext) {
     filesystem::init_root_dir();
 
     // 创建文件
-    filesystem::create_file_in_root("test.txt");
-    filesystem::create_file_in_root("a.txt");
-    filesystem::create_file_in_root("b.txt");
+    let res = filesystem::create_file_in_root("test.txt");
+    printkln!("create result: {:?}", res);
+
+    let res = filesystem::create_file_in_root("a.txt");
+    printkln!("create result: {:?}", res);
+
+    let res = filesystem::create_file_in_root("b.txt");
+    printkln!("create result: {:?}", res);
 
 
     let result = filesystem::dir::search("/a.txt");
     ASSERT!(result.is_ok());
     let result = result.unwrap();
-    printkln!("{}", result.get_name());
+    printkln!("file name: {}", result.get_name());
 
 }

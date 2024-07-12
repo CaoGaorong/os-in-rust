@@ -1,6 +1,6 @@
 use core::{mem::size_of, ops::Index, ptr, slice};
 
-use os_in_rust_common::{constants, domain::{InodeNo, LbaAddr}, elem2entry, linked_list::LinkedNode};
+use os_in_rust_common::{constants, domain::{InodeNo, LbaAddr}, elem2entry, linked_list::LinkedNode, ASSERT};
 use os_in_rust_common::racy_cell::RacyCell;
 
 use crate::{device::ata::Disk, memory, sync::Lock, thread};
@@ -199,7 +199,7 @@ impl OpenedInode {
         inode_from_disk.from(self);
 
         // 把inode写回到硬盘中
-        disk.write_sector(buf, i_location.lba, i_location.sec_cnt);
+        disk.write_sector(buf, i_location.lba, i_location.sec_cnt.try_into().unwrap());
 
 
         /*****2. 处理inode的间接块***************/

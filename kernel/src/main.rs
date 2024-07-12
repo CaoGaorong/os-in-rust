@@ -85,7 +85,7 @@ pub extern "C" fn _start(boot_info: &BootContext) {
 }
 
 fn print_cur_part() {
-    let cur_part = filesystem::init::get_filesystem();
+    let cur_part = filesystem::fs::get_filesystem();
     if cur_part.is_none() {
         printkln!("no part mounted");
         return 
