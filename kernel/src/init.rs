@@ -55,13 +55,13 @@ pub fn init_all(boot_info: &BootContext) {
 
     // 创建文件
     let res = filesystem::create_file_in_root("test.txt");
-    printkln!("create result: {:?}", res);
+    printkln!("create test.txt: {:?}", res);
 
     let res = filesystem::create_file_in_root("a.txt");
-    printkln!("create result: {:?}", res);
+    printkln!("create a.txt: {:?}", res);
 
     let res = filesystem::create_file_in_root("b.txt");
-    printkln!("create result: {:?}", res);
+    printkln!("create b.txt: {:?}", res);
 
 
     let result = filesystem::dir::search("/a.txt");
@@ -69,4 +69,10 @@ pub fn init_all(boot_info: &BootContext) {
     let result = result.unwrap();
     printkln!("file name: {}", result.get_name());
 
+    let res = filesystem::dir::mkdir_in_root("sample");
+    printkln!("res:{:?}", res);
+
+    filesystem::dir::mkdir_p_in_root("/dev/proc/");
+
+    
 }

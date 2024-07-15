@@ -10,7 +10,7 @@ mod tests {
     #[test]
     fn test_opened_inode() {
         let opened_inode = OpenedInode::new(Inode::empty());
-        println!("cache size:{}", opened_inode.get_data_blocks())
+        println!("cache size:{}", opened_inode.get_data_blocks().len())
     }
 
     #[test]
@@ -89,8 +89,9 @@ mod tests {
         let mut file = File::open(DISK_FILE_PATH).expect("failed to open disk file");
 
         // 遍历根目录的数据区
-        for data_lba in direct_data_block {
+        for (idx, data_lba) in direct_data_block.iter().enumerate() {
             if data_lba.is_empty() {
+                println!("idx: {}, lba:{:?} is empty", idx, *data_lba);
                 continue;
             }
             // 读取每一个数据区中的数据
@@ -100,7 +101,6 @@ mod tests {
             reader.read(&mut buf).expect("failed to read file");
             // 转成目录项的结构
             let dir_list = unsafe { slice::from_raw_parts(buf.as_ptr() as *const DirEntry, buf.len() / size_of::<DirEntry>()) };
-
             // 打印一下，看下结果
             dir_list.iter().filter(|entry| !entry.is_empty()).for_each(|e| {
                 println!("{:?}, entry name: {}", e, e.get_name());

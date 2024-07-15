@@ -1,4 +1,4 @@
-use core::{fmt::Display, mem::{self, size_of}, ops::Index, ptr, slice};
+use core::{fmt::{Display, Error}, mem::{self, size_of}, ops::Index, ptr, slice};
 
 use os_in_rust_common::{bitmap::BitMap, constants, cstr_write, cstring_utils::{self, sprintf_fn}, domain::{InodeNo, LbaAddr}, linked_list::LinkedList, printkln, racy_cell::RacyCell, utils, ASSERT, MY_PANIC};
 
@@ -10,14 +10,7 @@ use super::{constant, fs::{self, FileSystem}, inode::{Inode, InodeLocation, Open
  * 文件系统中的目录的结构以及操作
  */
 
-pub fn get_root_dir() -> Option<&'static mut Dir<'static>> {
-    let file_system = fs::get_filesystem();
-    if file_system.is_none() {
-        MY_PANIC!("file system is not loaded");
-    }
-    let file_system =  file_system.unwrap();
-    file_system.root_dir.as_mut()
-}
+
 
 #[inline(never)]
 pub fn init_root_dir() {
@@ -62,6 +55,9 @@ impl <'a>Dir<'a> {
         Self {
             inode,
         }
+    }
+    pub fn get_inode_ref(&mut self) -> &mut OpenedInode {
+        self.inode
     }
 }
 /**
@@ -130,7 +126,7 @@ pub fn search(file_path: &str) -> Result<DirEntry, FindFileError> {
 #[inline(never)]
 pub fn search_file(filesystem: &mut FileSystem, file_path: &str) -> Result<DirEntry, FindFileError> {
 
-    let root_inode_no = filesystem.root_dir.as_ref().unwrap().inode.i_no;
+    let root_inode_no = filesystem.get_root_dir().inode.i_no;
     
     // 如果就是根目录
     if file_path == "/" {
@@ -218,6 +214,8 @@ fn search_dir_entry(fs: &mut FileSystem, dir_inode: &mut OpenedInode, entry_name
 #[derive(Debug)]
 pub enum CreateDirError {
     DirEntryExist,
+    CouldNotCreateRootDir,
+    DirPathMustStartWithRoot,
 }
 
 /**
@@ -227,52 +225,137 @@ pub enum CreateDirError {
  *   - 把这个inode挂到该目录下（把目录项放写入到目录对应的数据区）
  */
 #[inline(never)]
-pub fn create_dir_entry(filesystem: &mut FileSystem, parent_dir: &mut Dir, dir_name: &str, file_type: FileType) -> Result<DirEntry, CreateDirError> {
+pub fn create_dir_entry(fs: &mut FileSystem, parent_dir: &mut Dir, entry_name: &str, file_type: FileType) -> Result<DirEntry, CreateDirError> {
 
-    /***1. 创建文件的inode。物理结构，同步到硬盘中*****/
-    // 从当前分区中，申请1个inode，并且写入硬盘（inode位图）
-    let inode_no = filesystem.inode_pool.apply_inode(1);
+    /****1. 创建一个目录项 */
+    let (created_dir_entry, created_entry_inode) = self::do_create_dir_entry(fs, parent_dir, Option::None, entry_name, file_type)?;
 
-    // 创建一个inode
-    let inode = Inode::new(inode_no);
-    let opened_inode: &mut OpenedInode = memory::malloc(size_of::<OpenedInode>());
-    *opened_inode = OpenedInode::new(inode);
+    /***2. 填充内存结构*****/
+    // 2.1 添加到打开的分区中
+    fs.open_inodes.append(&mut created_entry_inode.tag);
 
-    // 把inode写入硬盘（inode列表）
-    opened_inode.sync_inode(filesystem);
+    // 2.2 在整个系统打开的文件中，注册一下
+    let file_table_idx = global_file_table::register_file(OpenedFile::new(created_entry_inode));
+    ASSERT!(file_table_idx.is_some());
+    let file_table_idx = file_table_idx.unwrap();
+
+    // 2.3 把这个打开的文件，安装到当前进程的文件描述符
+    thread::current_thread().task_struct.fd_table.install_fd(file_table_idx);
+
+    // 返回创建好了目录项
+    Result::Ok(created_dir_entry)
+}
+
+/**
+ * 在parent_dir目录下，创建名为entry_name，并且inode号为entry_inode的目录项。
+ */
+#[inline(never)]
+pub fn do_create_dir_entry(fs: &mut FileSystem, parent_dir: &mut Dir, entry_inode: Option<InodeNo>, entry_name: &str, file_type: FileType) -> Result<(DirEntry, &'static mut OpenedInode), CreateDirError> {
+    let (inode_no, opened_inode) = if entry_inode.is_none() {
+        /***1. 创建文件的inode。物理结构，同步到硬盘中*****/
+        // 从当前分区中，申请1个inode，并且写入硬盘（inode位图）
+        let inode_no = fs.inode_pool.apply_inode(1);
+
+        // 创建一个inode
+        let inode = Inode::new(inode_no);
+        let opened_inode: &mut OpenedInode = memory::malloc(size_of::<OpenedInode>());
+        *opened_inode = OpenedInode::new(inode);
+
+        // 把inode写入硬盘（inode列表）
+        opened_inode.sync_inode(fs);
+        (inode_no, opened_inode)
+    } else {
+        let inode_no = entry_inode.unwrap();
+        let opened_inode = fs.inode_open(inode_no);
+        (inode_no, opened_inode)
+    };
 
     /***2. 把这个新文件作为一个目录项，挂到父目录中*****/
     // 创建一个目录项
-    let dir_entry = DirEntry::new(inode_no, dir_name, file_type);
-    let search_result = self::search_dir_entry(filesystem, parent_dir.inode, dir_name);
+    let dir_entry = DirEntry::new(inode_no, entry_name, file_type);
+    let search_result = self::search_dir_entry(fs, parent_dir.inode, entry_name);
     // 如果这个目录项，已经存在同名的了
     if search_result.is_some() {
         return Result::Err(CreateDirError::DirEntryExist);
     }
 
     // 把目录项挂到目录并且写入硬盘（inode数据区）
-    filesystem.sync_dir_entry(parent_dir, &dir_entry);
-
-
-    /***3. 填充内存结构*****/
-    // 3.1 添加到打开的分区中
-    filesystem.open_inodes.append(&mut opened_inode.tag);
-
-    // 3.2 在整个系统打开的文件中，注册一下
-    let file_table_idx = global_file_table::register_file(OpenedFile::new(opened_inode));
-    ASSERT!(file_table_idx.is_some());
-    let file_table_idx = file_table_idx.unwrap();
-
-    // 3.3 把这个打开的文件，安装到当前进程的文件描述符
-    thread::current_thread().task_struct.fd_table.install_fd(file_table_idx);
-
-    // 返回创建好了目录项
-    Result::Ok(dir_entry)
+    fs.sync_dir_entry(parent_dir, &dir_entry);
+    
+    return Result::Ok((dir_entry, opened_inode));
 }
 
 /**
  * 创建一个目录
  */
-pub fn mkdir(filesystem: &mut FileSystem, dir_path: &str) {
-    
+pub fn mkdir_p(fs: &mut FileSystem, dir_path: &str) -> Result<bool, CreateDirError>{
+    let dir_path = dir_path.trim();
+    if "/".eq(dir_path) {
+        return Result::Err(CreateDirError::CouldNotCreateRootDir);
+    }
+    if !dir_path.starts_with("/") {
+        return Result::Err(CreateDirError::DirPathMustStartWithRoot);
+    }
+    let mut root_dir = fs.get_root_dir();
+
+    let mut base_ref = root_dir.get_inode_ref();
+    let mut base_inode: OpenedInode = OpenedInode::new(Inode::empty());
+
+
+    let mut dir_entry_split = dir_path.split("/");
+    // 遍历每个entry
+    while let Option::Some(entry_name) = dir_entry_split.next() {
+        if entry_name.is_empty() {
+            continue;
+        }
+        let mut base_dir = Dir::new(base_ref);
+        // 创建子目录
+        let sub_dir_entry = self::mkdir(fs, &mut base_dir, entry_name)?;
+        // 基于子目录
+        base_inode = OpenedInode::new(Inode::new(sub_dir_entry.i_no));
+        base_ref = &mut base_inode;
+    }
+    return Result::Ok(true);
 }
+
+/**
+ * 在parent_dir目录下，创建一个名为dir_name的子目录
+ */
+#[inline(never)]
+pub fn mkdir(fs: &mut FileSystem, parent_dir: &mut Dir, dir_name: &str) -> Result<DirEntry, CreateDirError> {
+    // 在该目录下创建一个文件夹类型的目录项
+    let dir_entry = self::create_dir_entry(fs, parent_dir, dir_name, FileType::Directory)?;
+    // 该目录项下应该还有两项，分别是: ..和.
+    let mut cur_dir_inode = OpenedInode::new(Inode::new(dir_entry.i_no));
+    let mut cur_dir = Dir::new(&mut cur_dir_inode);
+    // 创建..目录项
+    self::do_create_dir_entry(fs, &mut cur_dir, Option::Some(parent_dir.inode.i_no), "..", FileType::Directory)?;
+    // 创建 .目录项
+    self::do_create_dir_entry(fs, &mut cur_dir, Option::Some(dir_entry.i_no), ".", FileType::Directory)?;
+    
+    return Result::Ok(dir_entry);
+}
+
+
+#[inline(never)]
+pub fn mkdir_in_root(dir_name: &str) -> Result<DirEntry, CreateDirError> {
+    let file_system = fs::get_filesystem();
+    if file_system.is_none() {
+        MY_PANIC!("file system is not loaded");
+    }
+    let file_system = file_system.unwrap();
+    let root_dir = file_system.get_root_dir();
+    mkdir(file_system, root_dir, dir_name)
+}
+
+#[inline(never)]
+pub fn mkdir_p_in_root(dir_path: &str) -> Result<bool, CreateDirError> {
+    let file_system = fs::get_filesystem();
+    if file_system.is_none() {
+        MY_PANIC!("file system is not loaded");
+    }
+    let file_system = file_system.unwrap();
+    mkdir_p(file_system, dir_path)
+}
+
+

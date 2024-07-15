@@ -49,6 +49,8 @@ pub extern "C" fn _start(boot_info: &BootContext) {
     // printkln!("I'm Kernel!");
 
     init::init_all(boot_info);
+
+    loop {}
     
     // 打印线程信息
     // thread_management::print_thread();

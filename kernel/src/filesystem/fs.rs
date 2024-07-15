@@ -41,7 +41,7 @@ pub struct FileSystem {
     /**
      * 根目录
      */
-    pub root_dir: Option<Dir<'static>>,
+    root_dir: Option<RacyCell<Dir<'static>>>,
 
     /**
      * inode池子
@@ -82,7 +82,20 @@ impl FileSystem {
      */
     pub fn load_root_dir(&mut self) {
         let root_inode = self.inode_open(self.super_block.root_inode_no);
-        self.root_dir = Option::Some(Dir::new(root_inode));
+        self.root_dir = Option::Some(RacyCell::new(Dir::new(root_inode)));
+    }
+
+    #[inline(never)]
+    pub fn get_root_dir(&self) -> &'static mut Dir<'static> {
+        let file_system = self::get_filesystem();
+        if file_system.is_none() {
+            MY_PANIC!("file system is not loaded");
+        }
+        let file_system =  file_system.unwrap();
+        let root_dir = file_system.root_dir.as_mut();
+        ASSERT!(root_dir.is_some());
+        let root_dir = root_dir.unwrap();
+        unsafe { root_dir.get_mut() }
     }
     /**
      * 从该文件系统中，根据inode_no打开一个Inode
@@ -222,6 +235,10 @@ impl FileSystem {
                 // 有空目录项。那么很好，就是这里了。也不用开辟新数据块
                 .map(|idx | (&mut data_blocks[data_blocks.len() - 1], &mut dir_buf[idx]))
         }
+        // 如果第0项就是空的，那么就返回0了
+        if empty_dix.unwrap() == 0 {
+            return Option::Some((&mut data_blocks[empty_dix.unwrap()], &mut dir_buf[0]));
+        }
 
         // 如果有空的数据块，那么往前找一个,有没有空位
         disk.read_sectors(data_blocks[empty_dix.unwrap() - 1], 1, u8buf);
@@ -254,12 +271,10 @@ impl FileSystem {
         let dir_list = unsafe { slice::from_raw_parts_mut(buff_addr as *mut DirEntry, utils::div_ceil(constants::DISK_SECTOR_SIZE as u32, size_of::<DirEntry>() as u32) as usize ) };
 
 
-        let  mut direct = false;
         // 在直接块中，找是否有空闲目录项
         let direct_find = Self::find_available_entry(parent.inode.get_direct_data_blocks(), dir_list, disk);
         // 我们的目录项所在的数据块，位于当前数据块列表的下标
         let block_for_entry = if direct_find.is_some() {
-            direct = true;
             let (block_lba, entry_addr) = direct_find.unwrap();
             *entry_addr = *dir_entry;
             block_lba

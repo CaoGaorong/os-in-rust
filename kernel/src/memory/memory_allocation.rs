@@ -1,7 +1,7 @@
 
 use core::{mem::size_of, ptr};
 
-use os_in_rust_common::{constants, pool::MemPool, printk, printkln, utils, ASSERT};
+use os_in_rust_common::{constants, pool::MemPool, printk, printkln, utils, ASSERT, MY_PANIC};
 
 use crate::{page_util, thread};
 
@@ -111,7 +111,9 @@ pub fn malloc_kernel_page(page_cnt: usize) -> usize{
 fn malloc_page(addr_pool: &mut MemPool, mem_pool: &mut MemPool, page_cnt: usize) -> usize {
     // 从虚拟地址池中申请连续的虚拟地址
     let addr_apply_res = addr_pool.apply(page_cnt);
-    ASSERT!(addr_apply_res.is_ok());
+    if addr_apply_res.is_err() {
+        MY_PANIC!("failed to apply virtual address.  res: {:?}", addr_apply_res);
+    }
     
     let base_virtual_addr  = addr_apply_res.unwrap();
 

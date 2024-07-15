@@ -11,18 +11,11 @@ use super::{dir::{self, CreateDirError, DirEntry}, file, fs::FileSystem, inode::
 
 #[inline(never)]
 pub fn create_file_in_root(file_name: &str)  -> Result<DirEntry, CreateDirError> {
-    let root_dir = dir::get_root_dir();
-    ASSERT!(root_dir.is_some());
-    create_file(root_dir.unwrap(), file_name)
-}
-
-#[inline(never)]
-pub fn create_file(parent_dir: &mut Dir, file_name: &str) -> Result<DirEntry, CreateDirError> {
     let file_system = fs::get_filesystem();
     ASSERT!(file_system.is_some());
-    dir::create_dir_entry(file_system.unwrap(), parent_dir, file_name, FileType::Regular)
+    let file_system = file_system.unwrap();
+    dir::create_dir_entry(file_system, file_system.get_root_dir(), file_name, FileType::Regular)
 }
-
 
 #[inline(never)]
 pub fn mount_part(part_name: &str) {
