@@ -137,7 +137,7 @@ pub fn load_tss(tss_selector: u16) {
 
 pub static GLOBAL_TSS: RacyCell<Tss> = RacyCell::new(Tss::empty());
 
-#[no_mangle]
+#[inline(never)]
 pub fn tss_init() {
     let global_tss = unsafe { GLOBAL_TSS.get_mut() };
     // ss0就是数据段选择子

@@ -72,7 +72,11 @@ pub fn init_all(boot_info: &BootContext) {
     let res = filesystem::dir::mkdir_in_root("sample");
     printkln!("res:{:?}", res);
 
-    filesystem::dir::mkdir_p_in_root("/dev/proc/");
+    let res = filesystem::dir::mkdir_p_in_root("/dev/proc/");
+    printkln!("mkdir result: {:?}", res);
+
+    let result = filesystem::dir::search("/dev/proc");
+    printkln!("search result:{:?}", result)
 
     
 }

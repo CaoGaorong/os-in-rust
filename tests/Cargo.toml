@@ -3,6 +3,9 @@ name = "tests"
 version.workspace = true
 edition.workspace = true
 
+[dependencies.lazy_static]
+version = "1.0"
+features = ["spin_no_std"]
 
 [dependencies]
 os_in_rust_common = { workspace = true }

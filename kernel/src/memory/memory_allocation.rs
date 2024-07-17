@@ -24,6 +24,7 @@ pub fn malloc<T>(bytes: usize) -> &'static mut T {
 /**
  * 在内核空间申请bytes字节的空间
  */
+#[inline(never)]
 pub fn sys_malloc(bytes: usize) -> usize {
     // 当前任务
     let task = &mut thread::current_thread().task_struct;

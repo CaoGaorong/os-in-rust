@@ -95,6 +95,7 @@ name = "tests"
 version = "0.1.0"
 dependencies = [
  "kernel",
+ "lazy_static",
  "os_in_rust_common",
  "volatile",
 ]

@@ -59,6 +59,7 @@ pub fn get_idle_thread() -> &'static mut TaskStruct {
  * 因为new设置为const函数，没法获取可变引用
  * 并且，会出现悬空指针
  */
+#[inline(never)]
 pub fn thread_init() {
     // unsafe { ALL_THREAD_LIST.get_mut().init() };
     // unsafe { READY_THREAD_LIST.get_mut().init() };

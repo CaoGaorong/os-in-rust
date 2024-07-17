@@ -58,6 +58,7 @@ pub fn get_kernel_addr_pool() -> &'static mut Mutex<MemPool> {
  *      - 内核内存
  *      - 用户内存
  */
+#[inline(never)]
 pub fn mem_pool_init(all_mem: u32) {
     // 目前已经用了的内存空间：低端1MB + 内核页目录表（1个） + 内核页表（255个）
     let used_mem = constants::REAL_MEMORY

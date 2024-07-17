@@ -208,6 +208,7 @@ impl Disk {
     /**
      * 从lba_start为起始地址的扇区中，读取连续sec_cnt扇区的数据，到buf缓冲区中
      */
+    #[inline(never)]
     pub fn read_sectors(&mut self, lba_start: LbaAddr, sec_cnt: usize, buf: &mut [u8]) {
         let lba_start = lba_start.get_lba() as usize;
         let lba_end = lba_start + sec_cnt;
@@ -261,6 +262,7 @@ impl Disk {
     /**
      * 把buf的数据写入到lba_start起始的地址 的连续 sec_cnt个扇区中
      */
+    #[inline(never)]
     pub fn write_sector(&mut self, buf: &[u8], lba_start: LbaAddr, sec_cnt: usize) {
         let lba_start = lba_start.get_lba() as usize;
         let lba_end = lba_start + sec_cnt;

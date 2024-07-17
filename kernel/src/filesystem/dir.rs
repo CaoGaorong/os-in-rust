@@ -70,7 +70,7 @@ pub struct DirEntry {
     /**
      * 该目录项对应的inode编号
      */
-    i_no: InodeNo, 
+    pub i_no: InodeNo, 
     /**
      * 目录项名称
      */
@@ -142,14 +142,10 @@ pub fn search_file(filesystem: &mut FileSystem, file_path: &str) -> Result<DirEn
 
     // 把要搜索的路径，分隔
     let mut file_entry_split = file_path.split("/");
-    loop {
-        // 当前目录项的名称
-        let file_entry_name = file_entry_split.next();
-        if file_entry_name.is_none() {
-            break;
+    while let Option::Some(file_entry_name) = file_entry_split.next() {
+        if file_entry_name.is_empty() {
+            continue;
         }
-        let file_entry_name = file_entry_name.unwrap();
-        
         // 根据名称搜索目录项
         let dir_entry = search_dir_entry(filesystem, &mut cur_inode, file_entry_name);
         // 如果目录项不存在
@@ -176,6 +172,7 @@ pub fn search_file(filesystem: &mut FileSystem, file_path: &str) -> Result<DirEn
 /**
  * 查找某个目录下，名为entry_name的目录项
  */
+#[inline(never)]
 fn search_dir_entry(fs: &mut FileSystem, dir_inode: &mut OpenedInode, entry_name: &str) -> Option<DirEntry> {
     // 如果直接块都满了，那么就需要加载间接块
     if dir_inode.get_direct_data_blocks_ref().iter().all(|block| !block.is_empty()) {
@@ -296,11 +293,9 @@ pub fn mkdir_p(fs: &mut FileSystem, dir_path: &str) -> Result<bool, CreateDirErr
     if !dir_path.starts_with("/") {
         return Result::Err(CreateDirError::DirPathMustStartWithRoot);
     }
-    let mut root_dir = fs.get_root_dir();
+    let root_dir = fs.get_root_dir();
 
-    let mut base_ref = root_dir.get_inode_ref();
-    let mut base_inode: OpenedInode = OpenedInode::new(Inode::empty());
-
+    let mut base_inode = root_dir.get_inode_ref();
 
     let mut dir_entry_split = dir_path.split("/");
     // 遍历每个entry
@@ -308,12 +303,11 @@ pub fn mkdir_p(fs: &mut FileSystem, dir_path: &str) -> Result<bool, CreateDirErr
         if entry_name.is_empty() {
             continue;
         }
-        let mut base_dir = Dir::new(base_ref);
+        let mut base_dir = Dir::new(base_inode);
         // 创建子目录
         let sub_dir_entry = self::mkdir(fs, &mut base_dir, entry_name)?;
         // 基于子目录
-        base_inode = OpenedInode::new(Inode::new(sub_dir_entry.i_no));
-        base_ref = &mut base_inode;
+        base_inode = fs.inode_open(sub_dir_entry.i_no);
     }
     return Result::Ok(true);
 }
@@ -326,8 +320,7 @@ pub fn mkdir(fs: &mut FileSystem, parent_dir: &mut Dir, dir_name: &str) -> Resul
     // 在该目录下创建一个文件夹类型的目录项
     let dir_entry = self::create_dir_entry(fs, parent_dir, dir_name, FileType::Directory)?;
     // 该目录项下应该还有两项，分别是: ..和.
-    let mut cur_dir_inode = OpenedInode::new(Inode::new(dir_entry.i_no));
-    let mut cur_dir = Dir::new(&mut cur_dir_inode);
+    let mut cur_dir = Dir::new(fs.inode_open(dir_entry.i_no));
     // 创建..目录项
     self::do_create_dir_entry(fs, &mut cur_dir, Option::Some(parent_dir.inode.i_no), "..", FileType::Directory)?;
     // 创建 .目录项

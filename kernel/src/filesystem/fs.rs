@@ -426,9 +426,12 @@ impl DataBlockPool {
      * 在数据块的池子中，申请一个数据块。（会同步到硬盘）
      */
     pub fn apply_block(&mut self, blocks: usize) -> LbaAddr {
+        // 从块位图申请1位
         let res = self.block_bitmap.apply_bits(blocks);
         ASSERT!(res.is_ok());
         let bit_off = res.unwrap();
+        // 把块位图这一位设置为占用
+        self.block_bitmap.set_bit(bit_off, true);
         // 申请到的块LBA地址 = 起始块LBA + 申请到的第bit_off位
         let block_lba = self.block_start_lba.add(bit_off.try_into().unwrap());
         // 把申请到的块，同步到硬盘

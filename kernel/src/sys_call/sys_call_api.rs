@@ -12,6 +12,7 @@ use super::sys_call::{self, register_handler, HandlerType, SystemCallNo};
 /**
  * 初始化系统调用接口
  */
+#[inline(never)]
 pub fn init() {
     // getPid
     sys_call::register_handler(SystemCallNo::GetPid, HandlerType::NoneParam(get_pid));

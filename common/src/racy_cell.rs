@@ -1,5 +1,6 @@
 use core::cell::UnsafeCell;
 
+#[derive(Debug)]
 #[repr(transparent)]
 pub struct RacyCell<T:  ?Sized>(UnsafeCell<T>);
 

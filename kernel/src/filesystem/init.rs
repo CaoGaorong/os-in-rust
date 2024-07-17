@@ -1,13 +1,11 @@
-use core::{arch::asm, mem::{size_of, size_of_val}, slice};
-use core::ptr::addr_of;
+use core::{mem::{size_of, size_of_val}, slice};
 
-use os_in_rust_common::{constants, cstr_write, domain::{InodeNo, LbaAddr}, printkln, racy_cell::RacyCell, utils, ASSERT, MY_PANIC};
+use os_in_rust_common::{constants, domain::InodeNo, utils, ASSERT};
 
 use crate::{device::{self, ata::Partition}, filesystem::{dir::FileType, fs}};
-use crate::filesystem::dir::Dir;
 use crate::memory;
 
-use super::{dir::{self, CreateDirError, DirEntry}, file, fs::FileSystem, inode::Inode, superblock::SuperBlock};
+use super::{dir::{self, CreateDirError, DirEntry}, fs::FileSystem, inode::Inode, superblock::SuperBlock};
 
 #[inline(never)]
 pub fn create_file_in_root(file_name: &str)  -> Result<DirEntry, CreateDirError> {

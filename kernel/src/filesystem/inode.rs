@@ -67,6 +67,7 @@ impl Inode {
 /**
  * 加载的Inode的逻辑结构。内存中的结构
  */
+#[derive(Debug)]
 pub struct OpenedInode {
     /**
      * inode编号

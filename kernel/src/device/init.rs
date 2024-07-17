@@ -219,6 +219,7 @@ pub fn extended_part_init(disk: &mut Disk, main_ext_lba: LbaAddr) {
 /**
  * 为所有的分区安装文件系统
  */
+#[inline(never)]
 pub fn install_filesystem_for_all_part() {
     // 取出所有分区
     let all_partition = get_all_partition();
