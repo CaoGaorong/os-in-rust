@@ -109,7 +109,7 @@ pub fn search_file(file_path: &str) -> (bool, String) {
         if entry_name.is_empty() {
             continue;
         }
-        let found_entry = self::find_entry_in_data_block(base_inode.get_data_blocks(), entry_name, &mut disk_file);
+        let found_entry = self::find_entry_in_data_block(base_inode.get_data_blocks_ref(), entry_name, &mut disk_file);
         if found_entry.is_none() {
             return (false, searched_path);
         }

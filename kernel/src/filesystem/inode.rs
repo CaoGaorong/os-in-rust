@@ -129,8 +129,12 @@ impl OpenedInode {
     }
 
 
-    pub fn get_data_blocks(&self) -> &[LbaAddr] {
+    pub fn get_data_blocks_ref(&self) -> &[LbaAddr] {
         &self.data_block_list
+    }
+
+    pub fn get_data_blocks(&mut self) -> &mut [LbaAddr] {
+        &mut self.data_block_list
     }
 
     /**

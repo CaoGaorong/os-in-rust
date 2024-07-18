@@ -180,7 +180,7 @@ fn search_dir_entry(fs: &mut FileSystem, dir_inode: &mut OpenedInode, entry_name
     }
 
     // 取出所有的数据块
-    let data_blocks = dir_inode.get_data_blocks();
+    let data_blocks = dir_inode.get_data_blocks_ref();
 
     let disk = unsafe { &mut *fs.base_part.from_disk };
     

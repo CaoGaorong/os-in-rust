@@ -18,7 +18,11 @@ use super::{mem_block::{self, Arena, MemBlockAllocator}, memory_poll::{self, get
  */
 pub fn malloc<T>(bytes: usize) -> &'static mut T {
     let addr = sys_malloc(bytes);
-    unsafe { &mut *(addr as *mut T) }
+    let ptr = addr as *mut T;
+    // 清零
+    unsafe { ptr.write_bytes(0, size_of::<T>()) };
+    // 返回数据
+    unsafe { &mut *ptr }
 }
 
 /**
