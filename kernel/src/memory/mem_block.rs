@@ -129,6 +129,7 @@ impl MemBlockContainer {
         // 从可用内存块列表中，取出一个内存块
         let mem_block_tag = block_list.pop();
         let mem_block = MemBlock::parse_by_tag(mem_block_tag);
+        unsafe { (mem_block as *mut _ as *mut u8).write_bytes(0, mem_block.arena_addr().block_size) };
         return Option::Some(mem_block);
     }
 
@@ -238,6 +239,8 @@ pub struct Arena {
 }
 impl Arena {
     pub fn init(&mut self, supply_for: *mut MemBlockContainer, occupy_page_cnt: usize, block_size: usize) {
+        // 把内存块数据清零
+        unsafe { (self as *mut Self as *mut u8).write_bytes(0, occupy_page_cnt * constants::PAGE_SIZE as usize) };
         self.supply_for = supply_for;
         self.block_size = block_size;
         self.occupy_page_cnt = occupy_page_cnt;

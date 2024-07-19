@@ -19,8 +19,6 @@ use super::{mem_block::{self, Arena, MemBlockAllocator}, memory_poll::{self, get
 pub fn malloc<T>(bytes: usize) -> &'static mut T {
     let addr = sys_malloc(bytes);
     let ptr = addr as *mut T;
-    // 清零
-    unsafe { ptr.write_bytes(0, size_of::<T>()) };
     // 返回数据
     unsafe { &mut *ptr }
 }
@@ -78,7 +76,11 @@ fn malloc_bytes(vaddr_pool: &mut MemPool, phy_mem_pool: &mut MemPool, allocator:
         let arena  = mem_block.arena_addr();
         arena.apply_one();
         container.lock.unlock();
-        return mem_block as *const _ as usize;
+        
+        let mem_block_ptr = mem_block as *mut _ as *mut u8;
+        // 清零
+        unsafe { mem_block_ptr.write_bytes(0, arena.block_size()) };
+        return mem_block_ptr as usize;
     }
 
     // 如果已经没有可用的块了，那么需要申请1页

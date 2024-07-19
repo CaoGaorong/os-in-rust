@@ -174,7 +174,7 @@ impl FileSystem {
 
         // 把要同步的inode，写入到inode数组中
         let inode_buf = unsafe { slice::from_raw_parts_mut(byte_buf.as_mut_ptr() as *mut Inode, byte_cnt / size_of::<Inode>()) };
-        inode_buf[inode_location.bytes_off/ size_of::<Inode>()] = *inode;
+        inode_buf[usize::from(inode.i_no)] = *inode;
 
         // 把inode数组，写入到硬盘中
         disk.write_sector(byte_buf, inode_location.lba, inode_location.sec_cnt);
@@ -198,8 +198,11 @@ impl FileSystem {
         let i_idx_end = (usize::from(i_no) + 1) as usize * size_of::<Inode>();
         // inode结束的偏移量，换算成扇区偏移数
         let sec_end: usize = utils::div_ceil(i_idx_end as u32, constants::DISK_SECTOR_SIZE  as u32).try_into().unwrap();
-
-        InodeLocation::new(self.super_block.inode_table_lba.add(sec_start.try_into().unwrap()), (i_idx_start % constants::DISK_SECTOR_SIZE).try_into().unwrap(), (sec_end - sec_start).try_into().unwrap())
+        InodeLocation {
+            lba: self.super_block.inode_table_lba.add(sec_start.try_into().unwrap()),
+            bytes_off: (i_idx_start % constants::DISK_SECTOR_SIZE).try_into().unwrap(),
+            sec_cnt: (sec_end - sec_start).max(1).try_into().unwrap(),
+        }
     }
 
 

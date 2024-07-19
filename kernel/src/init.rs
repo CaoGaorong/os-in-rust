@@ -1,9 +1,9 @@
 #![feature(abi_x86_interrupt)]
 
 
-use os_in_rust_common::{bios_mem::{ARDSType, AddressRangeDescriptorStructure}, context::BootContext, instruction, printkln, ASSERT};
+use os_in_rust_common::{bios_mem::{ARDSType, AddressRangeDescriptorStructure}, context::BootContext, cstr_write, instruction, printkln, ASSERT};
 
-use crate::{console, console_println, device, filesystem, interrupt, memory, sys_call, thread_management, tss};
+use crate::{console, console_println, device, filesystem::{self, file::OpenedFile}, interrupt, memory, sys_call, thread_management, tss};
 
 #[inline(never)]
 pub fn init_all(boot_info: &BootContext) {
@@ -76,7 +76,10 @@ pub fn init_all(boot_info: &BootContext) {
     printkln!("mkdir result: {:?}", res);
 
     let result = filesystem::dir::search("/dev/proc");
-    printkln!("search result:{:?}", result)
+    printkln!("search result:{:?}", result);
 
+    let mut buf: &mut [u8; 20] = memory::malloc(20);
+    cstr_write!(buf, "Hello, World");
+    // filesystem::file::write_files("/dev/proc", buf, 100);
     
 }

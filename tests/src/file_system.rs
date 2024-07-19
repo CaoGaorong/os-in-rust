@@ -87,7 +87,7 @@ pub fn load_inode(disk: &mut File,  inode: Inode) -> OpenedInode {
  * 搜索路径为file_path的文件
  * (bool, String): 是否找到，搜索过的路径
  */
-pub fn search_file(file_path: &str) -> (bool, String) {
+pub fn search_file(file_path: &str) -> (String, Option<OpenedInode>) {
     if !file_path.starts_with("/") {
         panic!("文件目录必须从根目录开始");
     }
@@ -111,16 +111,17 @@ pub fn search_file(file_path: &str) -> (bool, String) {
         }
         let found_entry = self::find_entry_in_data_block(base_inode.get_data_blocks_ref(), entry_name, &mut disk_file);
         if found_entry.is_none() {
-            return (false, searched_path);
+            return (searched_path, Option::None);
         }
         let found_entry = found_entry.unwrap();
+        println!("entry_ino = {:?}, base_inode = {:?}, name={}", found_entry.i_no, base_inode.i_no, found_entry.get_name());
         // 加载目录项对应的inode
         base_inode = self::load_inode(&mut disk_file, inode_table[usize::from(found_entry.i_no)]);
 
         searched_path.push_str("/");
         searched_path.push_str(found_entry.get_name());
     }
-    return (true, searched_path);
+    return (searched_path, Option::Some(base_inode));
 }
 
 
@@ -144,3 +145,9 @@ fn find_entry_in_data_block(data_blocks: &[LbaAddr], entry_name: &str, disk_file
     return Option::None;
     
 }
+
+// pub fn read_file(file_path: &str) -> Vec<u8> {
+//     let searched_result = self::search_file(file_path);
+//     assert_eq!(searched_result.0, true);
+
+// }

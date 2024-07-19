@@ -317,7 +317,10 @@ fn dummy_sleep(instruction_cnt: u32) {
 fn panic(info: &PanicInfo) -> ! {
     instruction::disable_interrupt();
     printkln!("panic, {}", info);
-    ASSERT!(info.message().is_some());
+    let msg = info.message();
+    if msg.is_none() {
+        loop {}
+    }
     vga::print(*info.message().unwrap());
     loop {}
 }
