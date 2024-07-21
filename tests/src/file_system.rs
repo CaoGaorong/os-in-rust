@@ -5,7 +5,7 @@ use std::{
     mem::size_of,
 };
 
-use kernel::filesystem::{constant, dir::DirEntry, inode::{Inode, OpenedInode}, superblock::SuperBlock};
+use kernel::filesystem::{constant, dir_entry::DirEntry, inode::{Inode, OpenedInode}, superblock::SuperBlock};
 use os_in_rust_common::{constants, domain::LbaAddr};
 pub const DISK_FILE_PATH: &str = "/Users/jackson/MyProjects/rust/os-in-rust/build/hd80M.img";
 use lazy_static::lazy_static;

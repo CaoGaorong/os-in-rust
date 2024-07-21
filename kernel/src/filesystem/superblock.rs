@@ -3,7 +3,7 @@ use core::mem::size_of;
 use os_in_rust_common::{constants, domain::LbaAddr, utils};
 use os_in_rust_common::domain::InodeNo;
 
-use super::{constant, dir::DirEntry, inode::Inode};
+use super::{constant, dir_entry::DirEntry, inode::Inode};
 
 /**
  * 文件系统的超级块

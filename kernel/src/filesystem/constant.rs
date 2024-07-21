@@ -30,3 +30,8 @@ pub const MAX_FILE_NAME: usize = 20;
  * 整个系统最大可以打开的文件数量
  */
 pub const MAX_OPENED_FILE_IN_SYSTEM: usize = 32;
+
+/**
+ * 文件路径最大长度
+ */
+pub const MAX_FILE_PATH_LEN: usize = 100;

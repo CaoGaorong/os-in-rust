@@ -56,3 +56,8 @@ pub fn register_file(file: OpenedFile) -> Option<usize> {
     let file_table = unsafe { GLOBAL_FILE_TABLE.get_mut() };
     file_table.register_file(file)
 }
+
+pub fn get_opened_file(idx: usize) -> Option<&'static mut OpenedFile> {
+    let file_table = unsafe { GLOBAL_FILE_TABLE.get_mut() };
+    file_table.table[idx].as_mut()
+}

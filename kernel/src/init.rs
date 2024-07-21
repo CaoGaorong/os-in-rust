@@ -3,7 +3,7 @@
 
 use os_in_rust_common::{bios_mem::{ARDSType, AddressRangeDescriptorStructure}, context::BootContext, cstr_write, instruction, printkln, ASSERT};
 
-use crate::{console, console_println, device, filesystem::{self, file::OpenedFile}, interrupt, memory, sys_call, thread_management, tss};
+use crate::{console, console_println, device, filesystem::{self, file::OpenedFile, file_api::{File, OpenOptions}}, interrupt, memory, sys_call, thread_management, tss};
 
 #[inline(never)]
 pub fn init_all(boot_info: &BootContext) {
@@ -56,6 +56,11 @@ pub fn init_all(boot_info: &BootContext) {
     // 创建文件
     let res = filesystem::create_file_in_root("test.txt");
     printkln!("create test.txt: {:?}", res);
+    // 重复创建，失败
+    printkln!("{:?}", File::create("/test.txt"));
+
+    // 创建一个父目录不存在的文件
+    printkln!("{:?}", File::create("/dev/proc/test.rs"));
 
     let res = filesystem::create_file_in_root("a.txt");
     printkln!("create a.txt: {:?}", res);
@@ -65,7 +70,7 @@ pub fn init_all(boot_info: &BootContext) {
 
 
     let result = filesystem::dir::search("/a.txt");
-    ASSERT!(result.is_ok());
+    ASSERT!(result.is_some());
     let result = result.unwrap();
     printkln!("file name: {}", result.get_name());
 
@@ -78,8 +83,14 @@ pub fn init_all(boot_info: &BootContext) {
     let result = filesystem::dir::search("/dev/proc");
     printkln!("search result:{:?}", result);
 
-    let mut buf: &mut [u8; 20] = memory::malloc(20);
+    printkln!("{:?}", File::create("/dev/proc/test.rs"));
+
+    let file = File::open("/a.txt");
+    printkln!("open_result: {:?}", file);
+    ASSERT!(file.is_ok());
+    let mut file = file.unwrap();
+    let buf: &mut [u8; 20] = memory::malloc(20);
     cstr_write!(buf, "Hello, World");
-    // filesystem::file::write_files("/dev/proc", buf, 100);
+    // printkln!("{:?}", file.write(buf));
     
 }

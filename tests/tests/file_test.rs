@@ -17,7 +17,7 @@ mod test {
 
     #[test]
     pub fn search_file_test() {
-        let search_res = file_system::search_file("/dev/proc");
+        let search_res = file_system::search_file("/dev/proc/test.rs");
         println!("found: {}, searched path: {:?}", search_res.0, search_res.1);
     }
 

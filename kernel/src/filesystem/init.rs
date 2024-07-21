@@ -2,17 +2,21 @@ use core::{mem::{size_of, size_of_val}, slice};
 
 use os_in_rust_common::{constants, domain::InodeNo, utils, ASSERT};
 
-use crate::{device::{self, ata::Partition}, filesystem::{dir::FileType, fs}};
+use crate::{device::{self, ata::Partition}, filesystem::{dir_entry::{self, FileType}, fs}};
 use crate::memory;
 
-use super::{dir::{self, CreateDirError, DirEntry}, fs::FileSystem, inode::Inode, superblock::SuperBlock};
+use super::{dir_entry::DirEntry, fs::FileSystem, inode::Inode, superblock::SuperBlock};
 
 #[inline(never)]
-pub fn create_file_in_root(file_name: &str)  -> Result<DirEntry, CreateDirError> {
+pub fn create_file_in_root(file_name: &str)  -> Option<DirEntry> {
     let file_system = fs::get_filesystem();
     ASSERT!(file_system.is_some());
     let file_system = file_system.unwrap();
-    dir::create_dir_entry(file_system, file_system.get_root_dir(), file_name, FileType::Regular)
+    let create_result = dir_entry::create_dir_entry(file_system, &mut file_system.get_root_dir().inode, file_name, FileType::Regular);
+    if create_result.is_none() {
+        return Option::None;
+    }
+    return Option::Some(create_result.unwrap().0);
 }
 
 #[inline(never)]

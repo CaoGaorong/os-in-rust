@@ -2,7 +2,7 @@ mod test {
     use core::slice;
     use std::{fs::File, io::{BufReader, Read, Seek}, mem::size_of};
 
-    use kernel::filesystem::{dir::DirEntry, inode::{Inode, OpenedInode}};
+    use kernel::filesystem::{dir_entry::DirEntry, inode::{Inode, OpenedInode}};
     use os_in_rust_common::constants;
     use tests::file_system::{self, DISK_FILE_PATH};
 

@@ -17,7 +17,9 @@ mod tests {
 
     #[test]
     fn test_inode_size() {
-        println!("inode size:{} ", size_of::<Inode>())
+        println!("inode size:{} ", size_of::<Inode>());
+        println!("OpenedInode size:{} ", size_of::<OpenedInode>());
+        println!("DirEntry size:{} ", size_of::<DirEntry>());
     }
 
 

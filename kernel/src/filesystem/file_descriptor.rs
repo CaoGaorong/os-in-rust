@@ -3,6 +3,21 @@ use os_in_rust_common::{constants, ASSERT};
 use super::file::StdFileDescriptor;
 
 
+#[derive(Debug)]
+#[derive(Clone, Copy)]
+#[repr(transparent)]
+pub struct FileDescriptor {
+    value: usize
+}
+
+impl FileDescriptor {
+    pub fn new(value: usize) -> Self {
+        Self {
+            value,
+        }
+    }
+}
+
 /**
  * 文件描述符表
  */
@@ -30,7 +45,7 @@ impl FileDescriptorTable {
     pub fn get_free_slot(&self) -> Option<usize> {
         for (idx, fd) in self.data.iter().enumerate() {
             // 找到了空位，返回下标
-            if fd.is_some() {
+            if fd.is_none() {
                 return Option::Some(idx);
             }
         }
@@ -40,14 +55,22 @@ impl FileDescriptorTable {
     /**
      * 给当前进程的文件描述符表，安装一个全局文件描述符
      */
-    pub fn install_fd(&mut self, global_file_descriptor: usize) {
+    pub fn install_fd(&mut self, global_file_descriptor: usize) -> Option<FileDescriptor> {
         // 当前的文件描述符表，找到空位
         let slot_idx = self.get_free_slot();
-        ASSERT!(slot_idx.is_some());
+        if slot_idx.is_none() {
+            return Option::None;
+        }
         let slot_idx = slot_idx.unwrap();
         // 填充
         self.data[slot_idx] = Option::Some(global_file_descriptor);
+        
+        // 数组下标，就是文件描述符
+        Option::Some(FileDescriptor::new(slot_idx))
     }
 
+    pub fn get_global_idx(&self, fd: FileDescriptor) -> Option<usize> {
+        self.data[fd.value]
+    }
 
 }

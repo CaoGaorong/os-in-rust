@@ -4,7 +4,7 @@ use os_in_rust_common::{bitmap::BitMap, constants, domain::{InodeNo, LbaAddr}, l
 
 use crate::{device::ata::{Disk, Partition}, memory};
 
-use super::{constant, dir::{Dir, DirEntry}, inode::{Inode, InodeLocation, OpenedInode}, superblock::SuperBlock};
+use super::{constant, dir::Dir, dir_entry::DirEntry, inode::{Inode, InodeLocation, OpenedInode}, superblock::SuperBlock};
 
 /**
  * 文件系统。中任何操作都是基于分区的
@@ -263,7 +263,7 @@ impl FileSystem {
      *  - 先遍历数据扇区，找到空闲可以存放目录项的地方，然后放进去
      */
     #[inline(never)]
-    pub fn sync_dir_entry(&mut self, parent: &mut Dir, dir_entry: &DirEntry) {
+    pub fn sync_dir_entry(&mut self, parent_inode: &mut OpenedInode, dir_entry: &DirEntry) {
 
         let disk = unsafe { &mut *self.base_part.from_disk };
 
@@ -275,7 +275,7 @@ impl FileSystem {
 
 
         // 在直接块中，找是否有空闲目录项
-        let direct_find = Self::find_available_entry(parent.inode.get_direct_data_blocks(), dir_list, disk);
+        let direct_find = Self::find_available_entry(parent_inode.get_direct_data_blocks(), dir_list, disk);
         // 我们的目录项所在的数据块，位于当前数据块列表的下标
         let block_for_entry = if direct_find.is_some() {
             let (block_lba, entry_addr) = direct_find.unwrap();
@@ -284,10 +284,10 @@ impl FileSystem {
         // 再找间接块
         } else {
             // 先把间接块的数据加载出来（如果间接块不存在，会自动创建）
-            parent.inode.load_data_block(self);
+            parent_inode.load_data_block(self);
 
             // 在间接块中，找是否有空闲目录项
-            let indirect_find = Self::find_available_entry(parent.inode.get_indirect_data_blocks(), dir_list, disk);
+            let indirect_find = Self::find_available_entry(parent_inode.get_indirect_data_blocks(), dir_list, disk);
             ASSERT!(indirect_find.is_some());
             let (block_lba, entry_addr) = indirect_find.unwrap();
             *entry_addr = *dir_entry;
@@ -304,9 +304,9 @@ impl FileSystem {
         disk.write_sector(buf, *block_for_entry, 1);
 
         // 增加当前文件的大小
-        parent.inode.i_size += size_of::<DirEntry>() as u32;
+        parent_inode.i_size += size_of::<DirEntry>() as u32;
         // 如果是直接块找到空闲目录项，那么需要同步inode（直接块的地址放在inode的i_sectors字段中）
-        parent.inode.sync_inode(self);
+        parent_inode.sync_inode(self);
 
         // 释放缓冲区的空间
         memory::sys_free(buff_addr);

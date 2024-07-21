@@ -4,9 +4,11 @@ pub mod inode;
 pub mod dir;
 pub mod init;
 pub mod file;
+pub mod dir_entry;
 pub mod file_descriptor;
 pub mod global_file_table;
 pub mod fs;
+pub mod file_api;
 
 pub use init::init;
 pub use init::install_filesystem;

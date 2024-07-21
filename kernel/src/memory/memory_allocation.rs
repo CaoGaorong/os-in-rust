@@ -16,6 +16,7 @@ use super::{mem_block::{self, Arena, MemBlockAllocator}, memory_poll::{self, get
 /**
  * 申请内存
  */
+#[inline(never)]
 pub fn malloc<T>(bytes: usize) -> &'static mut T {
     let addr = sys_malloc(bytes);
     let ptr = addr as *mut T;
