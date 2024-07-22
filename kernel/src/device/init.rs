@@ -108,6 +108,7 @@ pub fn ata_init() {
 /**
  * 扫描该硬盘的主分区
  */
+#[inline(never)]
 pub fn main_part_init(disk: &mut Disk) {
     let disk_ptr = disk as *mut _;
 
@@ -161,6 +162,7 @@ pub fn main_part_init(disk: &mut Disk) {
  *  - main_ext_lba: 总扩展分区的起始地址。所有子扩展分区的LBA地址都基于该地址
  *  - logic_part_no: 在该扩展分区中，逻辑分区起始的编号
  */
+#[inline(never)]
 pub fn extended_part_init(disk: &mut Disk, main_ext_lba: LbaAddr) {
 
     let mut array = [(LbaAddr::empty(), 0); 20];

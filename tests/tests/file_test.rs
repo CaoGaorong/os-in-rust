@@ -1,4 +1,5 @@
 mod test {
+    use kernel::filesystem::file;
     use tests::file_system;
 
     #[test]
@@ -23,6 +24,16 @@ mod test {
 
     #[test]
     pub fn read_file_test() {
-        // file_system::se
+        // 读取/a.txt文件
+        let file_data = file_system::read_file("/a.txt");
+        if file_data.is_none() {
+            println!("no data found");
+            return;
+        }
+        // 转成字符串，打印
+        let file_data = file_data.unwrap();
+        let string = String::from_utf8(file_data);
+        println!("{:?}", string);
+
     }
 }

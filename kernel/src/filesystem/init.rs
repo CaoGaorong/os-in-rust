@@ -8,15 +8,11 @@ use crate::memory;
 use super::{dir_entry::DirEntry, fs::FileSystem, inode::Inode, superblock::SuperBlock};
 
 #[inline(never)]
-pub fn create_file_in_root(file_name: &str)  -> Option<DirEntry> {
+pub fn create_file_in_root(file_name: &str)  -> Option<(DirEntry, &mut crate::filesystem::inode::OpenedInode)>  {
     let file_system = fs::get_filesystem();
     ASSERT!(file_system.is_some());
     let file_system = file_system.unwrap();
-    let create_result = dir_entry::create_dir_entry(file_system, &mut file_system.get_root_dir().inode, file_name, FileType::Regular);
-    if create_result.is_none() {
-        return Option::None;
-    }
-    return Option::Some(create_result.unwrap().0);
+    dir_entry::create_dir_entry(file_system, &mut file_system.get_root_dir().inode, file_name, FileType::Regular)
 }
 
 #[inline(never)]

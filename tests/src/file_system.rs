@@ -146,8 +146,29 @@ fn find_entry_in_data_block(data_blocks: &[LbaAddr], entry_name: &str, disk_file
     
 }
 
-// pub fn read_file(file_path: &str) -> Vec<u8> {
-//     let searched_result = self::search_file(file_path);
-//     assert_eq!(searched_result.0, true);
 
-// }
+/**
+ * 读取某个文件内的数据
+ */
+pub fn read_file(file_path: &str) -> Option<Vec<u8>> {
+    let mut disk_file = File::open(DISK_FILE_PATH).expect("failed to open disk file");
+    // 根据路径搜索这个文件，得到inode
+    let (_, opened_inode) = self::search_file(file_path);
+    if opened_inode.is_none() {
+        return Option::None;
+    }
+    let opened_inode = opened_inode.unwrap();
+    let mut file_data: Vec<u8> = Vec::new();
+    
+    // 遍历inode的数据区，然后读取inode数据区中的数据
+    for data_block_lba in opened_inode.get_data_blocks_ref() {
+        if data_block_lba.is_empty() {
+            continue;
+        }
+        // 读取出硬盘数据
+        let block_data = self::read_disk(&mut disk_file, *data_block_lba);
+        file_data.append(&mut block_data.to_vec());
+    }
+
+    return Option::Some(file_data);
+}

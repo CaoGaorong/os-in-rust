@@ -1,6 +1,5 @@
-use core::mem::size_of;
 
-use os_in_rust_common::{constants, printkln, ASSERT, MY_PANIC};
+use os_in_rust_common::{constants, ASSERT};
 
 
 use crate::{filesystem::{dir_entry::FileType, global_file_table}, memory, thread};
@@ -32,6 +31,7 @@ impl OpenedFile {
         }
     }
 
+    #[inline(never)]
     pub fn set_file_off(&mut self, off: u32) {
         self.file_off = off;
     }
@@ -75,10 +75,15 @@ pub enum FileError {
     FileExceedSystem,
     // 没有操作权限
     PermissionDenied,
+    // 文件描述符找不到
+    FileDescriptorNotFound,
+    // 全局的文件结构找不到
+    GlobalFileStructureNotFound,
 
 }
 
 
+#[inline(never)]
 pub fn open_file(file_path: &str, append: bool) -> Result<FileDescriptor, FileError>{
     if !file_path.starts_with("/") {
         return Result::Err(FileError::FilePathIllegal);
@@ -214,14 +219,12 @@ pub fn create_file(file_path: &str) -> Result<FileDescriptor, FileError> {
 */
 #[inline(never)]
 pub fn write_file(fs: &mut FileSystem, file: &mut OpenedFile, buff: &[u8]) -> Result<usize, FileError>{
-    // 要写入的数据大小
-    let bytes = buff.len();
 
     let disk = unsafe { &mut *fs.base_part.from_disk };
 
     let start_data_block_idx = file.file_off as usize / constants::DISK_SECTOR_SIZE;
     // 要写入到文件的最后一个字节，所在该inode数据扇区的下标
-    let end_data_block_idx = (file.file_off as usize + bytes) / constants::DISK_SECTOR_SIZE;
+    let end_data_block_idx = (file.file_off as usize + buff.len()) / constants::DISK_SECTOR_SIZE;
     // 如果涉及到间接块，那么需要加载间接块的数据
     if end_data_block_idx >= file.inode.get_direct_data_blocks_ref().len() {
         file.inode.load_data_block(fs);
@@ -233,7 +236,7 @@ pub fn write_file(fs: &mut FileSystem, file: &mut OpenedFile, buff: &[u8]) -> Re
     let start_bytes_away_first_sector = constants::DISK_SECTOR_SIZE - start_bytes_over_sector;
 
     // 要写入的最后一个字节，超过整扇区的部分（字节数）
-    let end_bytes_over_sector = (file.file_off as usize + bytes) % constants::DISK_SECTOR_SIZE;
+    let end_bytes_over_sector = (file.file_off as usize + buff.len()) % constants::DISK_SECTOR_SIZE;
 
     // 申请单个扇区大小的缓冲区，用于循环读取扇区的数据
     let single_sector_buffer: &mut [u8; constants::DISK_SECTOR_SIZE] = memory::malloc(constants::DISK_SECTOR_SIZE);
@@ -241,6 +244,8 @@ pub fn write_file(fs: &mut FileSystem, file: &mut OpenedFile, buff: &[u8]) -> Re
 
     // 遍历所有的数据块扇区
     for block_idx in start_data_block_idx..=end_data_block_idx {
+        // 相对的块下标。从file.file_off所在的块开始，下标为0
+        let relative_block_idx = block_idx - start_data_block_idx;
         // 把缓冲区清空
         unsafe { single_sector_buffer.as_mut_ptr().write_bytes(0, single_sector_buffer.len()) };
 
@@ -248,42 +253,59 @@ pub fn write_file(fs: &mut FileSystem, file: &mut OpenedFile, buff: &[u8]) -> Re
         let mut bytes_written = constants::DISK_SECTOR_SIZE;
         // 要写入的数据扇区的LBA地址
         let data_block_lba = &mut file.inode.get_data_blocks()[block_idx];
-
+        let mut new_data_block = false;
         // 如果这个数据扇区没有填充过，那么需要申请一个数据块
         if data_block_lba.is_empty() {
             *data_block_lba = fs.data_block_pool.apply_block(1);
+            new_data_block = true;
         }
 
         // 如果是第一个扇区，并且开始写入的字节开始偏移量不是整扇区
-        if succeed_bytes == 0 && start_bytes_over_sector > 0 {
-            // 读取出这个扇区
-            disk.read_sectors(*data_block_lba, 1, single_sector_buffer);
-            // 该扇区的数据后半部分是要使用新数据代替
-            bytes_written = start_bytes_away_first_sector.min(bytes);
+        if relative_block_idx == 0 && start_bytes_over_sector > 0 {
+            if !new_data_block {
+                // 读取出这个扇区
+                disk.read_sectors(*data_block_lba, 1, single_sector_buffer);
+            }
+            // 写入的字节数量 = 当前扇区剩余的数量和缓冲区长度的最小值
+            bytes_written = start_bytes_away_first_sector.min(buff.len());
             // 把缓冲区single_sector_buffer的后半部分，使用要写入的数据buff覆盖
-            single_sector_buffer[start_bytes_over_sector..constants::DISK_SECTOR_SIZE.min(start_bytes_over_sector + bytes)].copy_from_slice(&buff[..bytes_written]);
+            single_sector_buffer[start_bytes_over_sector..start_bytes_over_sector + bytes_written].copy_from_slice(&buff[..bytes_written]);
 
         // 如果是操作最后一个扇区，并且写入的字节结束偏移量不是整扇区
         } else if block_idx == end_data_block_idx && end_bytes_over_sector > 0 {
-            // 读取出这个扇区
-            disk.read_sectors(*data_block_lba, 1, single_sector_buffer);
+            if !new_data_block {
+                // 读取出这个扇区
+                disk.read_sectors(*data_block_lba, 1, single_sector_buffer);
+            }
             bytes_written = end_bytes_over_sector;
-            // 把single_sector_buffer的前半部分，使用要写入的buff数据代替
-            single_sector_buffer[start_bytes_over_sector..end_bytes_over_sector].copy_from_slice(&buff[start_bytes_over_sector + constants::DISK_SECTOR_SIZE * (block_idx.max(1) - 1)..=end_bytes_over_sector + constants::DISK_SECTOR_SIZE * (block_idx.max(1) - 1)]);
+            // 缓冲区要操作开始的字节下标
+            let buf_start_idx = (constants::DISK_SECTOR_SIZE * relative_block_idx).overflowing_sub(start_bytes_over_sector);
+            // 如果溢出了，那开始字节偏移就是0
+            let buf_start_idx = if buf_start_idx.1 { 0 } else {buf_start_idx.0};
+            single_sector_buffer[start_bytes_over_sector..end_bytes_over_sector].copy_from_slice(&buff[buf_start_idx..buf_start_idx + end_bytes_over_sector]);
 
         // 不是第一个扇区，也不是最后一个扇区，那就是中间连续的扇区，直接复制就好
         } else {
-            let end_byte_idx = start_bytes_over_sector + constants::DISK_SECTOR_SIZE * (block_idx - start_data_block_idx);
-            // 如果buff跟扇区是对齐的，那么上面可能为0，所以这一设置一个最大值
-            let end_byte_idx = end_byte_idx.max(constants::DISK_SECTOR_SIZE);
-            single_sector_buffer.copy_from_slice(&buff[start_bytes_over_sector + constants::DISK_SECTOR_SIZE * (block_idx.max(1) - 1) .. end_byte_idx]);
+            // 缓冲区开始的字节偏移
+            let buf_start_byte_idx = start_bytes_away_first_sector + constants::DISK_SECTOR_SIZE * (relative_block_idx.min(1) - 1);
+            // 缓冲区结束的字节偏移
+            let buf_end_byte_idx = start_bytes_away_first_sector + constants::DISK_SECTOR_SIZE * relative_block_idx;
+            single_sector_buffer.copy_from_slice(&buff[buf_start_byte_idx .. buf_end_byte_idx]);
+            bytes_written = single_sector_buffer.len();
         }
         disk.write_sector(single_sector_buffer, *data_block_lba, 1);
         succeed_bytes += bytes_written;
     }
+    // 释放缓冲区
     memory::sys_free(single_sector_buffer.as_ptr() as usize);
     // 该文件操作的偏移量增加
     file.file_off += succeed_bytes as u32;
+
+    // 当前文件的数据大小发生变化
+    file.inode.i_size = file.inode.i_size.max(file.file_off);
+    // 把inode元数据同步到硬盘（inode数组）
+    file.inode.sync_inode(fs);
+
     return Result::Ok(succeed_bytes);
 }
 
@@ -307,72 +329,85 @@ pub fn write_file(fs: &mut FileSystem, file: &mut OpenedFile, buff: &[u8]) -> Re
            要写入硬盘的起始数据
 */
 #[inline(never)]
-pub fn read_file(fs: &mut FileSystem, file: &mut OpenedFile, buff: &mut [u8], bytes: usize) {
-    // 要写入的数据大小，取buff最小值和bytes最小值
-    let bytes = bytes.min(buff.len());
+pub fn read_file(fs: &mut FileSystem, file: &mut OpenedFile, buff: &mut [u8]) -> Result<usize, FileError>{
+
+    // // 最多读取到文件的末尾
+    // let end_byte_off_file = (file.file_off as usize + buff.len()).min(file.inode.i_size as usize);
 
     let disk = unsafe { &mut *fs.base_part.from_disk };
 
     let start_data_block_idx = file.file_off as usize / constants::DISK_SECTOR_SIZE;
     // 要写入到文件的最后一个字节，所在该inode数据扇区的下标
-    let end_data_block_idx = (file.file_off as usize + bytes) / constants::DISK_SECTOR_SIZE;
+    let end_data_block_idx = (file.file_off as usize + buff.len()) / constants::DISK_SECTOR_SIZE;
     // 如果涉及到间接块，那么需要加载间接块的数据
     if end_data_block_idx >= file.inode.get_direct_data_blocks_ref().len() {
         file.inode.load_data_block(fs);
     }
 
-    // 要操作的文件偏移量，超过1个扇区的字节数
+    // 要操作的文件开始的字节，距离所在扇区开头的偏移量
     let start_bytes_over_sector = file.file_off as usize % constants::DISK_SECTOR_SIZE;
+    // 要操作的文件开始的字节，距离所在扇区结束的偏移量
+    let start_bytes_away_sector = constants::DISK_SECTOR_SIZE - start_bytes_over_sector;
 
     // 要写入的最后一个字节，超过整扇区的部分（字节数）
-    let end_bytes_over_sector = (file.file_off as usize + bytes) % constants::DISK_SECTOR_SIZE;
+    let end_bytes_over_sector = (file.file_off as usize + buff.len()).min(file.inode.i_size as usize) % constants::DISK_SECTOR_SIZE;
 
     // 申请单个扇区大小的缓冲区，用于循环读取扇区的数据
     let single_sector_buffer: &mut [u8; constants::DISK_SECTOR_SIZE] = memory::malloc(constants::DISK_SECTOR_SIZE);
     let mut succeed_bytes = 0usize;
+    // 剩余要读取的字节数量
+    let mut left_bytes = file.inode.i_size as i32 - file.file_off as i32;
 
     // 遍历所有的数据块扇区
     for block_idx in start_data_block_idx..=end_data_block_idx {
+        // file.bytes_off所在的扇区，为相对扇区。从0开始
+        let relative_block_idx = block_idx - start_data_block_idx;
         // 把缓冲区清空
         unsafe { single_sector_buffer.as_mut_ptr().write_bytes(0, single_sector_buffer.len()) };
         
         // 本次循环读取到的字节
-        let mut bytes_read = constants::DISK_SECTOR_SIZE; 
+        let mut bytes_read = 0; 
         // 要写入的数据扇区的LBA地址
         let data_block_lba = &mut file.inode.get_data_blocks()[block_idx];
-        
+
+        // 没有字节可以读取了
+        if left_bytes <= 0 {
+            break;
+        }
         // 如果这个数据扇区没有地址，说明读取完成了
         if data_block_lba.is_empty() {
-            break;
+            continue;
         }
         // 读取出这个扇区
         disk.read_sectors(*data_block_lba, 1, single_sector_buffer);
 
         // 如果是第一个扇区，并且开始写入的字节开始偏移量不是整扇区
-        if succeed_bytes == 0 && start_bytes_over_sector > 0 {
-            bytes_read = (constants::DISK_SECTOR_SIZE - start_bytes_over_sector).min(bytes);
+        if relative_block_idx == 0 && start_bytes_over_sector > 0 {
+            bytes_read = start_bytes_away_sector.min(buff.len());
             // buff 的前半部分，使用读取到的扇区的后半部分代替
-            buff[..bytes_read].copy_from_slice(&single_sector_buffer[start_bytes_over_sector..constants::DISK_SECTOR_SIZE.min(bytes)]);
+            buff[..bytes_read].copy_from_slice(&single_sector_buffer[start_bytes_over_sector..start_bytes_over_sector + bytes_read]);
         
         // 如果是操作最后一个扇区，并且写入的字节结束偏移量不是整扇区，并且不是第一个扇区
-        } else if block_idx == end_data_block_idx && end_bytes_over_sector > 0 && end_bytes_over_sector > start_bytes_over_sector {
-            // 读取出这个扇区
-            disk.read_sectors(*data_block_lba, 1, single_sector_buffer);
+        } else if block_idx == end_data_block_idx && end_bytes_over_sector > 0 {
+            // 缓冲区要操作开始的字节下标
+            let buf_start_idx = (constants::DISK_SECTOR_SIZE * relative_block_idx).overflowing_sub(start_bytes_over_sector);
+            // 如果溢出了，那开始字节偏移就是0
+            let buf_start_idx = if buf_start_idx.1 { 0 } else {buf_start_idx.0};
             // buff后半部分，使用读取到的扇区的前半部分代替
-            buff[bytes - start_bytes_over_sector..].copy_from_slice(&single_sector_buffer[..end_bytes_over_sector]);
+            buff[buf_start_idx..buf_start_idx+end_bytes_over_sector].copy_from_slice(&single_sector_buffer[start_bytes_over_sector..end_bytes_over_sector]);
             bytes_read = end_bytes_over_sector;
         
         // 不是第一个扇区，也不是最后一个扇区，那就是中间连续的扇区，直接复制就好
         } else {
-            // buff起始地址，在扇区偏移中，剩下的部分
-            let left_byte_off = constants::DISK_SECTOR_SIZE - start_bytes_over_sector;
-            // 本次要操作结束的字节下标
-            let end_byte_idx = left_byte_off + constants::DISK_SECTOR_SIZE * (block_idx - start_data_block_idx);
-            // 如果buff跟扇区是对齐的，那么上面可能为0，所以这一设置一个最大值
-            let end_byte_idx = end_byte_idx.max(constants::DISK_SECTOR_SIZE);
-            buff[end_byte_idx - constants::DISK_SECTOR_SIZE .. end_byte_idx].copy_from_slice(single_sector_buffer);
+            // 要操作的buff开始的字节偏移
+            let buf_start_byte_idx = start_bytes_away_sector + (relative_block_idx.min(1) - 1) * constants::DISK_SECTOR_SIZE;
+            // 要操作的buf结束的字节偏移
+            let buf_end_byte_idx = start_bytes_away_sector + relative_block_idx * constants::DISK_SECTOR_SIZE;
+            buff[buf_start_byte_idx .. buf_end_byte_idx].copy_from_slice(single_sector_buffer);
+            bytes_read = single_sector_buffer.len();
         }
-        disk.write_sector(single_sector_buffer, *data_block_lba, 1);
         succeed_bytes += bytes_read;
+        left_bytes -= bytes_read as i32;
     }
+    return Result::Ok(succeed_bytes);
 }

@@ -18,6 +18,7 @@ macro_rules! cstr_write {
 }
 
 #[no_mangle]
+#[inline(never)]
 pub fn sprintf_fn<'a>(buf: &'a mut [u8], args: fmt::Arguments) {
     // 封装成BufferContainer
     let mut buffer = BufferContainer::new(buf);
@@ -36,6 +37,7 @@ struct BufferContainer<'a> {
     cur_idx: usize,
 }
 impl <'a>BufferContainer<'a> {
+    #[inline(never)]
     pub fn new(buf: &'a mut [u8]) -> Self {
         Self {
             buffer: buf,

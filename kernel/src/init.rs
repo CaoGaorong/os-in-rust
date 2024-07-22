@@ -1,11 +1,12 @@
 #![feature(abi_x86_interrupt)]
 
 
-use os_in_rust_common::{bios_mem::{ARDSType, AddressRangeDescriptorStructure}, context::BootContext, cstr_write, instruction, printkln, ASSERT};
+use os_in_rust_common::{bios_mem::{ARDSType, AddressRangeDescriptorStructure}, context::BootContext, ASSERT, printkln};
 
-use crate::{console, console_println, device, filesystem::{self, file::OpenedFile, file_api::{File, OpenOptions}}, interrupt, memory, sys_call, thread_management, tss};
+use crate::{console_println, device, filesystem::{self, file_api::{File, OpenOptions}}, interrupt, memory, sys_call, thread_management, tss};
 
 #[inline(never)]
+#[no_mangle]
 pub fn init_all(boot_info: &BootContext) {
     // 初始化中断描述符和中断控制器
     interrupt::init();
@@ -83,14 +84,25 @@ pub fn init_all(boot_info: &BootContext) {
     let result = filesystem::dir::search("/dev/proc");
     printkln!("search result:{:?}", result);
 
-    printkln!("{:?}", File::create("/dev/proc/test.rs"));
+    let res = File::create("/dev/proc/test.rs");
+    printkln!("create result: {:?}", res);
 
-    let file = File::open("/a.txt");
+    let file = OpenOptions::new().read(true).write(true).open("/a.txt");
     printkln!("open_result: {:?}", file);
     ASSERT!(file.is_ok());
     let mut file = file.unwrap();
-    let buf: &mut [u8; 20] = memory::malloc(20);
-    cstr_write!(buf, "Hello, World");
-    // printkln!("{:?}", file.write(buf));
+    let write_res = file.write("Hello, World".as_bytes());
+    printkln!("write file res: {:?}", write_res);
+
+    let write_res = file.write("hahah".as_bytes());
+    printkln!("write file res:  {:?}", write_res);
+
+    let buff: &mut [u8; 100] = memory::malloc(100);
+    printkln!("seek res: {:?}", file.seek(0));
+    let read_result = file.read(buff);
+    printkln!("read result: {:?}", read_result);
+
+    let string = core::str::from_utf8(buff);
+    printkln!("string result: {:?}", string.unwrap());
     
 }

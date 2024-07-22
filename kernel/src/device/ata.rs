@@ -1,7 +1,6 @@
-use core::{ptr, slice};
+use core::ptr;
 
-use os_in_rust_common::{bitmap::BitMap, constants, cstring_utils, domain::LbaAddr, elem2entry, linked_list::{LinkedList, LinkedNode}, printk, printkln, ASSERT, MY_PANIC};
-use crate::{device::pio::ErrorRegister, filesystem::superblock::SuperBlock, println, thread};
+use os_in_rust_common::{constants, cstring_utils, domain::LbaAddr, elem2entry, linked_list::LinkedNode, printk, printkln, ASSERT, MY_PANIC};
 
 use crate::sync::{Lock, Semaphore};
 
