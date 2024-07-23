@@ -1,4 +1,4 @@
-use core::{mem::{self, size_of}, slice};
+use core::{mem::size_of, slice};
 
 use os_in_rust_common::{bitmap::BitMap, constants, domain::{InodeNo, LbaAddr}, linked_list::LinkedList, racy_cell::RacyCell, utils, ASSERT, MY_PANIC};
 
@@ -19,8 +19,11 @@ pub fn set_filesystem(cur_part: FileSystem) {
     *unsafe { CUR_FILE_SYSTEM.get_mut() } = Option::Some(cur_part);
 }
 
-pub fn get_filesystem() -> Option<&'static mut FileSystem> {
-    unsafe { CUR_FILE_SYSTEM.get_mut() }.as_mut()
+#[inline(never)]
+pub fn get_filesystem() -> &'static mut FileSystem {
+    let fs = unsafe { CUR_FILE_SYSTEM.get_mut() }.as_mut();
+    ASSERT!(fs.is_some());
+    fs.unwrap()
 }
 
 /**
@@ -88,10 +91,6 @@ impl FileSystem {
     #[inline(never)]
     pub fn get_root_dir(&self) -> &'static mut Dir<'static> {
         let file_system = self::get_filesystem();
-        if file_system.is_none() {
-            MY_PANIC!("file system is not loaded");
-        }
-        let file_system =  file_system.unwrap();
         let root_dir = file_system.root_dir.as_mut();
         ASSERT!(root_dir.is_some());
         let root_dir = root_dir.unwrap();
@@ -185,6 +184,7 @@ impl FileSystem {
     /**
      * 根据inode号计算出，该inode所处硬盘的哪个位置
      */
+    #[inline(never)]
     pub fn locate_inode(&self, i_no: InodeNo) -> InodeLocation {
         if u32::from(i_no) >  constant::MAX_FILE_PER_FS {
             MY_PANIC!("failed to locate inode({:?}). exceed maximum({})", i_no, constant::MAX_FILE_PER_FS);
@@ -201,7 +201,7 @@ impl FileSystem {
         InodeLocation {
             lba: self.super_block.inode_table_lba.add(sec_start.try_into().unwrap()),
             bytes_off: (i_idx_start % constants::DISK_SECTOR_SIZE).try_into().unwrap(),
-            sec_cnt: (sec_end - sec_start).max(1).try_into().unwrap(),
+            sec_cnt: sec_end.max(sec_start + 1) - sec_start,
         }
     }
 
@@ -283,8 +283,8 @@ impl FileSystem {
             block_lba
         // 再找间接块
         } else {
-            // 先把间接块的数据加载出来（如果间接块不存在，会自动创建）
-            parent_inode.load_data_block(self);
+            // 申请一个间接块
+            parent_inode.apply_indirect_data_block(self);
 
             // 在间接块中，找是否有空闲目录项
             let indirect_find = Self::find_available_entry(parent_inode.get_indirect_data_blocks(), dir_list, disk);
@@ -363,6 +363,7 @@ impl InodePool {
     /**
      * ino号inode所在的inode位图同步到硬盘
      */
+    #[inline(never)]
     pub fn sync_inode_pool(&mut self, ino: InodeNo) {
         let disk = unsafe { &mut *self.disk };
         // 定位这个inode，所在扇区的LBA地址 和 扇区数据

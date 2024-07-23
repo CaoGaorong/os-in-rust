@@ -101,6 +101,10 @@ fn malloc_bytes(vaddr_pool: &mut MemPool, phy_mem_pool: &mut MemPool, allocator:
     arena.apply_one();
     
     container.lock.unlock();
+    
+    let mem_block_ptr = first_block as *mut _ as *mut u8;
+    // 清零
+    unsafe { mem_block_ptr.write_bytes(0, arena.block_size()) };
     return first_block as *const _ as usize;
 }
 

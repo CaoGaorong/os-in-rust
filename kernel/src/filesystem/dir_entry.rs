@@ -1,6 +1,6 @@
 use core::{mem::size_of, slice};
 
-use os_in_rust_common::{constants, cstr_write, cstring_utils, domain::InodeNo, ASSERT};
+use os_in_rust_common::{constants, cstr_write, cstring_utils, domain::{InodeNo, LbaAddr}, utils, ASSERT};
 
 use crate::memory;
 
@@ -68,6 +68,7 @@ impl DirEntry {
         name.unwrap()
     }
 
+    #[inline(never)]
     pub fn is_empty(&self) -> bool {
         let i = usize::from(self.i_no);
         // 这是根目录，非空
@@ -79,6 +80,12 @@ impl DirEntry {
 }
 
 
+pub fn read_dir_entry<'a, 'b>(fs: &'a mut FileSystem, lba: LbaAddr, buff: &'b mut [u8; constants::DISK_SECTOR_SIZE]) -> &'b mut [DirEntry] {
+    let disk = unsafe { &mut *fs.base_part.from_disk };
+    disk.read_sectors(lba, 1, buff);
+    
+    unsafe { core::slice::from_raw_parts_mut(buff.as_mut_ptr() as *mut DirEntry, buff.len() / size_of::<DirEntry>()) }
+}
 
 /**
  * 指定目录项的路径，搜索这个目录项
@@ -133,7 +140,7 @@ pub fn search_dir_entry(filesystem: &mut FileSystem, file_path: &str) -> Option<
 pub fn do_search_dir_entry(fs: &mut FileSystem, dir_inode: &mut OpenedInode, entry_name: &str) -> Option<DirEntry> {
     // 如果直接块都满了，那么就需要加载间接块
     if dir_inode.get_direct_data_blocks_ref().iter().all(|block| !block.is_empty()) {
-        dir_inode.load_data_block(fs);
+        dir_inode.load_indirect_data_block(fs);
     }
 
     // 取出所有的数据块
@@ -174,23 +181,23 @@ pub fn do_search_dir_entry(fs: &mut FileSystem, dir_inode: &mut OpenedInode, ent
  *   - 把这个inode挂到该目录下（把目录项放写入到目录对应的数据区）
  */
 #[inline(never)]
-pub fn create_dir_entry(fs: &mut FileSystem, parent_inode: &mut OpenedInode, entry_name: &str, file_type: FileType) -> Option<(DirEntry, &'static mut OpenedInode)> {
+pub fn create_dir_entry(fs: &mut FileSystem, parent_inode: &mut OpenedInode, entry_name: &str, file_type: FileType) -> &'static mut OpenedInode {
 
     /****1. 创建一个目录项 */
-    let (created_dir_entry, created_entry_inode) = self::do_create_dir_entry(fs, parent_inode, Option::None, entry_name, file_type)?;
+    let created_entry_inode = self::do_create_dir_entry(fs, parent_inode, Option::None, entry_name, file_type);
 
     /***2. 填充内存结构*****/
     fs.open_inodes.append(&mut created_entry_inode.tag);
 
     // 返回创建好了目录项
-    Option::Some((created_dir_entry, created_entry_inode))
+    created_entry_inode
 }
 
 /**
  * 在parent_inode目录下，创建名为entry_name，并且inode号为entry_inode的目录项。
  */
 #[inline(never)]
-pub fn do_create_dir_entry(fs: &mut FileSystem, parent_inode: &mut OpenedInode, entry_inode: Option<InodeNo>, entry_name: &str, file_type: FileType) -> Option<(DirEntry, &'static mut OpenedInode)> {
+pub fn do_create_dir_entry(fs: &mut FileSystem, parent_inode: &mut OpenedInode, entry_inode: Option<InodeNo>, entry_name: &str, file_type: FileType) -> &'static mut OpenedInode {
     let (inode_no, opened_inode) = if entry_inode.is_none() {
         /***1. 创建文件的inode。物理结构，同步到硬盘中*****/
         // 从当前分区中，申请1个inode，并且写入硬盘（inode位图）
@@ -213,16 +220,11 @@ pub fn do_create_dir_entry(fs: &mut FileSystem, parent_inode: &mut OpenedInode, 
     /***2. 把这个新文件作为一个目录项，挂到父目录中*****/
     // 创建一个目录项
     let dir_entry = DirEntry::new(inode_no, entry_name, file_type);
-    let search_result = self::do_search_dir_entry(fs, parent_inode, entry_name);
-    // 如果这个目录项，已经存在同名的了
-    if search_result.is_some() {
-        return Option::None;
-    }
 
     // 把目录项挂到目录并且写入硬盘（inode数据区）
     fs.sync_dir_entry(parent_inode, &dir_entry);
     
-    return Option::Some((dir_entry, opened_inode));
+    opened_inode
 }
 
 

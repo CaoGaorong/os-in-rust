@@ -1,4 +1,4 @@
-use os_in_rust_common::{cstr_write, ASSERT};
+use os_in_rust_common::{cstr_write, printkln, ASSERT};
 
 use crate::{filesystem::{constant, file, fs}, thread};
 
@@ -45,6 +45,18 @@ impl OpenOptions {
         return Result::Ok(file);
     }
 
+}
+
+/**
+ * 文件操作Seek
+ */
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub enum SeekFrom {
+    /**
+     * 从文件的起始开始偏移
+     */
+    Start(u32),
 }
 
 /**
@@ -110,9 +122,15 @@ impl File {
      * 设置该文件操作的偏移量
      */
     #[inline(never)]
-    pub fn seek(&mut self, from: u32) -> Result<(), FileError>{
+    pub fn seek(&mut self, from: SeekFrom) -> Result<(), FileError>{
         let opened_file = self.get_opened_file()?;
-        opened_file.set_file_off(from);
+        
+        let off = match from {
+            SeekFrom::Start(start) => start,
+            _ => 0,
+        };
+
+        opened_file.set_file_off(off);
         return Result::Ok(());
     }
 
@@ -126,8 +144,6 @@ impl File {
         }
         let opened_file = self.get_opened_file()?;
         let fs = fs::get_filesystem();
-        ASSERT!(fs.is_some());
-        let fs = fs.unwrap();
         file::read_file(fs, opened_file, buff)
     }
 
@@ -144,8 +160,6 @@ impl File {
         let opened_file = self.get_opened_file()?;
         
         let fs = fs::get_filesystem();
-        ASSERT!(fs.is_some());
-        let fs = fs.unwrap();
 
         // 写入文件
         file::write_file(fs, opened_file, buff)

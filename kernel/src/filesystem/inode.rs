@@ -160,17 +160,33 @@ impl OpenedInode {
     }
 
     /**
-     * 加载所有数据块的LBA地址
+     * 申请一个间接块
+     *  - 如果间接块已经存在，那也不用申请
      */
-    pub fn load_data_block(&mut self, fs: &mut FileSystem) {
+    #[inline(never)]
+    pub fn apply_indirect_data_block(&mut self, fs: &mut FileSystem) {
+        // 数组最后一个元素，是间接块的LBA地址。这个块里面，是很多的LBA地址
+        let indirect_lba = *unsafe { self.indirect_block_lba.get_mut() };
+        if !indirect_lba.is_empty() {
+            return;
+        }
+        self.indirect_block_lba = RacyCell::new(fs.data_block_pool.apply_block(1));
+    }
+
+    /**
+     * 加载间接块的数据
+     *  - 如果不存在间接块，那也不用加载
+     */
+    #[inline(never)]
+    pub fn load_indirect_data_block(&mut self, fs: &mut FileSystem) {
 
         // 数组最后一个元素，是间接块的LBA地址。这个块里面，是很多的LBA地址
         let indirect_lba = *unsafe { self.indirect_block_lba.get_mut() };
         let disk = unsafe { &mut *fs.base_part.from_disk };
 
-        // 如果该间接块地址不可用，那么申请一个数据块
-        if !indirect_lba.is_empty() {
-            self.indirect_block_lba = RacyCell::new(fs.data_block_pool.apply_block(1));
+        // 如果间接块是空的，需要申请一个块
+        if indirect_lba.is_empty() {
+            return;
         }
 
         // 数组的剩下元素，转成一个u8数组
@@ -262,6 +278,7 @@ pub struct InodeLocation {
 }
 
 impl InodeLocation {
+    #[inline(never)]
     pub fn new(lba: LbaAddr, bytes_off: usize, sec_cnt: usize) -> Self {
         Self {
             lba: lba,

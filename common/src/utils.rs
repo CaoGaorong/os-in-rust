@@ -22,7 +22,7 @@ pub const fn bool_to_u8 (b: bool) -> u8 {
 /**
  * 两个数相除，线上取整
  */
-// #[inline(never)]
+#[inline(never)]
 pub fn div_ceil<T: Into<u32>>(num1: T, num2:T) -> u32 {
     let n1: u32 = num1.into();
     let n2: u32 = num2.into();

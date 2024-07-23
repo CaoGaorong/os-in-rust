@@ -89,11 +89,6 @@ pub fn open_file(file_path: &str, append: bool) -> Result<FileDescriptor, FileEr
         return Result::Err(FileError::FilePathIllegal);
     }
     let fs = fs::get_filesystem();
-    ASSERT!(fs.is_some());
-    let fs = fs.unwrap();
-    let fs = fs::get_filesystem();
-    ASSERT!(fs.is_some());
-    let fs = fs.unwrap();
 
 
     // 搜索到这个文件
@@ -136,11 +131,6 @@ pub fn open_file(file_path: &str, append: bool) -> Result<FileDescriptor, FileEr
 #[inline(never)]
 pub fn create_file(file_path: &str) -> Result<FileDescriptor, FileError> {
     let fs = fs::get_filesystem();
-    ASSERT!(fs.is_some());
-    let fs = fs.unwrap();
-    let fs = fs::get_filesystem();
-    ASSERT!(fs.is_some());
-    let fs = fs.unwrap();
 
 
     let last_slash_idx = file_path.rfind("/");
@@ -170,12 +160,7 @@ pub fn create_file(file_path: &str) -> Result<FileDescriptor, FileError> {
         return Result::Err(FileError::AlreadyExists);
     }
 
-    let create_result = dir_entry::create_dir_entry(fs, dir_inode, file_name, FileType::Regular);
-    // 创建目录项失败了
-    if create_result.is_none() {
-        return Result::Err(FileError::AlreadyExists);
-    }
-    let (_, opened_inode) = create_result.unwrap();
+    let opened_inode = dir_entry::create_dir_entry(fs, dir_inode, file_name, FileType::Regular);
     
 
     // 得到一个打开文件
@@ -225,15 +210,15 @@ pub fn write_file(fs: &mut FileSystem, file: &mut OpenedFile, buff: &[u8]) -> Re
     let start_data_block_idx = file.file_off as usize / constants::DISK_SECTOR_SIZE;
     // 要写入到文件的最后一个字节，所在该inode数据扇区的下标
     let end_data_block_idx = (file.file_off as usize + buff.len()) / constants::DISK_SECTOR_SIZE;
-    // 如果涉及到间接块，那么需要加载间接块的数据
+    // 如果涉及到间接块，需要申请一个间接块
     if end_data_block_idx >= file.inode.get_direct_data_blocks_ref().len() {
-        file.inode.load_data_block(fs);
+        file.inode.apply_indirect_data_block(fs);
     }
 
     // 要操作的文件偏移量，超过1个扇区的字节数
     let start_bytes_over_sector = file.file_off as usize % constants::DISK_SECTOR_SIZE;
-    // 要操作的文件偏移量，相距首个扇区的距离
-    let start_bytes_away_first_sector = constants::DISK_SECTOR_SIZE - start_bytes_over_sector;
+    // 要操作的文件偏移量，在一个扇区中剩余的字节数
+    let start_bytes_left_sector = constants::DISK_SECTOR_SIZE - start_bytes_over_sector;
 
     // 要写入的最后一个字节，超过整扇区的部分（字节数）
     let end_bytes_over_sector = (file.file_off as usize + buff.len()) % constants::DISK_SECTOR_SIZE;
@@ -267,7 +252,7 @@ pub fn write_file(fs: &mut FileSystem, file: &mut OpenedFile, buff: &[u8]) -> Re
                 disk.read_sectors(*data_block_lba, 1, single_sector_buffer);
             }
             // 写入的字节数量 = 当前扇区剩余的数量和缓冲区长度的最小值
-            bytes_written = start_bytes_away_first_sector.min(buff.len());
+            bytes_written = start_bytes_left_sector.min(buff.len());
             // 把缓冲区single_sector_buffer的后半部分，使用要写入的数据buff覆盖
             single_sector_buffer[start_bytes_over_sector..start_bytes_over_sector + bytes_written].copy_from_slice(&buff[..bytes_written]);
 
@@ -278,18 +263,23 @@ pub fn write_file(fs: &mut FileSystem, file: &mut OpenedFile, buff: &[u8]) -> Re
                 disk.read_sectors(*data_block_lba, 1, single_sector_buffer);
             }
             bytes_written = end_bytes_over_sector;
+            // 如果这是最后一个扇区，同时也是第一个扇区
+            let sector_start_idx = if block_idx == start_data_block_idx { start_bytes_over_sector } else {0};
             // 缓冲区要操作开始的字节下标
             let buf_start_idx = (constants::DISK_SECTOR_SIZE * relative_block_idx).overflowing_sub(start_bytes_over_sector);
             // 如果溢出了，那开始字节偏移就是0
             let buf_start_idx = if buf_start_idx.1 { 0 } else {buf_start_idx.0};
-            single_sector_buffer[start_bytes_over_sector..end_bytes_over_sector].copy_from_slice(&buff[buf_start_idx..buf_start_idx + end_bytes_over_sector]);
+            
+            single_sector_buffer[sector_start_idx..end_bytes_over_sector].copy_from_slice(&buff[buf_start_idx..buf_start_idx + end_bytes_over_sector]);
 
         // 不是第一个扇区，也不是最后一个扇区，那就是中间连续的扇区，直接复制就好
         } else {
-            // 缓冲区开始的字节偏移
-            let buf_start_byte_idx = start_bytes_away_first_sector + constants::DISK_SECTOR_SIZE * (relative_block_idx.min(1) - 1);
+            // 缓冲区开始的字节偏移。
+            let buf_start_byte_idx = start_bytes_left_sector as isize + constants::DISK_SECTOR_SIZE as isize * (relative_block_idx as isize - 1);
+            ASSERT!(buf_start_byte_idx >= 0);
+            let buf_start_byte_idx = buf_start_byte_idx as usize;
             // 缓冲区结束的字节偏移
-            let buf_end_byte_idx = start_bytes_away_first_sector + constants::DISK_SECTOR_SIZE * relative_block_idx;
+            let buf_end_byte_idx = start_bytes_left_sector + constants::DISK_SECTOR_SIZE * relative_block_idx;
             single_sector_buffer.copy_from_slice(&buff[buf_start_byte_idx .. buf_end_byte_idx]);
             bytes_written = single_sector_buffer.len();
         }
@@ -341,7 +331,7 @@ pub fn read_file(fs: &mut FileSystem, file: &mut OpenedFile, buff: &mut [u8]) ->
     let end_data_block_idx = (file.file_off as usize + buff.len()) / constants::DISK_SECTOR_SIZE;
     // 如果涉及到间接块，那么需要加载间接块的数据
     if end_data_block_idx >= file.inode.get_direct_data_blocks_ref().len() {
-        file.inode.load_data_block(fs);
+        file.inode.load_indirect_data_block(fs);
     }
 
     // 要操作的文件开始的字节，距离所在扇区开头的偏移量
@@ -374,7 +364,7 @@ pub fn read_file(fs: &mut FileSystem, file: &mut OpenedFile, buff: &mut [u8]) ->
         if left_bytes <= 0 {
             break;
         }
-        // 如果这个数据扇区没有地址，说明读取完成了
+        // 如果这个数据扇区没有地址
         if data_block_lba.is_empty() {
             continue;
         }
@@ -389,12 +379,14 @@ pub fn read_file(fs: &mut FileSystem, file: &mut OpenedFile, buff: &mut [u8]) ->
         
         // 如果是操作最后一个扇区，并且写入的字节结束偏移量不是整扇区，并且不是第一个扇区
         } else if block_idx == end_data_block_idx && end_bytes_over_sector > 0 {
+            // 如果这是最后一个扇区，同时也是第一个扇区
+            let sector_start_idx = if block_idx == start_data_block_idx { start_bytes_over_sector } else {0};
             // 缓冲区要操作开始的字节下标
             let buf_start_idx = (constants::DISK_SECTOR_SIZE * relative_block_idx).overflowing_sub(start_bytes_over_sector);
             // 如果溢出了，那开始字节偏移就是0
             let buf_start_idx = if buf_start_idx.1 { 0 } else {buf_start_idx.0};
             // buff后半部分，使用读取到的扇区的前半部分代替
-            buff[buf_start_idx..buf_start_idx+end_bytes_over_sector].copy_from_slice(&single_sector_buffer[start_bytes_over_sector..end_bytes_over_sector]);
+            buff[buf_start_idx..buf_start_idx+end_bytes_over_sector].copy_from_slice(&single_sector_buffer[sector_start_idx..end_bytes_over_sector]);
             bytes_read = end_bytes_over_sector;
         
         // 不是第一个扇区，也不是最后一个扇区，那就是中间连续的扇区，直接复制就好
@@ -408,6 +400,7 @@ pub fn read_file(fs: &mut FileSystem, file: &mut OpenedFile, buff: &mut [u8]) ->
         }
         succeed_bytes += bytes_read;
         left_bytes -= bytes_read as i32;
+        file.file_off += bytes_read as u32;
     }
     return Result::Ok(succeed_bytes);
 }

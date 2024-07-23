@@ -63,6 +63,7 @@ pub fn is_intr_on() -> bool {
     reg_eflags::is_flag_on(reg_eflags::FlagEnum::InterruptFlag)
 }
 
+#[inline(never)]
 #[cfg(all(not(test), target_arch = "x86"))]
 pub fn load_esp() -> u32 {
     let cur_esp: u32;

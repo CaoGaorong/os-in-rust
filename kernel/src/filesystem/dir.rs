@@ -13,10 +13,6 @@ use super::{dir_entry::{self, DirEntry, FileType}, fs::{self, FileSystem}, inode
 pub fn init_root_dir() {
     // printkln!("init root dir");
     let file_system = fs::get_filesystem();
-    if file_system.is_none() {
-        MY_PANIC!("file system is not loaded");
-    }
-    let file_system = file_system.unwrap();
     file_system.load_root_dir();
 }
 
@@ -43,8 +39,7 @@ impl <'a>Dir<'a> {
 #[inline(never)]
 pub fn search(file_path: &str) -> Option<DirEntry> {
     let fs  = fs::get_filesystem();
-    ASSERT!(fs.is_some());
-    let result = dir_entry::search_dir_entry(fs.unwrap(), file_path);
+    let result = dir_entry::search_dir_entry(fs, file_path);
     if result.is_none() {
         return Option::None;
     }
@@ -80,9 +75,8 @@ pub fn mkdir_p(fs: &mut FileSystem, dir_path: &str) -> Result<bool, CreateDirErr
         if entry_name.is_empty() {
             continue;
         }
-        let mut base_dir = Dir::new(base_inode);
         // 创建子目录
-        let sub_dir_entry = self::mkdir(fs, &mut base_dir, entry_name)?;
+        let sub_dir_entry = self::mkdir(fs, base_inode, entry_name);
         // 基于子目录
         base_inode = fs.inode_open(sub_dir_entry.i_no);
     }
@@ -93,39 +87,30 @@ pub fn mkdir_p(fs: &mut FileSystem, dir_path: &str) -> Result<bool, CreateDirErr
  * 在parent_dir目录下，创建一个名为dir_name的子目录
  */
 #[inline(never)]
-pub fn mkdir(fs: &mut FileSystem, parent_dir: &mut Dir, dir_name: &str) -> Result<DirEntry, CreateDirError> {
+pub fn mkdir(fs: &mut FileSystem, parent_dir_inode: &mut OpenedInode, dir_name: &str) -> &'static mut OpenedInode {
     // 在该目录下创建一个文件夹类型的目录项
-    let create_result = dir_entry::create_dir_entry(fs, parent_dir.inode, dir_name, FileType::Directory);
-    let (dir_entry, _) = create_result.unwrap();
+    let entry_inode = dir_entry::create_dir_entry(fs, parent_dir_inode, dir_name, FileType::Directory);
     // 该目录项下应该还有两项，分别是: ..和.
-    let cur_inode = fs.inode_open(dir_entry.i_no);
+    let cur_inode = fs.inode_open(entry_inode.i_no);
     // 创建..目录项
-    dir_entry::do_create_dir_entry(fs, cur_inode, Option::Some(parent_dir.inode.i_no), "..", FileType::Directory);
+    dir_entry::do_create_dir_entry(fs, cur_inode, Option::Some(parent_dir_inode.i_no), "..", FileType::Directory);
     // 创建 .目录项
-    dir_entry::do_create_dir_entry(fs, cur_inode, Option::Some(dir_entry.i_no), ".", FileType::Directory);
+    dir_entry::do_create_dir_entry(fs, cur_inode, Option::Some(entry_inode.i_no), ".", FileType::Directory);
     
-    return Result::Ok(dir_entry);
+    entry_inode
 }
 
 
 #[inline(never)]
-pub fn mkdir_in_root(dir_name: &str) -> Result<DirEntry, CreateDirError> {
+pub fn mkdir_in_root(dir_name: &str) -> &'static mut OpenedInode {
     let file_system = fs::get_filesystem();
-    if file_system.is_none() {
-        MY_PANIC!("file system is not loaded");
-    }
-    let file_system = file_system.unwrap();
     let root_dir = file_system.get_root_dir();
-    mkdir(file_system, root_dir, dir_name)
+    mkdir(file_system, root_dir.inode, dir_name)
 }
 
 #[inline(never)]
 pub fn mkdir_p_in_root(dir_path: &str) -> Result<bool, CreateDirError> {
     let file_system = fs::get_filesystem();
-    if file_system.is_none() {
-        MY_PANIC!("file system is not loaded");
-    }
-    let file_system = file_system.unwrap();
     mkdir_p(file_system, dir_path)
 }
 

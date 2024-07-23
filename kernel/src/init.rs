@@ -1,9 +1,8 @@
-#![feature(abi_x86_interrupt)]
-
-
 use os_in_rust_common::{bios_mem::{ARDSType, AddressRangeDescriptorStructure}, context::BootContext, ASSERT, printkln};
 
-use crate::{console_println, device, filesystem::{self, file_api::{File, OpenOptions}}, interrupt, memory, sys_call, thread_management, tss};
+use crate::{device, filesystem::{self, File, FileType, OpenOptions, SeekFrom}, interrupt, memory, sys_call, thread_management, tss};
+
+static text: &'static str = "012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789";
 
 #[inline(never)]
 #[no_mangle]
@@ -55,7 +54,7 @@ pub fn init_all(boot_info: &BootContext) {
     filesystem::init_root_dir();
 
     // 创建文件
-    let res = filesystem::create_file_in_root("test.txt");
+    let res = File::create("/test.txt");
     printkln!("create test.txt: {:?}", res);
     // 重复创建，失败
     printkln!("{:?}", File::create("/test.txt"));
@@ -63,46 +62,46 @@ pub fn init_all(boot_info: &BootContext) {
     // 创建一个父目录不存在的文件
     printkln!("{:?}", File::create("/dev/proc/test.rs"));
 
-    let res = filesystem::create_file_in_root("a.txt");
-    printkln!("create a.txt: {:?}", res);
-
-    let res = filesystem::create_file_in_root("b.txt");
-    printkln!("create b.txt: {:?}", res);
+    printkln!("create a.txt: {:?}", File::create("/a.txt"));
+    printkln!("create b.txt: {:?}", File::create("/b.txt"));
 
 
-    let result = filesystem::dir::search("/a.txt");
-    ASSERT!(result.is_some());
-    let result = result.unwrap();
-    printkln!("file name: {}", result.get_name());
+    printkln!("res:{:?}", filesystem::create_dir("/sample"));
 
-    let res = filesystem::dir::mkdir_in_root("sample");
-    printkln!("res:{:?}", res);
+    printkln!("mkdir result: {:?}", filesystem::create_dir_all("/dev/proc/"));
 
-    let res = filesystem::dir::mkdir_p_in_root("/dev/proc/");
-    printkln!("mkdir result: {:?}", res);
 
-    let result = filesystem::dir::search("/dev/proc");
-    printkln!("search result:{:?}", result);
+    printkln!("create result: {:?}", File::create("/dev/proc/test.rs"));
+    printkln!("create result: {:?}", File::create("/dev/proc/test.rs"));
+    printkln!("res:{:?}", filesystem::create_dir("/dev/proc/folder1"));
 
-    let res = File::create("/dev/proc/test.rs");
-    printkln!("create result: {:?}", res);
+    let dir = filesystem::read_dir("/dev/proc/");
+    let dir = dir.unwrap();
+    printkln!("read dir: {:?}", dir.get_path());
+    let iterator = dir.iter();
+    printkln!("read dir: {:?}", iterator);
+    for dir_entry in  iterator {
+        printkln!("entry_name: {:?}, file_type: {:?}", dir_entry.get_name(), dir_entry.file_type as FileType);
+    }
 
-    let file = OpenOptions::new().read(true).write(true).open("/a.txt");
-    printkln!("open_result: {:?}", file);
-    ASSERT!(file.is_ok());
-    let mut file = file.unwrap();
-    let write_res = file.write("Hello, World".as_bytes());
-    printkln!("write file res: {:?}", write_res);
 
-    let write_res = file.write("hahah".as_bytes());
-    printkln!("write file res:  {:?}", write_res);
+    // let file = OpenOptions::new().read(true).write(true).open("/a.txt");
+    // printkln!("open_result: {:?}", file);
+    // ASSERT!(file.is_ok());
+    // let mut file = file.unwrap();
+    // let write_res = file.write(text.as_bytes());
+    // printkln!("write file res: {:?}", write_res);
 
-    let buff: &mut [u8; 100] = memory::malloc(100);
-    printkln!("seek res: {:?}", file.seek(0));
-    let read_result = file.read(buff);
-    printkln!("read result: {:?}", read_result);
+    // let write_res = file.write(text.as_bytes());
+    // printkln!("write file res:  {:?}", write_res);
 
-    let string = core::str::from_utf8(buff);
-    printkln!("string result: {:?}", string.unwrap());
+    // let buff: &mut [u8; 666] = memory::malloc(666);
+    // printkln!("seek res: {:?}", file.seek(SeekFrom::Start(55)));
+
+    // let read_result = file.read(buff);
+    // printkln!("read result: {:?}", read_result);
+
+    // let string = core::str::from_utf8(buff);
+    // printkln!("string result: {:?}", string.unwrap());
     
 }

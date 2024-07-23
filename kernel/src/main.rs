@@ -28,15 +28,11 @@ mod device;
 mod filesystem;
 
 
-use core::ptr::slice_from_raw_parts;
-use core::{slice, str};
 use core::{arch::asm, mem::size_of, panic::PanicInfo};
 use device::ata::{Disk, Partition};
-use filesystem::superblock::SuperBlock;
 use memory::mem_block::{Arena, MemBlock};
-use os_in_rust_common::domain::LbaAddr;
-use os_in_rust_common::{cstring_utils, instruction, vga, MY_PANIC};
-use os_in_rust_common::{ASSERT, constants, context::BootContext, elem2entry, instruction::enable_interrupt, printk, printkln};
+use os_in_rust_common::{cstring_utils, instruction, vga};
+use os_in_rust_common::{ASSERT, constants, context::BootContext, elem2entry, printk, printkln};
 use os_in_rust_common::linked_list::{LinkedList, LinkedNode};
 use thread::ThreadArg;
 
@@ -73,7 +69,6 @@ pub extern "C" fn _start(boot_info: &BootContext) {
     let disk =  &mut primary.disks[1];
     print_disk(disk.as_ref().unwrap());
 
-    print_cur_part();
     
     // // 测试一样空间的分配和释放
     // test_malloc_free();
@@ -84,17 +79,6 @@ pub extern "C" fn _start(boot_info: &BootContext) {
 
     // enable_interrupt();
     loop {}
-}
-
-fn print_cur_part() {
-    let cur_part = filesystem::fs::get_filesystem();
-    if cur_part.is_none() {
-        printkln!("no part mounted");
-        return 
-    };
-    let cur_part = cur_part.unwrap();
-    printkln!("part {} mounted", cur_part.base_part.get_name());
-    printkln!("{:?}", cur_part.super_block);
 }
 
 fn print_disk(disk: &Disk) {

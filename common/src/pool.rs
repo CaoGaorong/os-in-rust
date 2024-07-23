@@ -57,6 +57,7 @@ impl MemPool {
     /**
      * 申请page_cnt页的空间大小，返回申请到的该页的起始虚拟地址
      */
+    #[inline(never)]
     pub fn apply(&mut self, page_cnt: usize) -> Result<usize, MemoryError> {
         
         // 从位图里面，申请连续page_cnt位
@@ -80,6 +81,7 @@ impl MemPool {
     /**
      * 判断某个地址，是否在这个池子中
      */
+    #[inline(never)]
     pub fn in_pool(&self, addr: usize) -> bool {
         // 如果这个地址小于该地址池的开始地址，那么放回失败
         if addr < self.addr_start {

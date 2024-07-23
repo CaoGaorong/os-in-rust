@@ -266,7 +266,7 @@ impl Disk {
         let lba_start = lba_start.get_lba() as usize;
         let lba_end = lba_start + sec_cnt;
         if lba_end > (constants::DISK_MAX_SIZE / constants::DISK_SECTOR_SIZE as u64) as usize {
-            printkln!("error to read sector. exceed maximum sector. lba:{}, sec_cnt:{}", lba_start, sec_cnt);
+            printkln!("error to write sector. exceed maximum sector. lba:{}, sec_cnt:{}", lba_start, sec_cnt);
             MY_PANIC!("");
         }
         // 缓冲区的数据，只能多，不能少

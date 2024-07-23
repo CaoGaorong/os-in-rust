@@ -33,6 +33,7 @@ static mut GLOBAL_PID_POOL: Mutex<PidPool> = Mutex::new(PidPool::empty());
 /**
  * 从位图里面申请一个pid
  */
+#[inline(never)]
 pub fn allocate() -> u8 {
     let mut pid_pool = unsafe { GLOBAL_PID_POOL.lock() };
     // 从位图里面找一位

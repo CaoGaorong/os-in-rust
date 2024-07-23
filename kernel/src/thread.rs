@@ -2,7 +2,7 @@ use core::{arch::asm, fmt::{write, Display, Pointer}, mem::size_of, ptr};
 
 use os_in_rust_common::{constants, elem2entry, instruction::{self, enable_interrupt}, linked_list::LinkedNode, paging::{self, PageTable}, pool::MemPool, printkln, reg_cr3::{self, CR3}, reg_eflags::{self, EFlags, FlagEnum}, selector::SegmentSelector, MY_PANIC};
 
-use crate::{console_println, filesystem::file_descriptor::FileDescriptorTable, memory::mem_block::MemBlockAllocator, page_util, pid_allocator, tss};
+use crate::{console_println, filesystem::FileDescriptorTable, memory::mem_block::MemBlockAllocator, page_util, pid_allocator, tss};
 
 
 /**
@@ -27,6 +27,7 @@ extern "C" fn kernel_thread(function: ThreadFunc, arg: ThreadArg) {
 /**
  * 获取当前运行的线程
  */
+#[inline(never)]
 pub fn current_thread() -> &'static mut PcbPage {
     let cur_esp = instruction::load_esp();
     unsafe { &mut *((cur_esp & 0xfffff000) as *mut PcbPage) }
@@ -215,6 +216,7 @@ impl Display for TaskStruct {
 }
 
 impl TaskStruct {
+    #[inline(never)]
     fn init(&mut self, name: &'static str, priority: u8, kernel_stack: u32, pcb_page_addr: u32) {
         self.pid = pid_allocator::allocate();
         self.kernel_stack = kernel_stack;

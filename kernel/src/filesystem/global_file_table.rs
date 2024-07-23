@@ -34,6 +34,7 @@ impl FileTable {
         idx
     }
 
+    #[inline(never)]
     fn get_free_index(&self) -> Option<usize> {
         for (idx, ele) in self.table.iter().enumerate() {
             if ele.is_none() {
@@ -43,6 +44,7 @@ impl FileTable {
         return Option::None;
     }
 
+    #[inline(never)]
     fn set_file(&mut self, idx: usize, file: OpenedFile) {
         self.table[idx] = Option::Some(file);
     }

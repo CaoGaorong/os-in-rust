@@ -1,3 +1,9 @@
+use core::mem::size_of;
+
+use os_in_rust_common::{constants, domain::LbaAddr};
+
+use super::dir_entry::DirEntry;
+
 /**
  * 文件系统魔数
  */
@@ -35,3 +41,9 @@ pub const MAX_OPENED_FILE_IN_SYSTEM: usize = 32;
  * 文件路径最大长度
  */
 pub const MAX_FILE_PATH_LEN: usize = 100;
+
+
+/**
+ * 一个块里面最多有多少个目录项
+ */
+pub const MAX_ENTRY_IN_BLOCK: usize = constants::DISK_SECTOR_SIZE / size_of::<DirEntry>();

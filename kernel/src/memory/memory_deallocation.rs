@@ -88,6 +88,7 @@ fn free_bytes(addr_pool: &mut MemPool, mem_pool: &mut MemPool, vaddr_to_free: us
  * - vaddr_start: 要释放的虚拟起始地址
  * - page_cnt: 要释放的页的数量
  */
+#[inline(never)]
 fn free_page(addr_pool: &mut MemPool, mem_pool: &mut MemPool, vaddr_start: usize, page_cnt: usize) {
     // 确保这个释放的地址，在当前的虚拟地址池中
     ASSERT!(addr_pool.in_pool(vaddr_start));
@@ -109,7 +110,9 @@ fn free_page(addr_pool: &mut MemPool, mem_pool: &mut MemPool, vaddr_start: usize
 
         // 物理地址
         let phy_addr = page_util::get_phy_from_virtual_addr(vaddr);
-        ASSERT!(mem_pool.in_pool(phy_addr));
+        if !mem_pool.in_pool(phy_addr) {
+            MY_PANIC!("phy addr: 0x{:x} not in memory pool", phy_addr);
+        }
 
         // 把物理地址放回池子中
         mem_pool.restore(phy_addr);
