@@ -1,6 +1,6 @@
 use core::mem::size_of;
 
-use os_in_rust_common::{constants, cstr_write, cstring_utils, ASSERT};
+use os_in_rust_common::{constants, cstr_write, cstring_utils, printkln, ASSERT, MY_PANIC};
 
 use crate::{
     filesystem::{dir_entry, fs}, memory}
@@ -143,7 +143,7 @@ pub fn create_dir(path: &str) -> Result<(), DirError> {
     }
     let last_slash_idx = last_slash_idx.unwrap();
     // 父目录的路径
-    let parent_dir_path = &path[..last_slash_idx];
+    let parent_dir_path = &path[..last_slash_idx.max(1)];
     // 要创建的目录项的名称
     let dir_entry_name = &path[last_slash_idx + 1..];
 

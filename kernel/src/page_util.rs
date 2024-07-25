@@ -18,6 +18,7 @@ use crate::memory;
  * 
  * 这是建立在一个前提下，就是页目录表已经存在了。如果整个页目录表都不存在，那直接就page fault了
  */
+#[inline(never)]
 pub fn add_page_connection(virtual_addr: usize, physical_addr: usize) {
     let pde_addr =  addr_to_pde(virtual_addr);
     let pte_addr =  addr_to_pte(virtual_addr);

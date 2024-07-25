@@ -2,8 +2,8 @@ mod test {
     use core::slice;
     use std::{fs::File, io::{BufReader, Read, Seek}, mem::size_of};
 
-    use kernel::filesystem::{dir_entry::DirEntry, inode::{Inode, OpenedInode}};
-    use os_in_rust_common::constants;
+    use kernel::filesystem::{inode::{Inode, OpenedInode}, DirEntry, FileType};
+    use os_in_rust_common::{constants, utils};
     use tests::file_system::{self, DISK_FILE_PATH};
 
     #[test]
@@ -15,6 +15,12 @@ mod test {
             }
             println!("entry: {:?}", entry);
         }
+    }
+
+    #[test]
+    fn entry_count_in_sector() {
+        println!("{}", constants::DISK_SECTOR_SIZE / size_of::<DirEntry>());
+        println!("{}", utils::div_ceil(constants::DISK_SECTOR_SIZE as u32, size_of::<DirEntry>() as u32) as usize );
     }
 
 
@@ -51,6 +57,22 @@ mod test {
                 println!("entry name: {}\n entry: {:?}\n  inode: {:?}\n", e.get_name(), e, inode_table[usize::from(e.i_no)]);
                 println!("------");
             });
+        }
+    }
+
+    #[test]
+    pub fn read_dir_entry() {
+        let entry_list = file_system::read_dir_entry("/dev/proc");
+        if entry_list.is_none() {
+            println!("目录不存在");
+            return;
+        }
+        let entry_list = entry_list.unwrap();
+        for entry in entry_list {
+            if entry.is_empty() {
+                continue;
+            }
+            println!("entry_name: {}, entry type: {:?}", entry.get_name(), entry.file_type as FileType);
         }
     }
 

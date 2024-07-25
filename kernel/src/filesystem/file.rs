@@ -2,10 +2,9 @@
 use os_in_rust_common::{constants, ASSERT};
 
 
-use crate::{filesystem::{dir_entry::FileType, global_file_table}, memory, thread};
-
+use crate::{memory, thread};
 use super::{
-    dir_entry, file_descriptor::FileDescriptor, fs::{self, FileSystem}, inode::OpenedInode
+    dir_entry, file_descriptor::FileDescriptor, fs::{self, FileSystem}, global_file_table, inode::OpenedInode, FileType
 };
 
 /**
@@ -35,23 +34,6 @@ impl OpenedFile {
     pub fn set_file_off(&mut self, off: u32) {
         self.file_off = off;
     }
-}
-/**
- * 标准文件描述符
- */
-pub enum StdFileDescriptor {
-    /**
-     * 标准输入
-     */
-    StdInputNo = 0x0,
-    /**
-     * 标准输出
-     */
-    StdOutputNo = 0x1,
-    /**
-     * 标准错误
-     */
-    StdErrorNo = 0x2,
 }
 
 
@@ -212,7 +194,7 @@ pub fn write_file(fs: &mut FileSystem, file: &mut OpenedFile, buff: &[u8]) -> Re
     let end_data_block_idx = (file.file_off as usize + buff.len()) / constants::DISK_SECTOR_SIZE;
     // 如果涉及到间接块，需要申请一个间接块
     if end_data_block_idx >= file.inode.get_direct_data_blocks_ref().len() {
-        file.inode.apply_indirect_data_block(fs);
+        fs.apply_indirect_data_block(file.inode);
     }
 
     // 要操作的文件偏移量，超过1个扇区的字节数
@@ -294,7 +276,7 @@ pub fn write_file(fs: &mut FileSystem, file: &mut OpenedFile, buff: &[u8]) -> Re
     // 当前文件的数据大小发生变化
     file.inode.i_size = file.inode.i_size.max(file.file_off);
     // 把inode元数据同步到硬盘（inode数组）
-    file.inode.sync_inode(fs);
+    fs.sync_inode(file.inode);
 
     return Result::Ok(succeed_bytes);
 }
@@ -331,7 +313,7 @@ pub fn read_file(fs: &mut FileSystem, file: &mut OpenedFile, buff: &mut [u8]) ->
     let end_data_block_idx = (file.file_off as usize + buff.len()) / constants::DISK_SECTOR_SIZE;
     // 如果涉及到间接块，那么需要加载间接块的数据
     if end_data_block_idx >= file.inode.get_direct_data_blocks_ref().len() {
-        file.inode.load_indirect_data_block(fs);
+        fs.load_indirect_data_block(file.inode);
     }
 
     // 要操作的文件开始的字节，距离所在扇区开头的偏移量

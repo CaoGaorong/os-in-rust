@@ -1,5 +1,7 @@
 use core::{fmt::Display, ops::{Add, Sub}};
 
+use crate::printkln;
+
 
 /**
  * LBA地址
@@ -92,6 +94,13 @@ impl InodeNo {
 
     pub fn add(&self, offset: usize) -> Self {
         Self::new(self.data + offset as u32)
+    }
+}
+
+impl Display for InodeNo {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        printkln!("{}", self.data as u32);
+        return Result::Ok(());
     }
 }
 

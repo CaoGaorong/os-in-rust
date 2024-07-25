@@ -23,6 +23,7 @@ impl <T> Mutex<T> {
     //     self.lock.init();
     // }
 
+    #[inline(never)]
     pub fn lock(&mut self) -> MutexGuard<T>{
         // 阻塞的锁
         self.lock.lock();

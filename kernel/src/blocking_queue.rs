@@ -78,7 +78,7 @@ impl <'a, T: Copy + Sized> BlockingQueue<T> for ArrayBlockingQueue<'a, T> {
         // 生产者拿走一个信号量，阻塞生产者
         self.producer.down();
         // 添加元素
-        self.queue.append(ele);
+        let _ = self.queue.append(ele);
         // 添加元素后，还给消费者一个信号量，通知消费者可以消费了
         self.consumer.up();
     }

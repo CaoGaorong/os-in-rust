@@ -1,6 +1,6 @@
 use core::arch::asm;
 
-use crate::{printkln, reg_eflags};
+use crate::reg_eflags;
 
 #[derive(PartialEq, Debug)]
 pub enum InterruptStatus {

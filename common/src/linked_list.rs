@@ -141,6 +141,7 @@ impl LinkedList {
      * 把第一个数据节点，弹出
      * head <-> A <-> B <-> tail。A节点弹出
      */
+    #[inline(never)]
     pub fn pop(&mut self) -> &mut LinkedNode {
         self.lock();
         ASSERT!(!self.is_empty());

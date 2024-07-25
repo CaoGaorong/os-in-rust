@@ -1,6 +1,22 @@
 use os_in_rust_common::{constants, ASSERT};
 
-use super::file::StdFileDescriptor;
+/**
+ * 标准文件描述符
+ */
+pub enum StdFileDescriptor {
+    /**
+     * 标准输入
+     */
+    StdInputNo = 0x0,
+    /**
+     * 标准输出
+     */
+    StdOutputNo = 0x1,
+    /**
+     * 标准错误
+     */
+    StdErrorNo = 0x2,
+}
 
 
 #[derive(Debug)]

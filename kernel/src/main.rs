@@ -30,6 +30,8 @@ mod filesystem;
 
 use core::{arch::asm, mem::size_of, panic::PanicInfo};
 use device::ata::{Disk, Partition};
+use filesystem::inode::OpenedInode;
+use filesystem::{DirEntry, File, FileType, OpenOptions, SeekFrom};
 use memory::mem_block::{Arena, MemBlock};
 use os_in_rust_common::{cstring_utils, instruction, vga};
 use os_in_rust_common::{ASSERT, constants, context::BootContext, elem2entry, printk, printkln};
@@ -38,15 +40,110 @@ use thread::ThreadArg;
 
 
 static PROCESS_NAME: &str = "user process";
+// static text: &'static str = "012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789";
 
+// #[inline(never)]
+fn test_read_dir_entry() {
+    let dir = filesystem::read_dir("/dev/proc/");
+    let dir = dir.unwrap();
+    console_println!("read dir: {:?}", dir.get_path());
+    let iterator = dir.iter();
+    // printkln!("read dir: {:?}", iterator);
+    for dir_entry in  iterator {
+        console_println!("entry_name: {:?}, file_type: {:?}", dir_entry.get_name(), dir_entry.file_type as FileType);
+    }
+}
+
+#[inline(never)]
+fn test_write_read_file() {
+    // 打开一个文件
+    let file = OpenOptions::new().read(true).write(true).open("/a.txt");
+    printkln!("open_result: {:?}", file);
+    ASSERT!(file.is_ok());
+    let mut file = file.unwrap();
+    // 写入数据
+    // let write_res = file.write(text.as_bytes());
+    // printkln!("write file res: {:?}", write_res);
+
+    // // 再写入数据
+    // let write_res = file.write(text.as_bytes());
+    // printkln!("write file res:  {:?}", write_res);
+
+    // let buff: &mut [u8; 666] = memory::malloc(666);
+    // // 设置偏移量
+    // printkln!("seek res: {:?}", file.seek(SeekFrom::Start(55)));
+
+    // // 读取数据
+    // let read_result = file.read(buff);
+    // printkln!("read result: {:?}", read_result);
+    // let string = core::str::from_utf8(buff);
+    // printkln!("string result: {:?}", string.unwrap());
+}
+
+#[inline(never)]
+fn test_create_file() {
+    // 创建文件
+    let res = File::create("/test.txt");
+    printkln!("create test.txt: {:?}", res);
+    // 重复创建，失败
+    printkln!("{:?}", File::create("/test.txt"));
+
+    // 创建一个父目录不存在的文件
+    printkln!("{:?}", File::create("/dev/proc/test.rs"));
+
+    printkln!("create a.txt: {:?}", File::create("/a.txt"));
+    printkln!("create b.txt: {:?}", File::create("/b.txt"));
+
+    printkln!("create result: {:?}", File::create("/dev/proc/test.rs"));
+    printkln!("create result: {:?}", File::create("/dev/proc/test.rs"));
+}
+
+fn print_opened_inode() {
+    let fs = filesystem::fs::get_filesystem();
+    printk!("opened inode: ");
+    fs.open_inodes.iter().for_each(|inode_tag|{
+        let inode = OpenedInode::parse_by_tag(inode_tag);
+        printk!("{} ", inode.i_no);
+    });
+    printkln!();
+}
+#[inline(never)]
+fn test_create_dir() {
+    
+    printkln!("res:{:?}", filesystem::create_dir("/sample"));
+    printkln!("mkdir result: {:?}", filesystem::create_dir_all("/dev/proc/"));
+    printkln!("folder1 res:{:?}", filesystem::create_dir("/dev/proc/folder1"));
+    printkln!("folder2 res:{:?}", filesystem::create_dir("/dev/proc/folder2"));
+    printkln!("folder3 res:{:?}", filesystem::create_dir("/dev/proc/folder3"));
+    printkln!("folder4 res:{:?}", filesystem::create_dir("/dev/proc/folder4"));
+    printkln!("folder5 res:{:?}", filesystem::create_dir("/dev/proc/folder5"));
+    printkln!("folder6 res:{:?}", filesystem::create_dir("/dev/proc/folder6"));
+    printkln!("folder7 res:{:?}", filesystem::create_dir("/dev/proc/folder7"));
+    printkln!("folder8 res:{:?}", filesystem::create_dir("/dev/proc/folder8"));
+    printkln!("folder9 res:{:?}", filesystem::create_dir("/dev/proc/folder9"));
+    printkln!("folder10 res:{:?}", filesystem::create_dir("/dev/proc/folder10"));
+    printkln!("folder11 res:{:?}", filesystem::create_dir("/dev/proc/folder11"));
+    printkln!("folder12 res:{:?}", filesystem::create_dir("/dev/proc/folder12"));
+    printkln!("folder13 res:{:?}", filesystem::create_dir("/dev/proc/folder13"));
+    printkln!("folder14 res:{:?}", filesystem::create_dir("/dev/proc/folder14"));
+    printkln!("folder15 res:{:?}", filesystem::create_dir("/dev/proc/folder15"));
+    printkln!("folder16 res:{:?}", filesystem::create_dir("/dev/proc/folder16"));
+    printkln!("folder17 res:{:?}", filesystem::create_dir("/dev/proc/folder17"));
+    printkln!("folder18 res:{:?}", filesystem::create_dir("/dev/proc/folder18"));
+    printkln!("folder19 res:{:?}", filesystem::create_dir("/dev/proc/folder19"));
+    printkln!("folder20 res:{:?}", filesystem::create_dir("/dev/proc/folder20"));
+}
+
+#[inline(never)]
 #[no_mangle]
 #[link_section = ".start"]
 pub extern "C" fn _start(boot_info: &BootContext) {
     // printkln!("I'm Kernel!");
 
     init::init_all(boot_info);
+    self::test_create_dir();
+    self::test_read_dir_entry();
 
-    loop {}
     
     // 打印线程信息
     // thread_management::print_thread();
@@ -55,6 +152,8 @@ pub extern "C" fn _start(boot_info: &BootContext) {
     // thread_management::thread_start("thread_a", 5, kernel_thread, 0);
 
     printkln!("-----system started-----");
+
+    loop {}
     // 主通道。挂在2个硬盘
     let channel_idx = 0;
     let primary = device::init::get_ata_channel(&channel_idx);

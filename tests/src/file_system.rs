@@ -5,7 +5,7 @@ use std::{
     mem::size_of,
 };
 
-use kernel::filesystem::{constant, dir_entry::DirEntry, inode::{Inode, OpenedInode}, superblock::SuperBlock};
+use kernel::filesystem::{constant, DirEntry, inode::{Inode, OpenedInode}, superblock::SuperBlock};
 use os_in_rust_common::{constants, domain::LbaAddr};
 pub const DISK_FILE_PATH: &str = "/Users/jackson/MyProjects/rust/os-in-rust/build/hd80M.img";
 use lazy_static::lazy_static;
@@ -114,7 +114,6 @@ pub fn search_file(file_path: &str) -> (String, Option<OpenedInode>) {
             return (searched_path, Option::None);
         }
         let found_entry = found_entry.unwrap();
-        println!("entry_ino = {:?}, base_inode = {:?}, name={}", found_entry.i_no, base_inode.i_no, found_entry.get_name());
         // 加载目录项对应的inode
         base_inode = self::load_inode(&mut disk_file, inode_table[usize::from(found_entry.i_no)]);
 
@@ -171,4 +170,29 @@ pub fn read_file(file_path: &str) -> Option<Vec<u8>> {
     }
 
     return Option::Some(file_data);
+}
+
+pub fn read_dir_entry(parent_dir: &str) -> Option<Vec<DirEntry>> {
+    let mut disk_file = File::open(DISK_FILE_PATH).expect("failed to open disk file");
+    // 根据路径搜索这个文件，得到inode
+    let (_, opened_inode) = self::search_file(parent_dir);
+    if opened_inode.is_none() {
+        return Option::None;
+    }
+    let opened_inode = opened_inode.unwrap();
+    let mut all_dir_entry_list: Vec<DirEntry> = Vec::new();
+    
+    // 遍历inode的数据区，然后读取inode数据区中的数据
+    for data_block_lba in opened_inode.get_data_blocks_ref() {
+        if data_block_lba.is_empty() {
+            continue;
+        }
+        // 读取出硬盘数据
+        let block_data = self::read_disk(&mut disk_file, *data_block_lba);
+        let dir_entry_list = unsafe { slice::from_raw_parts(block_data.as_ptr() as *const DirEntry, block_data.len() / size_of::<DirEntry>()) };
+
+        all_dir_entry_list.append(&mut dir_entry_list.to_vec());
+    }
+
+    return Option::Some(all_dir_entry_list);
 }

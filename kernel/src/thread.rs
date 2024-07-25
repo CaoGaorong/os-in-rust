@@ -343,6 +343,7 @@ impl ThreadStack {
      * function: 要执行的函数
      * arg: 该函数的地址
      */
+    #[inline(never)]
     fn new(function: ThreadFunc, arg: ThreadArg) -> Self {
         Self {
             // ebp: 0,
@@ -356,6 +357,7 @@ impl ThreadStack {
         }
     }
     
+    #[inline(never)]
     fn init(&mut self, function: ThreadFunc, arg: ThreadArg) {
         // self.ebp = 0;
         // self.ebx = 0;

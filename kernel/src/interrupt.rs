@@ -3,7 +3,7 @@ use core::{arch::asm, ptr::{self, addr_of}};
 
 use os_in_rust_common::{idt::{self, InterruptStackFrame, InterruptTypeEnum}, pic, pit, port::Port, sd::SegmentDPL, ASSERT, MY_PANIC};
 
-use crate::{device::{self, ata::{self, ChannelIrqNoEnum}, drive, pio::{self, CommandBlockRegister, StatusRegister}}, interrupt, keyboard::{self, ScanCodeCombinator}, println, scheduler, sys_call::sys_call::{self, HandlerType}, thread};
+use crate::{device::{self, ata::{self, ChannelIrqNoEnum}, pio::{self, StatusRegister}}, keyboard::{self, ScanCodeCombinator}, scheduler, sys_call::sys_call::{self, HandlerType}, thread};
 
 /**
  * exceptions and codes: <https://wiki.osdev.org/Exceptions>

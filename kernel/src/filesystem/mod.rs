@@ -1,13 +1,13 @@
-mod constant;
-mod superblock;
-mod inode;
+pub mod constant;
+pub mod superblock;
+pub mod inode;
 pub mod dir;
 mod init;
 mod file;
 mod dir_entry;
 mod file_descriptor;
 mod global_file_table;
-mod fs;
+pub mod fs;
 mod file_api;
 mod dir_api;
 

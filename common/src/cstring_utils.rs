@@ -37,7 +37,7 @@ struct BufferContainer<'a> {
     cur_idx: usize,
 }
 impl <'a>BufferContainer<'a> {
-    #[inline(never)]
+    // #[inline(never)]
     pub fn new(buf: &'a mut [u8]) -> Self {
         Self {
             buffer: buf,
@@ -46,6 +46,8 @@ impl <'a>BufferContainer<'a> {
     }
 }
 impl Write for BufferContainer<'_> {
+    
+    #[inline(never)]
     fn write_str(&mut self, s: &str) -> core::fmt::Result {
         let end = self.cur_idx + s.len();
         if self.cur_idx >= self.buffer.len() || end >= self.buffer.len() {
@@ -61,6 +63,7 @@ impl Write for BufferContainer<'_> {
 /**
  * 从一个C格式的u8数组中，读取出正确的&str
  */
+#[inline(never)]
 pub fn read_from_bytes(buf: &[u8]) -> Option<&str> {
     // 以C字符串格式读取，忽略结尾的\0
     let cstr = CStr::from_bytes_until_nul(buf);

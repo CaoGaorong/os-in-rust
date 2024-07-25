@@ -1,9 +1,8 @@
-#![feature(global_asm)]
-use core::{arch::{asm, global_asm}, ptr, task};
+use core::arch::asm;
 
-use os_in_rust_common::{constants, elem2entry, instruction, printk, printkln, reg_cr0::CR0, reg_eflags, ASSERT};
+use os_in_rust_common::{constants, instruction, ASSERT};
 
-use crate::{console_println, interrupt, thread::{self, PcbPage, TaskStatus, TaskStruct, ThreadStack}, thread_management};
+use crate::{thread::{self, TaskStatus, TaskStruct}, thread_management};
 
 
 
@@ -30,6 +29,7 @@ pub fn check_task_schedule() {
 }
 
 
+#[inline(never)]
 pub fn schedule() {
 
     // 确保没有被打断

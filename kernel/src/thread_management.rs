@@ -193,6 +193,7 @@ pub fn block_thread(task: &mut TaskStruct, task_status: TaskStatus) {
  * 唤醒某一个线程。
  * 某个阻塞的线程只能被其他线程唤醒
  */
+#[inline(never)]
 pub fn wake_thread(task: &mut TaskStruct)  {
     // 关闭中断
     let old_status = instruction::disable_interrupt();

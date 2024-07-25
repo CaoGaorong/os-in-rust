@@ -138,6 +138,7 @@ pub fn mem_pool_init(all_mem: u32) {
  * mem_page_num: 该内存池描述的内存块页数量
  * bitmap_base_addr: 该内存池位图自身所在的内存地址
  */
+#[inline(never)]
 fn compose_pool(addr_start: usize, mem_page_num: u32, bitmap_base_addr: usize) -> MemPool {
     let mut mem_pool = MemPool::empty();
     

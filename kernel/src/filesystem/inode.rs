@@ -1,11 +1,11 @@
-use core::{mem::size_of, ops::Index, ptr, slice};
+use core::{mem::size_of, ptr};
 
-use os_in_rust_common::{constants, domain::{InodeNo, LbaAddr}, elem2entry, linked_list::LinkedNode, ASSERT};
+use os_in_rust_common::{constants, domain::{InodeNo, LbaAddr}, elem2entry, linked_list::LinkedNode};
 use os_in_rust_common::racy_cell::RacyCell;
 
-use crate::{device::ata::Disk, memory, sync::Lock, thread};
+use crate::{memory, sync::Lock, thread};
 
-use super::{constant, fs::FileSystem};
+use super::constant;
 
 
 /**
@@ -105,7 +105,7 @@ pub struct OpenedInode {
     /**
      * 间接块的地址（这个块内，就是很多的间接数据块的LBA地址）
      */
-    indirect_block_lba: RacyCell<LbaAddr>,
+    pub indirect_block_lba: RacyCell<LbaAddr>,
 }
 
 impl OpenedInode {
@@ -157,88 +157,6 @@ impl OpenedInode {
 
     pub fn get_indirect_data_blocks_ref(&self) -> &[LbaAddr] {
         &self.data_block_list[constant::INODE_DIRECT_DATA_SECS.. ]
-    }
-
-    /**
-     * 申请一个间接块
-     *  - 如果间接块已经存在，那也不用申请
-     */
-    #[inline(never)]
-    pub fn apply_indirect_data_block(&mut self, fs: &mut FileSystem) {
-        // 数组最后一个元素，是间接块的LBA地址。这个块里面，是很多的LBA地址
-        let indirect_lba = *unsafe { self.indirect_block_lba.get_mut() };
-        if !indirect_lba.is_empty() {
-            return;
-        }
-        self.indirect_block_lba = RacyCell::new(fs.data_block_pool.apply_block(1));
-    }
-
-    /**
-     * 加载间接块的数据
-     *  - 如果不存在间接块，那也不用加载
-     */
-    #[inline(never)]
-    pub fn load_indirect_data_block(&mut self, fs: &mut FileSystem) {
-
-        // 数组最后一个元素，是间接块的LBA地址。这个块里面，是很多的LBA地址
-        let indirect_lba = *unsafe { self.indirect_block_lba.get_mut() };
-        let disk = unsafe { &mut *fs.base_part.from_disk };
-
-        // 如果间接块是空的，需要申请一个块
-        if indirect_lba.is_empty() {
-            return;
-        }
-
-        // 数组的剩下元素，转成一个u8数组
-        let left_unfilled_lba = self.get_indirect_data_blocks();
-        let buf = unsafe { slice::from_raw_parts_mut(left_unfilled_lba.as_mut_ptr() as *mut u8, left_unfilled_lba.len() * (size_of::<LbaAddr>() / size_of::<u8>())) };
-        // 读取硬盘。把数据写入到数组里。最终也是写入到缓存里了
-        disk.read_sectors(indirect_lba, 1, buf)
-    }
-
-    /**
-     * 把内存中的inode数据同步到硬盘中
-     *  1. 同步inode自身的数据（包含直接块的地址）
-     *  2. 同步inode间接块的数据
-     */
-    #[inline(never)]
-    pub fn sync_inode(&mut self, fs: &FileSystem) {
-        let disk = unsafe { &mut *fs.base_part.from_disk };
-
-        /*****1. 同步inode自身（包含直接块的地址）*************/
-        // 当前inode，所处磁盘的位置
-        let i_location = fs.locate_inode(self.i_no);
-
-        // 申请缓冲区大小 = 读取到该inode需要多少个扇区
-        let buf_size = constants::DISK_SECTOR_SIZE * i_location.sec_cnt;
-        let buff_addr = memory::sys_malloc(buf_size);
-        let buf = unsafe { slice::from_raw_parts_mut(buff_addr as *mut u8, buf_size) };
-
-        // 读取出inode所在的扇区
-        disk.read_sectors(i_location.lba, i_location.sec_cnt, buf);
-
-        // 硬盘中的inode结构
-        let inode_from_disk = unsafe { &mut *(buf.as_mut_ptr().add(i_location.bytes_off) as *mut Inode) };
-        // 把内存中的inode结构，复制到硬盘的inode结构中
-        inode_from_disk.from(self);
-
-        // 把inode写回到硬盘中
-        disk.write_sector(buf, i_location.lba, i_location.sec_cnt.try_into().unwrap());
-
-
-        /*****2. 处理inode的间接块***************/
-        let indirect_block_lba = unsafe { self.indirect_block_lba.get_mut() };
-        // 没有间接块地址，也不用同步了
-        if indirect_block_lba.is_empty() {
-            return;
-        }
-
-        // 间接块里面全部都是LBA地址
-        let indirect_block_sec_lba = unsafe { slice::from_raw_parts_mut(buff_addr as *mut LbaAddr, constants::DISK_SECTOR_SIZE * 2) };
-        // 用内存的数据，覆盖硬盘的数据
-        indirect_block_sec_lba.copy_from_slice(self.get_indirect_data_blocks_ref());
-        // 写回到硬盘中
-        disk.write_sector(buf, *indirect_block_lba, 1);
     }
 
     /**

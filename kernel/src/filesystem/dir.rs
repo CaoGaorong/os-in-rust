@@ -11,7 +11,6 @@ use super::{dir_entry::{self, DirEntry, FileType}, fs::{self, FileSystem}, inode
 
 #[inline(never)]
 pub fn init_root_dir() {
-    // printkln!("init root dir");
     let file_system = fs::get_filesystem();
     file_system.load_root_dir();
 }
@@ -91,11 +90,10 @@ pub fn mkdir(fs: &mut FileSystem, parent_dir_inode: &mut OpenedInode, dir_name: 
     // 在该目录下创建一个文件夹类型的目录项
     let entry_inode = dir_entry::create_dir_entry(fs, parent_dir_inode, dir_name, FileType::Directory);
     // 该目录项下应该还有两项，分别是: ..和.
-    let cur_inode = fs.inode_open(entry_inode.i_no);
     // 创建..目录项
-    dir_entry::do_create_dir_entry(fs, cur_inode, Option::Some(parent_dir_inode.i_no), "..", FileType::Directory);
+    dir_entry::do_create_dir_entry(fs, entry_inode, Option::Some(parent_dir_inode.i_no), "..", FileType::Directory);
     // 创建 .目录项
-    dir_entry::do_create_dir_entry(fs, cur_inode, Option::Some(entry_inode.i_no), ".", FileType::Directory);
+    dir_entry::do_create_dir_entry(fs, entry_inode, Option::Some(entry_inode.i_no), ".", FileType::Directory);
     
     entry_inode
 }

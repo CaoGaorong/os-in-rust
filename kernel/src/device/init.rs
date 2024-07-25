@@ -31,6 +31,7 @@ static mut MAIN_EXT_LBA_BASE: RacyCell<LbaAddr> = RacyCell::new(LbaAddr::empty()
 /**
  * 获取该系统中的ATA Channel
  */
+#[inline(never)]
 pub fn get_ata_channel(channel_idx: &usize) -> &mut Option<ATAChannel> {
     let all_channel = unsafe { ALL_ATA_CHANNELS.get_mut() };
     let channel_opt = &mut all_channel[*channel_idx];
@@ -84,7 +85,6 @@ pub fn ata_init() {
         
         for disk_idx in 0 .. constants::DISK_CNT_PER_CHANNEL {
             cstr_write!(&mut buf, "sd{}", char::from_u32((b'a' + disk_start) as u32).unwrap());
-            // printkln!("disk name:{}", cstring_utils::read_from_bytes(&buf).unwrap());
             let mut disk = &mut channel.disks[disk_idx];
             {
                 *disk = Option::Some(Disk::new(&buf, channel_ptr, disk_idx == 0));

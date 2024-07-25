@@ -20,6 +20,7 @@ use super::{mem_block::{Arena, MemBlock, MemBlockAllocator}, memory_poll::{get_k
  * 是否某一块空间
  *  - vaddr_to_free: 要释放的空间的地址
  */
+#[inline(never)]
 pub fn sys_free(vaddr_to_free: usize) {
     // 当前任务
     let task = &mut thread::current_thread().task_struct;

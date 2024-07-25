@@ -154,6 +154,7 @@ impl Lock {
     /**
      * 释放锁。释放后会唤醒其他等待的线程
      */
+    #[inline(never)]
     pub fn unlock(&mut self) {
         let current_task = &thread::current_thread().task_struct;
         // println!("cur:{}, holder:{}", current_task.name, unsafe {&*self.holder}.name);
