@@ -1,7 +1,7 @@
 use os_in_rust_common::{ASSERT, MY_PANIC};
 
 
-use super::{dir_entry::{self, DirEntry, FileType}, fs::{self, FileSystem}, inode::OpenedInode};
+use super::{dir_entry::{self, DirEntry, FileType}, fs::{self, FileSystem}, inode::{self, OpenedInode}};
 
 /**
  * 文件系统中的目录的结构以及操作
@@ -11,27 +11,20 @@ use super::{dir_entry::{self, DirEntry, FileType}, fs::{self, FileSystem}, inode
 
 #[inline(never)]
 pub fn init_root_dir() {
-    let file_system = fs::get_filesystem();
-    file_system.load_root_dir();
+    self::load_root_dir();
 }
 
 /**
- * 目录的结构。位于内存的逻辑结构
+ * 加载根目录。
  */
-pub struct Dir<'a> {
-    pub inode: &'a mut OpenedInode,
+#[inline(never)]
+pub fn load_root_dir() {
+    let file_system = fs::get_filesystem();
+    let root_inode = inode::load_inode(file_system, file_system.super_block.root_inode_no);
+    file_system.set_root_inode(root_inode);
 }
 
-impl <'a>Dir<'a> {
-    pub fn new(inode: &'a mut OpenedInode) -> Self {
-        Self {
-            inode,
-        }
-    }
-    pub fn get_inode_ref(&mut self) -> &mut OpenedInode {
-        self.inode
-    }
-}
+
 
 
 
@@ -77,7 +70,7 @@ pub fn mkdir_p(fs: &mut FileSystem, dir_path: &str) -> Result<bool, CreateDirErr
         // 创建子目录
         let sub_dir_entry = self::mkdir(fs, base_inode, entry_name);
         // 基于子目录
-        base_inode = fs.inode_open(sub_dir_entry.i_no);
+        base_inode = inode::inode_open(fs, sub_dir_entry.i_no);
     }
     return Result::Ok(true);
 }
@@ -103,7 +96,7 @@ pub fn mkdir(fs: &mut FileSystem, parent_dir_inode: &mut OpenedInode, dir_name: 
 pub fn mkdir_in_root(dir_name: &str) -> &'static mut OpenedInode {
     let file_system = fs::get_filesystem();
     let root_dir = file_system.get_root_dir();
-    mkdir(file_system, root_dir.inode, dir_name)
+    mkdir(file_system, root_dir.get_inode_ref(), dir_name)
 }
 
 #[inline(never)]

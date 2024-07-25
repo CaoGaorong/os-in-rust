@@ -1,10 +1,10 @@
 
-use os_in_rust_common::{constants, ASSERT};
+use os_in_rust_common::{constants, printkln, ASSERT};
 
 
 use crate::{memory, thread};
 use super::{
-    dir_entry, file_descriptor::FileDescriptor, fs::{self, FileSystem}, global_file_table, inode::OpenedInode, FileType
+    dir_entry, file_descriptor::FileDescriptor, fs::{self, FileSystem}, global_file_table, inode::{self, OpenedInode}, FileType
 };
 
 /**
@@ -34,6 +34,13 @@ impl OpenedFile {
     pub fn set_file_off(&mut self, off: u32) {
         self.file_off = off;
     }
+
+    /**
+     * 关闭某个文件
+     */
+    pub fn close_file(&mut self) {
+        self.inode.inode_close();
+    }
 }
 
 
@@ -61,8 +68,12 @@ pub enum FileError {
     FileDescriptorNotFound,
     // 全局的文件结构找不到
     GlobalFileStructureNotFound,
+    // 文件
+    BadDescriptor,
 
 }
+
+// pub fn close_file()
 
 
 #[inline(never)]
@@ -85,7 +96,7 @@ pub fn open_file(file_path: &str, append: bool) -> Result<FileDescriptor, FileEr
         return Result::Err(FileError::IsADirectory);
     }
     // 打开inode
-    let file_inode = fs.inode_open(searched_file.i_no);
+    let file_inode = inode::inode_open(fs, searched_file.i_no);
     
     // 得到一个打开文件
     let opened_file = OpenedFile::new(file_inode, append);
@@ -114,7 +125,6 @@ pub fn open_file(file_path: &str, append: bool) -> Result<FileDescriptor, FileEr
 pub fn create_file(file_path: &str) -> Result<FileDescriptor, FileError> {
     let fs = fs::get_filesystem();
 
-
     let last_slash_idx = file_path.rfind("/");
     // 没有根目录，报错
     if !file_path.starts_with("/") || last_slash_idx.is_none() {
@@ -125,10 +135,12 @@ pub fn create_file(file_path: &str) -> Result<FileDescriptor, FileError> {
     if last_slash_idx == file_path.len() - 1 {
         return Result::Err(FileError::IsADirectory);
     }
-    // 该文件的目录路径
-    let dir_path = &file_path[..last_slash_idx];
-    // 该文件的名称
-    let file_name = &file_path[last_slash_idx+1..];
+    // 该文件的目录路径, 该文件的名称
+    let (dir_path, file_name) = if last_slash_idx == 0 {
+        ("/", &file_path[1..])
+    } else {
+        (&file_path[..last_slash_idx],  &file_path[last_slash_idx+1..])
+    };
 
     // 先搜索一下，目录是否存在
     let search_dir = dir_entry::search_dir_entry(fs, dir_path);
@@ -194,7 +206,7 @@ pub fn write_file(fs: &mut FileSystem, file: &mut OpenedFile, buff: &[u8]) -> Re
     let end_data_block_idx = (file.file_off as usize + buff.len()) / constants::DISK_SECTOR_SIZE;
     // 如果涉及到间接块，需要申请一个间接块
     if end_data_block_idx >= file.inode.get_direct_data_blocks_ref().len() {
-        fs.apply_indirect_data_block(file.inode);
+        inode::apply_indirect_data_block(fs, file.inode);
     }
 
     // 要操作的文件偏移量，超过1个扇区的字节数
@@ -276,7 +288,7 @@ pub fn write_file(fs: &mut FileSystem, file: &mut OpenedFile, buff: &[u8]) -> Re
     // 当前文件的数据大小发生变化
     file.inode.i_size = file.inode.i_size.max(file.file_off);
     // 把inode元数据同步到硬盘（inode数组）
-    fs.sync_inode(file.inode);
+    inode::sync_inode(fs, file.inode);
 
     return Result::Ok(succeed_bytes);
 }
@@ -313,7 +325,7 @@ pub fn read_file(fs: &mut FileSystem, file: &mut OpenedFile, buff: &mut [u8]) ->
     let end_data_block_idx = (file.file_off as usize + buff.len()) / constants::DISK_SECTOR_SIZE;
     // 如果涉及到间接块，那么需要加载间接块的数据
     if end_data_block_idx >= file.inode.get_direct_data_blocks_ref().len() {
-        fs.load_indirect_data_block(file.inode);
+        inode::load_indirect_data_block(fs, file.inode);
     }
 
     // 要操作的文件开始的字节，距离所在扇区开头的偏移量

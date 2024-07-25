@@ -1,8 +1,7 @@
 use core::mem::{self, size_of};
 
 use lazy_static::lazy_static;
-use os_in_rust_common::{constants, elem2entry, linked_list::{LinkedList, LinkedNode}, printk, printkln, racy_cell::RacyCell, vga::print, ASSERT, MY_PANIC};
-use crate::{println, thread};
+use os_in_rust_common::{constants, elem2entry, linked_list::{LinkedList, LinkedNode}, printk, printkln, racy_cell::RacyCell, ASSERT, MY_PANIC};
 
 use crate::sync::Lock;
 

@@ -137,6 +137,7 @@ impl Lock {
      * 加锁。阻塞操作
      * 如果加锁成功（未进入阻塞或者阻塞后退出），那么当前线程变为锁的持有者
      */
+    #[inline(never)]
     pub fn lock(&mut self) {
         let current_task = &mut thread::current_thread().task_struct;
         // 如果是当前任务锁的持有者，说明重入了

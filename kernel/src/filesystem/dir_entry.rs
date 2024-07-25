@@ -4,7 +4,7 @@ use os_in_rust_common::{constants, cstr_write, cstring_utils, domain::{InodeNo, 
 
 use crate::{device::ata::Disk, memory};
 
-use super::{constant, fs::FileSystem, inode::{Inode, OpenedInode}};
+use super::{constant, fs::FileSystem, inode::{self, Inode, OpenedInode}};
 
 
 /**
@@ -101,7 +101,7 @@ pub fn search_dir_entry(filesystem: &mut FileSystem, file_path: &str) -> Option<
     // 成功搜索过的路径
     let mut searched_path = "/";
     // 当前的inode，是根目录的inode
-    let mut cur_inode = filesystem.inode_open(root_inode_no);
+    let mut cur_inode = inode::inode_open(filesystem, root_inode_no);
     // 当前的目录项。默认是根目录
     let mut cur_dir_entry = DirEntry::new(root_inode_no, "/", FileType::Directory);
 
@@ -126,7 +126,7 @@ pub fn search_dir_entry(filesystem: &mut FileSystem, file_path: &str) -> Option<
 
         let dir_entry = dir_entry.unwrap();
         // 根据inode号，打开
-        let opened_inode = filesystem.inode_open(dir_entry.i_no);
+        let opened_inode = inode::inode_open(filesystem, dir_entry.i_no);
         cur_inode = opened_inode;
 
         // 搜索下一个目录项
@@ -147,7 +147,7 @@ pub fn do_search_dir_entry(fs: &mut FileSystem, dir_inode: &mut OpenedInode, ent
     }
     // 如果直接块都满了，那么就需要加载间接块
     if dir_inode.get_direct_data_blocks_ref().iter().all(|block| !block.is_empty()) {
-        fs.load_indirect_data_block(dir_inode);
+        inode::load_indirect_data_block(fs, dir_inode);
     }
 
     // 取出所有的数据块
@@ -216,11 +216,11 @@ pub fn do_create_dir_entry(fs: &mut FileSystem, parent_inode: &mut OpenedInode, 
         *opened_inode = OpenedInode::new(inode);
 
         // 把inode写入硬盘（inode列表）
-        fs.sync_inode(opened_inode);
+        inode::sync_inode(fs, opened_inode);
         (inode_no, opened_inode)
     } else {
         let inode_no: InodeNo = entry_inode.unwrap();
-        let opened_inode = fs.inode_open(inode_no);
+        let opened_inode = inode::inode_open(fs, inode_no);
         (inode_no, opened_inode)
     };
 
@@ -324,7 +324,7 @@ pub fn sync_dir_entry(fs: &mut FileSystem, parent_inode: &mut OpenedInode, dir_e
     // 再找间接块
     } else {
         // 申请一个间接块
-        fs.apply_indirect_data_block(parent_inode);
+        inode::apply_indirect_data_block(fs, parent_inode);
 
         // 在间接块中，找是否有空闲目录项
         let indirect_find = self::find_available_entry(parent_inode.get_indirect_data_blocks(), buf, disk);
@@ -349,7 +349,7 @@ pub fn sync_dir_entry(fs: &mut FileSystem, parent_inode: &mut OpenedInode, dir_e
     // 增加当前文件的大小
     parent_inode.i_size += size_of::<DirEntry>() as u32;
     // 如果是直接块找到空闲目录项，那么需要同步inode（直接块的地址放在inode的i_sectors字段中）
-    fs.sync_inode(parent_inode);
+    inode::sync_inode(fs, parent_inode);
 
     // 释放缓冲区的空间
     memory::sys_free(buf.as_ptr() as usize);

@@ -1,4 +1,6 @@
-use os_in_rust_common::{constants, ASSERT};
+use core::fmt::Display;
+
+use os_in_rust_common::{constants, printkln};
 
 /**
  * 标准文件描述符
@@ -89,4 +91,21 @@ impl FileDescriptorTable {
         self.data[fd.value]
     }
 
+    /**
+     * 释放某个文件描述符。得到全局的文件结构表下标
+     */
+    pub fn release_fd(&mut self, fd: FileDescriptor) -> Option<usize> {
+        let global_idx = self.data[fd.value];
+        // 清除
+        self.data[fd.value] = Option::None;
+        global_idx
+    }
+
+}
+
+impl Display for FileDescriptorTable {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        printkln!("{:?}", self.data);
+        Result::Ok(())
+    }
 }

@@ -2,7 +2,7 @@ use os_in_rust_common::{cstr_write, printkln, ASSERT};
 
 use crate::{filesystem::{constant, file, fs}, thread};
 
-use super::{file::{FileError, OpenedFile}, file_descriptor::{self, FileDescriptor}, global_file_table};
+use super::{file::{FileError, OpenedFile}, file_descriptor::FileDescriptor, global_file_table};
 
 #[derive(Clone, Copy)]
 pub struct OpenOptions {
@@ -108,6 +108,31 @@ impl File {
     }
 
     /**
+     * 关闭一个文件
+     */
+    #[inline(never)]
+    fn close(&self)  -> Result<(), FileError> {
+        // 1. 释放当前进程的文件描述符
+        let fd_table = &mut thread::current_thread().task_struct.fd_table;
+        let global_idx = fd_table.release_fd(self.fd);
+        if global_idx.is_none() {
+            return Result::Err(FileError::BadDescriptor);
+        }
+        let global_idx = global_idx.unwrap();
+        let opend_file = global_file_table::get_opened_file(global_idx);
+        if opend_file.is_none() {
+            return Result::Err(FileError::BadDescriptor);
+        }
+        // 2. 释放全局的文件结构
+        global_file_table::release_file(global_idx);
+
+        // 3. 关闭这个文件inode
+        let opend_file = opend_file.unwrap();
+        opend_file.close_file();
+        return Result::Ok(());
+    }
+
+    /**
      * 创建一个文件
      */
     #[inline(never)]
@@ -184,5 +209,13 @@ impl File {
             return Result::Err(FileError::GlobalFileStructureNotFound);
         }
         return Result::Ok(opened_file.unwrap());
+    }
+}
+
+impl Drop for File {
+    fn drop(&mut self) {
+        // 文件离开作用域，自动关闭文件
+        let res = self.close();
+        ASSERT!(res.is_ok());
     }
 }

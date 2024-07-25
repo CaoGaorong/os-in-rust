@@ -7,7 +7,7 @@ use crate::{
 ;
 
 use super::{
-    constant, dir, dir_entry::DirEntry, inode::OpenedInode
+    constant, dir, dir_entry::DirEntry, inode::{self, OpenedInode}
 };
 
 #[derive(Debug)]
@@ -185,7 +185,7 @@ pub fn create_dir_all(path: &str) -> Result<(), DirError> {
         // 创建子目录
         let sub_dir_entry = dir::mkdir(fs, base_inode, entry_name);
         // 基于子目录
-        base_inode = fs.inode_open(sub_dir_entry.i_no);
+        base_inode = inode::inode_open(fs, sub_dir_entry.i_no);
     }
     return Result::Ok(());
 }

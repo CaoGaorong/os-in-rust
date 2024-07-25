@@ -83,8 +83,7 @@ fn test_write_read_file() {
 #[inline(never)]
 fn test_create_file() {
     // 创建文件
-    let res = File::create("/test.txt");
-    printkln!("create test.txt: {:?}", res);
+    printkln!("create test.txt: {:?}", File::create("/test.txt"));
     // 重复创建，失败
     printkln!("{:?}", File::create("/test.txt"));
 
@@ -94,8 +93,12 @@ fn test_create_file() {
     printkln!("create a.txt: {:?}", File::create("/a.txt"));
     printkln!("create b.txt: {:?}", File::create("/b.txt"));
 
+    filesystem::create_dir_all("/dev/proc");
     printkln!("create result: {:?}", File::create("/dev/proc/test.rs"));
     printkln!("create result: {:?}", File::create("/dev/proc/test.rs"));
+
+    let fd_table = &thread::current_thread().task_struct.fd_table;
+    printkln!("fd table:{}", fd_table);
 }
 
 fn print_opened_inode() {
@@ -141,8 +144,9 @@ pub extern "C" fn _start(boot_info: &BootContext) {
     // printkln!("I'm Kernel!");
 
     init::init_all(boot_info);
-    self::test_create_dir();
-    self::test_read_dir_entry();
+    // self::test_create_dir();
+    // self::test_read_dir_entry();
+    self::test_create_file();
 
     
     // 打印线程信息

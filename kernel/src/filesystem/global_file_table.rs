@@ -59,7 +59,17 @@ pub fn register_file(file: OpenedFile) -> Option<usize> {
     file_table.register_file(file)
 }
 
+/**
+ * 是否某个文件结构
+ */
+#[inline(never)]
+pub fn release_file(idx: usize) {
+    let file_table = unsafe { GLOBAL_FILE_TABLE.get_mut() };
+    file_table.table[idx] = Option::None;
+}
+
 pub fn get_opened_file(idx: usize) -> Option<&'static mut OpenedFile> {
     let file_table = unsafe { GLOBAL_FILE_TABLE.get_mut() };
     file_table.table[idx].as_mut()
 }
+

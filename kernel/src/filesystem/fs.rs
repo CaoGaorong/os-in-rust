@@ -2,9 +2,9 @@ use core::{mem::size_of, slice};
 
 use os_in_rust_common::{bitmap::BitMap, constants, domain::{InodeNo, LbaAddr}, linked_list::LinkedList, printkln, racy_cell::RacyCell, utils, ASSERT, MY_PANIC};
 
-use crate::{device::ata::{Disk, Partition}, memory};
+use crate::device::ata::{Disk, Partition};
 
-use super::{constant, dir::Dir, inode::{Inode, InodeLocation, OpenedInode}, superblock::SuperBlock};
+use super::{inode::{Inode, OpenedInode}, superblock::SuperBlock};
 
 /**
  * 文件系统。中任何操作都是基于分区的
@@ -27,6 +27,24 @@ pub fn get_filesystem() -> &'static mut FileSystem {
 }
 
 /**
+ * 目录的结构。位于内存的逻辑结构
+ */
+pub struct Dir {
+    pub inode: OpenedInode,
+}
+
+impl Dir {
+    pub fn new(inode: OpenedInode) -> Self {
+        Self {
+            inode,
+        }
+    }
+    pub fn get_inode_ref(&mut self) -> &mut OpenedInode {
+        &mut self.inode
+    }
+}
+
+/**
  * 文件系统的逻辑结构。
  * 把硬盘中的文件系统静态数据，加载到内存中
  */
@@ -44,7 +62,7 @@ pub struct FileSystem {
     /**
      * 根目录
      */
-    root_dir: Option<RacyCell<Dir<'static>>>,
+    root_dir: Option<RacyCell<Dir>>,
 
     /**
      * inode池子
@@ -80,180 +98,17 @@ impl FileSystem {
         }
     }
 
-    /**
-     * 加载根目录。
-     */
-    #[inline(never)]
-    pub fn load_root_dir(&mut self) {
-        let root_inode = self.inode_open(self.super_block.root_inode_no);
-        self.root_dir = Option::Some(RacyCell::new(Dir::new(root_inode)));
+    pub fn set_root_inode(&mut self, inode: Inode) {
+        self.root_dir = Option::Some(RacyCell::new(Dir::new(OpenedInode::new(inode))));
     }
 
     #[inline(never)]
-    pub fn get_root_dir(&self) -> &'static mut Dir<'static> {
+    pub fn get_root_dir(&self) -> &'static mut Dir {
         let file_system = self::get_filesystem();
         let root_dir = file_system.root_dir.as_mut();
         ASSERT!(root_dir.is_some());
         let root_dir = root_dir.unwrap();
         unsafe { root_dir.get_mut() }
-    }
-    /**
-     * 从该文件系统中，根据inode_no打开一个Inode
-     */
-    #[inline(never)]
-    pub fn inode_open(&mut self, i_no: InodeNo) -> &'static mut OpenedInode {
-        // 现在已打开的列表中找到这个inode
-        for inode_tag in self.open_inodes.iter() {
-            let inode = OpenedInode::parse_by_tag(inode_tag);
-            if inode.i_no == i_no {
-                // 打开次数 + 1
-                inode.open_cnts += 1;
-                return inode;
-            }
-        }
-
-        // 从堆中申请内存。常驻内存
-        let mut opened_inode: &mut OpenedInode = memory::malloc(size_of::<OpenedInode>());
-
-        // 如果已打开列表没有这个inode，那么需要从硬盘中加载
-        let inode = self.load_inode(i_no);
-        // 把加载的inode，封装为一个打开的结构
-        *opened_inode = OpenedInode::new(inode);
-
-        // 添加到打开的列表中
-        self.open_inodes.append(&mut opened_inode.tag);
-        return opened_inode;
-    }
-
-
-    /**
-     * 根据inode号从硬盘中加载inode
-     * 入参：
-     *   - i_no: 要加载的inode号
-     * 返回值：
-     *   - Inode： 加载到的inode
-     */
-    fn load_inode(&self, i_no: InodeNo) -> Inode {
-        let inode_location = self.locate_inode(i_no);
-        let disk = unsafe { &mut *self.base_part.from_disk };
-        let byte_cnt = inode_location.sec_cnt * constants::DISK_SECTOR_SIZE;
-        let inode_buf = unsafe { slice::from_raw_parts_mut(memory::sys_malloc(byte_cnt) as *mut u8, byte_cnt) };
-        // 从硬盘中读取扇区
-        disk.read_sectors(inode_location.lba, inode_location.sec_cnt, inode_buf);
-
-        let mut target_inode = Inode::empty();
-        // 根据字节偏移量，找到这个inode数据
-        target_inode = unsafe { *(inode_buf[inode_location.bytes_off .. ].as_ptr() as usize as *const Inode) };
-        memory::sys_free(inode_buf.as_ptr() as usize);
-
-        target_inode
-    }
-
-
-    /**
-     * 根据inode号计算出，该inode所处硬盘的哪个位置
-     */
-    #[inline(never)]
-    pub fn locate_inode(&self, i_no: InodeNo) -> InodeLocation {
-        if u32::from(i_no) >  constant::MAX_FILE_PER_FS {
-            MY_PANIC!("failed to locate inode({:?}). exceed maximum({})", i_no, constant::MAX_FILE_PER_FS);
-        }
-        // inode所在相对inode数组，开始的字节偏移量
-        let i_idx_start = usize::from(i_no) * size_of::<Inode>();
-        // 换算成扇区偏移数
-        let sec_start = i_idx_start / constants::DISK_SECTOR_SIZE;
-
-        // inode所在相对inode数组，结束的字节偏移量
-        let i_idx_end = (usize::from(i_no) + 1) as usize * size_of::<Inode>();
-        // inode结束的偏移量，换算成扇区偏移数
-        let sec_end: usize = utils::div_ceil(i_idx_end as u32, constants::DISK_SECTOR_SIZE  as u32).try_into().unwrap();
-        InodeLocation {
-            lba: self.super_block.inode_table_lba.add(sec_start.try_into().unwrap()),
-            bytes_off: (i_idx_start % constants::DISK_SECTOR_SIZE).try_into().unwrap(),
-            sec_cnt: sec_end.max(sec_start + 1) - sec_start,
-        }
-    }
-
-    /**
-     * 申请一个间接块
-     *  - 如果间接块已经存在，那也不用申请
-     */
-    #[inline(never)]
-    pub fn apply_indirect_data_block(&mut self, opened_inode: &mut OpenedInode) {
-        // 数组最后一个元素，是间接块的LBA地址。这个块里面，是很多的LBA地址
-        let indirect_lba = *unsafe { opened_inode.indirect_block_lba.get_mut() };
-        if !indirect_lba.is_empty() {
-            return;
-        }
-        opened_inode.indirect_block_lba = RacyCell::new(self.data_block_pool.apply_block(1));
-    }
-
-    /**
-     * 加载间接块的数据
-     *  - 如果不存在间接块，那也不用加载
-     */
-    #[inline(never)]
-    pub fn load_indirect_data_block(&mut self, opened_inode: &mut OpenedInode) {
-
-        // 数组最后一个元素，是间接块的LBA地址。这个块里面，是很多的LBA地址
-        let indirect_lba = *unsafe { opened_inode.indirect_block_lba.get_mut() };
-        let disk = unsafe { &mut *self.base_part.from_disk };
-
-        // 如果间接块是空的，需要申请一个块
-        if indirect_lba.is_empty() {
-            return;
-        }
-
-        // 数组的剩下元素，转成一个u8数组
-        let left_unfilled_lba = opened_inode.get_indirect_data_blocks();
-        let buf = unsafe { slice::from_raw_parts_mut(left_unfilled_lba.as_mut_ptr() as *mut u8, left_unfilled_lba.len() * (size_of::<LbaAddr>() / size_of::<u8>())) };
-        // 读取硬盘。把数据写入到数组里。最终也是写入到缓存里了
-        disk.read_sectors(indirect_lba, 1, buf)
-    }
-
-    /**
-     * 把内存中的inode数据同步到硬盘中
-     *  1. 同步inode自身的数据（包含直接块的地址）
-     *  2. 同步inode间接块的数据
-     */
-    #[inline(never)]
-    pub fn sync_inode(&mut self, opened_inode: &mut OpenedInode) {
-        let disk = unsafe { &mut *self.base_part.from_disk };
-
-        /*****1. 同步inode自身（包含直接块的地址）*************/
-        // 当前inode，所处磁盘的位置
-        let i_location = self.locate_inode(opened_inode.i_no);
-
-        // 申请缓冲区大小 = 读取到该inode需要多少个扇区
-        let buf_size = constants::DISK_SECTOR_SIZE * i_location.sec_cnt;
-        let buff_addr = memory::sys_malloc(buf_size);
-        let buf = unsafe { slice::from_raw_parts_mut(buff_addr as *mut u8, buf_size) };
-
-        // 读取出inode所在的扇区
-        disk.read_sectors(i_location.lba, i_location.sec_cnt, buf);
-
-        // 硬盘中的inode结构
-        let inode_from_disk = unsafe { &mut *(buf.as_mut_ptr().add(i_location.bytes_off) as *mut Inode) };
-        // 把内存中的inode结构，复制到硬盘的inode结构中
-        inode_from_disk.from(opened_inode);
-
-        // 把inode写回到硬盘中
-        disk.write_sector(buf, i_location.lba, i_location.sec_cnt.try_into().unwrap());
-
-
-        /*****2. 处理inode的间接块***************/
-        let indirect_block_lba = unsafe { opened_inode.indirect_block_lba.get_mut() };
-        // 没有间接块地址，也不用同步了
-        if indirect_block_lba.is_empty() {
-            return;
-        }
-
-        // 间接块里面全部都是LBA地址
-        let indirect_block_sec_lba = unsafe { slice::from_raw_parts_mut(buff_addr as *mut LbaAddr, constants::DISK_SECTOR_SIZE * 2) };
-        // 用内存的数据，覆盖硬盘的数据
-        indirect_block_sec_lba.copy_from_slice(opened_inode.get_indirect_data_blocks_ref());
-        // 写回到硬盘中
-        disk.write_sector(buf, *indirect_block_lba, 1);
     }
 
 }
