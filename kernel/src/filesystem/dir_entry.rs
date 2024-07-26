@@ -118,6 +118,8 @@ pub fn search_dir_entry(filesystem: &mut FileSystem, file_path: &str) -> Option<
         }
         // 根据名称搜索目录项
         let dir_entry = do_search_dir_entry(filesystem, &mut cur_inode, file_entry_name);
+        // 关掉inode
+        // cur_inode.inode_close(filesystem);
         // 如果目录项不存在
         if dir_entry.is_none() {
             return Option::None;

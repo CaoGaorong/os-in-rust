@@ -1,9 +1,9 @@
-use core::{mem::size_of, ptr, slice};
+use core::{fmt::Display, mem::size_of, ptr, slice};
 
-use os_in_rust_common::{constants, domain::{InodeNo, LbaAddr}, elem2entry, linked_list::LinkedNode, utils, MY_PANIC};
+use os_in_rust_common::{constants, domain::{InodeNo, LbaAddr}, elem2entry, linked_list::LinkedNode, printk, printkln, utils, MY_PANIC};
 use os_in_rust_common::racy_cell::RacyCell;
 
-use crate::{memory, sync::Lock, thread};
+use crate::{console_println, memory, sync::Lock, thread};
 
 use super::{constant, fs::FileSystem};
 
@@ -107,6 +107,12 @@ pub struct OpenedInode {
      */
     pub indirect_block_lba: RacyCell<LbaAddr>,
 }
+impl Display for OpenedInode {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        printk!("('i_no: {}, i_size: {}, open_cnts: {}')", self.i_no, self.i_size, self.open_cnts);
+        Result::Ok(())
+    }
+}
 
 impl OpenedInode {
     pub fn new(base_inode: Inode) -> Self {
@@ -171,10 +177,14 @@ impl OpenedInode {
     /**
      * 关闭某一个打开了的Inode
      */
-    pub fn inode_close(&mut self) {
+    #[inline(never)]
+    pub fn inode_close(&mut self, fs: &mut FileSystem) {
         self.lock.lock();
         self.open_cnts -= 1;
         if self.open_cnts == 0 {
+            // if fs.open_inodes.contains(&self.tag) {
+            //     fs.open_inodes.remove(&self.tag);
+            // }
             let cur_task = &mut thread::current_thread().task_struct;
             let pgdir_bak = cur_task.pgdir;
             cur_task.pgdir = ptr::null_mut();
@@ -248,6 +258,9 @@ pub fn inode_open(fs: &mut FileSystem, i_no: InodeNo) -> &'static mut OpenedInod
     return opened_inode;
 }
 
+pub fn inode_close(fs: &mut FileSystem, inode: &OpenedInode) {
+
+}
 
 /**
  * 根据inode号从硬盘中加载inode

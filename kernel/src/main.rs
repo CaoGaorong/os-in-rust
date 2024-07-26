@@ -31,7 +31,7 @@ mod filesystem;
 use core::{arch::asm, mem::size_of, panic::PanicInfo};
 use device::ata::{Disk, Partition};
 use filesystem::inode::OpenedInode;
-use filesystem::{DirEntry, File, FileType, OpenOptions, SeekFrom};
+use filesystem::{fs, DirEntry, File, FileType, OpenOptions, SeekFrom};
 use memory::mem_block::{Arena, MemBlock};
 use os_in_rust_common::{cstring_utils, instruction, vga};
 use os_in_rust_common::{ASSERT, constants, context::BootContext, elem2entry, printk, printkln};
@@ -141,23 +141,28 @@ fn test_create_dir() {
 #[no_mangle]
 #[link_section = ".start"]
 pub extern "C" fn _start(boot_info: &BootContext) {
-    // printkln!("I'm Kernel!");
 
     init::init_all(boot_info);
-    // self::test_create_dir();
-    // self::test_read_dir_entry();
-    // self::test_create_file();
+    self::test_create_dir();
+    self::test_read_dir_entry();
+    self::test_create_file();
+    thread::check_task_stack("fuck");
+    let fs = fs::get_filesystem();
+    fs.open_inodes.iter().for_each(|node_tag| {
+        let inode = OpenedInode::parse_by_tag(node_tag);
+        printkln!("{}", inode);
+    });
 
     
     // 打印线程信息
     // thread_management::print_thread();
 
     printkln!("-----system started-----");
-    let cur_task = &thread::current_thread().task_struct;
-    process::process_execute(PROCESS_NAME, u_prog_a);
+    // let cur_task = &thread::current_thread().task_struct;
+    // process::process_execute(PROCESS_NAME, u_prog_a);
     // thread_management::thread_start("thread_a", 5, kernel_thread, 0);
 
-    instruction::enable_interrupt();
+    // instruction::enable_interrupt();
 
     loop {}
     // 主通道。挂在2个硬盘

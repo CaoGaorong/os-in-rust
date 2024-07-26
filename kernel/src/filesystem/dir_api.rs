@@ -1,6 +1,6 @@
 use core::mem::size_of;
 
-use os_in_rust_common::{constants, cstr_write, cstring_utils, printkln, ASSERT, MY_PANIC};
+use os_in_rust_common::{constants, cstr_write, cstring_utils};
 
 use crate::{
     filesystem::{dir_entry, fs}, memory}
@@ -162,6 +162,8 @@ pub fn create_dir(path: &str) -> Result<(), DirError> {
     }
 
     dir::mkdir(fs, parent_dir_inode, dir_entry_name);
+    // 把这个inode关闭掉
+    // parent_dir_inode.inode_close(fs);
     return Result::Ok(());
 }
 

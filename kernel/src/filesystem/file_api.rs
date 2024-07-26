@@ -128,7 +128,7 @@ impl File {
 
         // 3. 关闭这个文件inode
         let opend_file = opend_file.unwrap();
-        opend_file.close_file();
+        opend_file.close_file(fs::get_filesystem());
         return Result::Ok(());
     }
 
@@ -221,15 +221,36 @@ impl Drop for File {
 }
 
 pub fn remove_file(path: &str) -> Result<(), FileError> {
+    if path.ends_with("/") {
+        return Result::Err(FileError::IsADirectory);
+    }
+    // 最后一个斜线的下标
+    let last_slash_idx = path.rfind("/");
+    if last_slash_idx.is_none() {
+        return Result::Err(FileError::FilePathIllegal);
+    }
+    let last_slash_idx = last_slash_idx.unwrap();
+    // 父目录的路径
+    let parent_dir_path = &path[..last_slash_idx.max(1)];
+    // 要创建的目录项的名称
+    let file_entry_name = &path[last_slash_idx + 1..];
+
     let fs = fs::get_filesystem();
-    // 先找到这个目录项
-    let dir_entry = dir_entry::search_dir_entry(fs, path);
-    if dir_entry.is_none() {
+    // 先找父目录项
+    let parent_dir_entry = dir_entry::search_dir_entry(fs, parent_dir_path);
+    if parent_dir_entry.is_none() {
+        return Result::Err(FileError::ParentDirNotExists);
+    }
+
+    // 找该文件的目录项
+    let (_, parent_dir_inode) = parent_dir_entry.unwrap();
+    let file_entry = dir_entry::do_search_dir_entry(fs, parent_dir_inode, file_entry_name);
+    if file_entry.is_none() {
         return Result::Err(FileError::NotFound);
     }
 
+    // 删除这个文件
 
-    
 
     return Result::Ok(());
 }

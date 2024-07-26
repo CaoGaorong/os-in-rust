@@ -145,6 +145,7 @@ fn timer_handler(frame: InterruptStackFrame) {
 /**
  * ATA primary channel 的中断
  */
+#[inline(never)]
 #[cfg(all(not(test), target_arch = "x86"))]
 pub extern "x86-interrupt" fn primary_channel_handler(frame: InterruptStackFrame) {
     pic::send_end_of_interrupt();

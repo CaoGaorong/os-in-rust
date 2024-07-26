@@ -38,8 +38,8 @@ impl OpenedFile {
     /**
      * 关闭某个文件
      */
-    pub fn close_file(&mut self) {
-        self.inode.inode_close();
+    pub fn close_file(&mut self, fs: &mut FileSystem) {
+        self.inode.inode_close(fs);
     }
 }
 
@@ -401,5 +401,5 @@ pub fn read_file(fs: &mut FileSystem, file: &mut OpenedFile, buff: &mut [u8]) ->
 
 
 pub fn remove_file(fs: &mut FileSystem, file: &mut OpenedFile) {
-    
+
 }

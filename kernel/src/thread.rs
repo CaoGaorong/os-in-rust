@@ -77,6 +77,7 @@ pub fn current_thread() -> &'static mut PcbPage {
     unsafe { &mut *((cur_esp & 0xfffff000) as *mut PcbPage) }
 }
 
+#[inline(never)]
 pub fn check_task_stack(msg: &str) {
     let cur_task = &current_thread().task_struct;
     if cur_task.stack_magic != constants::TASK_STRUCT_STACK_MAGIC {

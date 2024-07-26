@@ -1,6 +1,6 @@
 use core::{fmt::Display, ops::{Add, Sub}};
 
-use crate::printkln;
+use crate::{printk, printkln};
 
 
 /**
@@ -99,7 +99,7 @@ impl InodeNo {
 
 impl Display for InodeNo {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        printkln!("{}", self.data as u32);
+        printk!("{}", self.data as u32);
         return Result::Ok(());
     }
 }
