@@ -184,6 +184,11 @@ pub const DISK_MAX_SIZE: u64 = 80 * 1024 * 1024;
 pub const DISK_SECTOR_SIZE: usize = 512;
 
 /**
+ * 任务名称的长度
+ */
+pub const TASK_NAME_LEN: usize = 20;
+
+/**
  * idle线程的名称
  */
 pub static IDLE_THREAD_NAME: &str = "idle";

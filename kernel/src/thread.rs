@@ -1,8 +1,52 @@
 use core::{arch::asm, fmt::{write, Display, Pointer}, mem::size_of, ptr};
 
-use os_in_rust_common::{constants, elem2entry, instruction::{self, enable_interrupt}, linked_list::LinkedNode, paging::{self, PageTable}, pool::MemPool, printkln, reg_cr3::{self, CR3}, reg_eflags::{self, EFlags, FlagEnum}, selector::SegmentSelector, MY_PANIC};
+use os_in_rust_common::{constants, cstr_write, cstring_utils, elem2entry, instruction::{self, enable_interrupt}, linked_list::{LinkedList, LinkedNode}, paging::{self, PageTable}, pool::MemPool, printkln, racy_cell::RacyCell, reg_cr3::{self, CR3}, reg_eflags::{self, EFlags, FlagEnum}, selector::SegmentSelector, ASSERT, MY_PANIC};
 
 use crate::{console_println, filesystem::FileDescriptorTable, memory::mem_block::MemBlockAllocator, page_util, pid_allocator, tss};
+
+
+/**
+ * 所有的线程list
+ */
+static ALL_THREAD_LIST: RacyCell<LinkedList> = RacyCell::new(LinkedList::new());
+
+/**
+ * 就绪的进程List
+ */
+static READY_THREAD_LIST: RacyCell<LinkedList> = RacyCell::new(LinkedList::new());
+
+static IDLE_THREAD: RacyCell<Option<&mut TaskStruct>> = RacyCell::new(Option::None);
+
+
+
+pub fn get_all_thread() -> &'static mut LinkedList{
+    unsafe { ALL_THREAD_LIST.get_mut() }
+}
+
+pub fn append_all_thread(thread: &mut TaskStruct) {
+    get_all_thread().append(&mut thread.all_tag);
+}
+
+
+pub fn get_ready_thread() -> &'static mut LinkedList{
+    unsafe { READY_THREAD_LIST.get_mut() }
+}
+
+pub fn append_read_thread(thread: &mut TaskStruct) {
+    get_ready_thread().append(&mut thread.general_tag);
+}
+
+pub fn set_idle_thread(thread: &'static mut TaskStruct) {
+    let idle_thread = unsafe { IDLE_THREAD.get_mut() };
+    *idle_thread = Option::Some(thread);
+}
+
+pub fn get_idle_thread() -> &'static mut TaskStruct {
+    let idle_thread = unsafe { IDLE_THREAD.get_mut() };
+    ASSERT!(idle_thread.is_some());
+    let idle_thread = idle_thread.as_deref_mut();
+    idle_thread.unwrap()
+}
 
 
 /**
@@ -33,7 +77,12 @@ pub fn current_thread() -> &'static mut PcbPage {
     unsafe { &mut *((cur_esp & 0xfffff000) as *mut PcbPage) }
 }
 
-
+pub fn check_task_stack(msg: &str) {
+    let cur_task = &current_thread().task_struct;
+    if cur_task.stack_magic != constants::TASK_STRUCT_STACK_MAGIC {
+        MY_PANIC!("thread {} stack overflow, {}", cur_task.get_name(), msg);
+    }
+}
 
 /**
  * PCB空闲区域的大小 = 1页 - 其他用的区域
@@ -149,7 +198,7 @@ pub struct TaskStruct {
     /**
      * PCB的名称
      */
-    pub name: &'static str,
+    name: [u8; constants::TASK_NAME_LEN],
     /**
      * PCB状态
      */
@@ -208,19 +257,23 @@ pub struct TaskStruct {
     pub stack_magic: u32,
 }
 
+// 自己保证并发问题
+unsafe impl Send for TaskStruct {}
+unsafe impl Sync for TaskStruct {}
+
 impl Display for TaskStruct {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        console_println!("TaskStruct(name:{}, kernel_stack:0x{:x}, task_status:{:?}, pgdir:0x{:x}, vaddr_pool:{})", self.name as &str, self.kernel_stack as u32, self.task_status, self.pgdir as u32, self.vaddr_pool);;
+        console_println!("TaskStruct(name:{}, kernel_stack:0x{:x}, task_status:{:?}, pgdir:0x{:x}, vaddr_pool:{})", self.get_name(), self.kernel_stack as u32, self.task_status, self.pgdir as u32, self.vaddr_pool);;
         Result::Ok(())
     }
 }
 
 impl TaskStruct {
     #[inline(never)]
-    fn init(&mut self, name: &'static str, priority: u8, kernel_stack: u32, pcb_page_addr: u32) {
+    fn init(&mut self, name: &str, priority: u8, kernel_stack: u32, pcb_page_addr: u32) {
         self.pid = pid_allocator::allocate();
         self.kernel_stack = kernel_stack;
-        self.name = name;
+        cstr_write!(&mut self.name, "{}", name);
         self.task_status = TaskStatus::TaskReady;
         self.priority = priority;
         self.stack_magic = constants::TASK_STRUCT_STACK_MAGIC;
@@ -231,6 +284,12 @@ impl TaskStruct {
         self.all_tag = LinkedNode::new();
         self.pcb_page_addr = pcb_page_addr;
         self.fd_table = FileDescriptorTable::new();
+    }
+
+    pub fn get_name(&self) -> &str {
+        let task_name = cstring_utils::read_from_bytes(&self.name);
+        ASSERT!(task_name.is_some());
+        task_name.unwrap()
     }
 
     pub fn set_status(&mut self , status: TaskStatus) {
@@ -497,3 +556,26 @@ impl Display for InterruptStack {
 }
 
 
+/**
+ * 唤醒某一个线程。
+ * 某个阻塞的线程只能被其他线程唤醒
+ */
+#[inline(never)]
+pub fn wake_thread(task: &mut TaskStruct)  {
+    // 关闭中断
+    let old_status = instruction::disable_interrupt();
+    // 只能是这三种状态之一
+    let allow_status = [TaskStatus::TaskBlocked, TaskStatus::TaskHanging, TaskStatus::TaskWaiting];
+    if !allow_status.contains(&task.task_status) {
+        MY_PANIC!("could not wake up thread; name:{}, status:{:?}", task.get_name(), &task.task_status);
+    }
+
+    ASSERT!(task.task_status != TaskStatus::TaskReady);
+    // 设置为就绪状态
+    task.task_status = TaskStatus::TaskReady;
+    // 放入就绪队列
+    self::append_read_thread(task);
+
+    // 恢复中断
+    instruction::set_interrupt(old_status);
+}

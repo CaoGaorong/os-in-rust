@@ -2,7 +2,7 @@ use os_in_rust_common::{cstr_write, printkln, ASSERT};
 
 use crate::{filesystem::{constant, file, fs}, thread};
 
-use super::{file::{FileError, OpenedFile}, file_descriptor::FileDescriptor, global_file_table};
+use super::{dir_entry, file::{FileError, OpenedFile}, file_descriptor::FileDescriptor, global_file_table};
 
 #[derive(Clone, Copy)]
 pub struct OpenOptions {
@@ -218,4 +218,18 @@ impl Drop for File {
         let res = self.close();
         ASSERT!(res.is_ok());
     }
+}
+
+pub fn remove_file(path: &str) -> Result<(), FileError> {
+    let fs = fs::get_filesystem();
+    // 先找到这个目录项
+    let dir_entry = dir_entry::search_dir_entry(fs, path);
+    if dir_entry.is_none() {
+        return Result::Err(FileError::NotFound);
+    }
+
+
+    
+
+    return Result::Ok(());
 }

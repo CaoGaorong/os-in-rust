@@ -398,3 +398,8 @@ pub fn read_file(fs: &mut FileSystem, file: &mut OpenedFile, buff: &mut [u8]) ->
     }
     return Result::Ok(succeed_bytes);
 }
+
+
+pub fn remove_file(fs: &mut FileSystem, file: &mut OpenedFile) {
+    
+}

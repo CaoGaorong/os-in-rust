@@ -8,12 +8,6 @@ use crate::memory;
 use super::{dir_entry::DirEntry, fs::FileSystem, inode::Inode, superblock::SuperBlock};
 
 #[inline(never)]
-pub fn create_file_in_root(file_name: &str)  -> &mut crate::filesystem::inode::OpenedInode  {
-    let file_system = fs::get_filesystem();
-    dir_entry::create_dir_entry(file_system, &mut file_system.get_root_dir().inode, file_name, FileType::Regular)
-}
-
-#[inline(never)]
 pub fn mount_part(part_name: &str) {
     // 找到所有分区
     let all_part = device::get_all_partition();

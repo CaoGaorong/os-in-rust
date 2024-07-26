@@ -2,7 +2,7 @@ use core::{arch::{asm, global_asm}, mem::{self, size_of}, ptr::slice_from_raw_pa
 
 use os_in_rust_common::{bitmap::BitMap, constants, instruction, paging::{self, PageTable, PageTableEntry}, pool::MemPool, printkln, utils};
 
-use crate::{console_println, interrupt, memory, mutex::Mutex, page_util, thread::{self, TaskStruct, ThreadArg}, thread_management};
+use crate::{console_println, interrupt, memory, mutex::Mutex, page_util, thread::{self, TaskStruct, ThreadArg}};
 
 /**
  * 用户进程的实现
@@ -114,10 +114,10 @@ pub fn process_execute(process_name: &'static str, func: extern "C" fn()) {
     let old_status = instruction::disable_interrupt();
 
     // 加入全部任务队列
-    thread_management::get_all_thread().append(&mut pcb_page.task_struct.all_tag);
+    thread::get_all_thread().append(&mut pcb_page.task_struct.all_tag);
     
     // 加入就绪任务队列
-    thread_management::append_read_thread(&mut pcb_page.task_struct);
+    thread::append_read_thread(&mut pcb_page.task_struct);
 
     // println!("pcb_page:{}", pcb_page);
     instruction::set_interrupt(old_status);

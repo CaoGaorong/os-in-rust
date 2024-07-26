@@ -146,16 +146,18 @@ pub extern "C" fn _start(boot_info: &BootContext) {
     init::init_all(boot_info);
     // self::test_create_dir();
     // self::test_read_dir_entry();
-    self::test_create_file();
+    // self::test_create_file();
 
     
     // 打印线程信息
     // thread_management::print_thread();
 
-    // process::process_execute(PROCESS_NAME, u_prog_a);
+    printkln!("-----system started-----");
+    let cur_task = &thread::current_thread().task_struct;
+    process::process_execute(PROCESS_NAME, u_prog_a);
     // thread_management::thread_start("thread_a", 5, kernel_thread, 0);
 
-    printkln!("-----system started-----");
+    instruction::enable_interrupt();
 
     loop {}
     // 主通道。挂在2个硬盘
@@ -180,7 +182,7 @@ pub extern "C" fn _start(boot_info: &BootContext) {
     // test_linked_list();
 
 
-    // enable_interrupt();
+    
     loop {}
 }
 
@@ -379,8 +381,6 @@ extern "C" fn u_prog_a() {
 
     // 释放内存空间
     sys_call::free(my_struct_ptr);
-    
-    println!("{:?}", my_struct); // 得到垃圾值
 
     loop {
         // print!("u");

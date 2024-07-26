@@ -1,8 +1,8 @@
 use core::arch::asm;
 
-use os_in_rust_common::{constants, instruction, ASSERT};
+use os_in_rust_common::{constants, instruction, ASSERT, MY_PANIC};
 
-use crate::{thread::{self, TaskStatus, TaskStruct}, thread_management};
+use crate::thread::{self, TaskStatus, TaskStruct};
 
 
 
@@ -10,11 +10,10 @@ use crate::{thread::{self, TaskStatus, TaskStruct}, thread_management};
  * 检查任务的调度
  */
 pub fn check_task_schedule() {
-    // 当前任务
-    let current_thread = thread::current_thread();
+    let task_struct = &mut thread::current_thread().task_struct;
+
     // 确保栈没有溢出
-    ASSERT!(current_thread.task_struct.stack_magic == constants::TASK_STRUCT_STACK_MAGIC);
-    let task_struct = &mut current_thread.task_struct;
+    thread::check_task_stack("failed to schedule");
 
     // 该进程运行的tick数+1
     task_struct.elapsed_ticks += 1;
@@ -42,9 +41,9 @@ pub fn schedule() {
     // 原本该线程处于正在运行，那么说明是时间中断，定时切换的
     if cur_task.task_status == TaskStatus::TaskRunning {
         // 确保不在就绪队列中
-        ASSERT!(!thread_management::get_ready_thread().contains(&cur_task.general_tag));
+        ASSERT!(!thread::get_ready_thread().contains(&cur_task.general_tag));
         // 把当前线程加入到就绪队列
-        thread_management::append_read_thread(cur_task);
+        thread::append_read_thread(cur_task);
         // 重置剩余的ticks
         cur_task.reset_ticks();
         // 设置为就绪
@@ -54,12 +53,12 @@ pub fn schedule() {
 
     }
     // 如果没有就绪任务，那么就执行idle线程
-    if thread_management::get_ready_thread().is_empty() {
-        let idle_thread = thread_management::get_idle_thread();
-        thread_management::wake_thread(idle_thread);
+    if thread::get_ready_thread().is_empty() {
+        let idle_thread = thread::get_idle_thread();
+        thread::wake_thread(idle_thread);
     }
-    ASSERT!(!thread_management::get_ready_thread().is_empty());
-    let pcb_ready_tag = thread_management::get_ready_thread().pop();
+    ASSERT!(!thread::get_ready_thread().is_empty());
+    let pcb_ready_tag = thread::get_ready_thread().pop();
     // 找到那个要运行的task
     let task_to_run = unsafe { &mut *(TaskStruct::parse_by_general_tag(pcb_ready_tag)) };
     

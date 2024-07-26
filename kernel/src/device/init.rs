@@ -64,7 +64,7 @@ pub fn ata_init() {
     let channel_cnt = utils::div_ceil(disk_cnt, 2) as usize;
     let mut disk_start: u8 = 0;
     
-    let mut buf = [0u8; 100];
+    let buf: &mut [u8; 100] = memory::malloc(100);
     // 遍历每个通道
     for channel_idx in 0 .. channel_cnt {
         // 当前通道
@@ -76,18 +76,18 @@ pub fn ata_init() {
             (ChannelPortBaseEnum::Secondary, ChannelIrqNoEnum::Secondary)
         };
         
-        cstr_write!(&mut buf, "ata {}", channel_idx);
+        cstr_write!(buf, "ata {}", channel_idx);
 
-        *channel = Option::Some(ATAChannel::new(&buf, port_base, irq_no));
+        *channel = Option::Some(ATAChannel::new(buf, port_base, irq_no));
         let channel = channel.as_mut().unwrap();
         let channel_ptr = channel as *mut _;
         // 初始化该通道下的两个硬盘
         
         for disk_idx in 0 .. constants::DISK_CNT_PER_CHANNEL {
-            cstr_write!(&mut buf, "sd{}", char::from_u32((b'a' + disk_start) as u32).unwrap());
+            cstr_write!(buf, "sd{}", char::from_u32((b'a' + disk_start) as u32).unwrap());
             let mut disk = &mut channel.disks[disk_idx];
             {
-                *disk = Option::Some(Disk::new(&buf, channel_ptr, disk_idx == 0));
+                *disk = Option::Some(Disk::new(buf, channel_ptr, disk_idx == 0));
             }
             match disk {
                 None => continue,
@@ -103,6 +103,7 @@ pub fn ata_init() {
             }
         }
     }
+    memory::sys_free(buf.as_ptr() as usize);
 }
 
 /**
@@ -122,7 +123,7 @@ pub fn main_part_init(disk: &mut Disk) {
 
     // 得到分区表
     let part_table = &boot_sector.part_table;
-    let mut buf = [0u8; 100];
+    let buf: &mut [u8; 100] = memory::malloc(100);
     for (idx, part_entry) in part_table.iter().enumerate() {
         // 空分区。忽略
         if part_entry.is_empty() {
@@ -134,11 +135,11 @@ pub fn main_part_init(disk: &mut Disk) {
             let disk_name = cstring_utils::read_from_bytes(&disk.name);
             ASSERT!(disk_name.is_some());
             // 该分区名称 = 磁盘名称 + i
-            cstr_write!(&mut buf, "{}{}", disk.get_name(), idx);
+            cstr_write!(buf, "{}{}", disk.get_name(), idx);
 
             // 填充该主分区的信息
-            let mut primary_part = &mut disk.primary_parts[idx];
-            *primary_part = Option::Some(Partition::new(&buf, part_entry.start_lba, part_entry.sec_cnt, disk_ptr));
+            let primary_part = &mut disk.primary_parts[idx];
+            *primary_part = Option::Some(Partition::new(buf, part_entry.start_lba, part_entry.sec_cnt, disk_ptr));
             
             // 放到队列中
             get_all_partition().append(&mut primary_part.as_mut().unwrap().tag);
@@ -154,6 +155,8 @@ pub fn main_part_init(disk: &mut Disk) {
         // 进入扩展分区的扫描。总逻辑分区LBA地址，逻辑分区号是0
         extended_part_init(disk, part_entry.start_lba);
     }
+
+    memory::sys_free(buf.as_ptr() as usize);
 }
 
 /**

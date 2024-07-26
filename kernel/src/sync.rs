@@ -79,10 +79,10 @@ impl Semaphore {
         let waiting_task_tag = self.waiters.pop();
         let waiting_task = unsafe { &mut *TaskStruct::parse_by_general_tag(waiting_task_tag) };
         if (cur_task.pgdir != ptr::null_mut()) {
-            printkln!("waiting task:{:?}", waiting_task.name);
+            printkln!("waiting task:{:?}", waiting_task.get_name());
         }
         // 唤醒这个等待者
-        thread_management::wake_thread(waiting_task);
+        thread::wake_thread(waiting_task);
         // 增加信号量
         self.value += 1;
         instruction::set_interrupt(old_status);

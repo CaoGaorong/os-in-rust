@@ -120,7 +120,6 @@ pub fn search_dir_entry(filesystem: &mut FileSystem, file_path: &str) -> Option<
         let dir_entry = do_search_dir_entry(filesystem, &mut cur_inode, file_entry_name);
         // 如果目录项不存在
         if dir_entry.is_none() {
-            // printkln!("entry is none: {}, cur_ino: {:?}", file_entry_name, cur_inode);
             return Option::None;
         }
 

@@ -378,3 +378,11 @@ pub fn load_indirect_data_block(fs: &mut FileSystem, opened_inode: &mut OpenedIn
     // 读取硬盘。把数据写入到数组里。最终也是写入到缓存里了
     disk.read_sectors(indirect_lba, 1, buf)
 }
+
+
+/**
+ * 删除一个inode，以及该inode下的数据区
+ */
+pub fn inode_remove(fs: &mut FileSystem, i_no: InodeNo) {
+    
+}

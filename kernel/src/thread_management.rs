@@ -4,55 +4,8 @@ use os_in_rust_common::{
     constants, elem2entry, instruction, linked_list::LinkedList, printkln, racy_cell::RacyCell, ASSERT, MY_PANIC
 };
 
-use lazy_static::lazy_static;
 use crate::{memory, scheduler, sync::Lock, thread::{self, PcbPage, TaskStatus, TaskStruct, ThreadArg, ThreadFunc}};
 
-
-/**
- * 所有的线程list
- */
-pub static ALL_THREAD_LIST: RacyCell<LinkedList> = RacyCell::new(LinkedList::new());
-
-/**
- * 就绪的进程List
- */
-pub static READY_THREAD_LIST: RacyCell<LinkedList> = RacyCell::new(LinkedList::new());
-
-lazy_static! {
-    /**
-     * idle 线程
-     */
-    // pub static ref IDLE_TASK: &TaskStruct = (&thread_start(constants::IDLE_THREAD_NAME, constants::TASK_DEFAULT_PRIORITY, idle_thread, 0).task_struct);
-    pub static ref IDLE_TASK_ADDR: RacyCell<u32> = RacyCell::new((&(thread_start(constants::IDLE_THREAD_NAME, constants::TASK_DEFAULT_PRIORITY, idle_thread, 0).task_struct)) as *const TaskStruct as u32);
-    // pub static ref IDLE_TASK_ADDR: RacyCell<usize> = RacyCell::new(IDLE_TASK_ADDR);
-    // pub static ref IDLE_THREAD: &'static mut TaskStruct = unsafe {&mut IDLE_TASK};
-}
-
-// pub static IDLE_THREAD: RacyCell<*mut TaskStruct> = RacyCell::new(ptr::null_mut());
-// pub static IDLE_THREAD: Mute<&'static mut TaskStruct> = Option::None;
-
-
-pub fn get_all_thread() -> &'static mut LinkedList{
-    unsafe { ALL_THREAD_LIST.get_mut() }
-}
-
-
-pub fn get_ready_thread() -> &'static mut LinkedList{
-    unsafe { READY_THREAD_LIST.get_mut() }
-}
-
-pub fn append_read_thread(thread: &mut TaskStruct) {
-    get_ready_thread().append(&mut thread.general_tag);
-}
-
-
-pub fn get_idle_thread() -> &'static mut TaskStruct {
-    // let task_pcb = unsafe { IDLE_TASK_PCB.get_mut() };
-    // &mut task_pcb.task_struct
-    let task_addr = unsafe { IDLE_TASK_ADDR.get_mut() };
-    unsafe { &mut *(*task_addr as *mut TaskStruct) }
-    
-}
 
 /**
  * 记得一定要初始化。为什么在new的时候不初始化呢？
@@ -74,7 +27,6 @@ pub fn thread_init() {
  * 把当前正在执行的执行流，封装成main线程
  */
 pub fn make_thread_main() {
-    let all_thread_list = unsafe { ALL_THREAD_LIST.get_mut() };
     // 根据当前运行的线程，找到PCB
     let pcb_page = thread::current_thread();
     // 初始化PCB数据
@@ -84,15 +36,17 @@ pub fn make_thread_main() {
     pcb_page.task_struct.task_status = TaskStatus::TaskRunning;
 
     // 添加到所有的进程中
-    let all_tag = &mut pcb_page.task_struct.all_tag;
-    all_thread_list.append(all_tag);
+    let main_task = &mut pcb_page.task_struct;
+    thread::append_all_thread(main_task);
 }
 
 pub fn make_idle_thread() {
-    // let idle_task = &mut thread_start(constants::IDLE_THREAD_NAME, constants::TASK_DEFAULT_PRIORITY, idle_thread, 0).task_struct;
-    let mut global_idle_thread = get_idle_thread();
-    // global_idle_thread = idle_task;
-    global_idle_thread.task_status = TaskStatus::TaskWaiting;
+    // 创建idle线程
+    let idle_thread = thread_start(constants::IDLE_THREAD_NAME, constants::TASK_DEFAULT_PRIORITY, idle_thread, 0);
+    let idle_task = &mut idle_thread.task_struct;
+    idle_task.set_status(TaskStatus::TaskWaiting);
+    // 填充
+    thread::set_idle_thread(idle_task);
 }
 
 /**
@@ -109,18 +63,18 @@ extern "C" fn idle_thread(unused: ThreadArg) {
 }
 
 
-pub fn print_thread() {
-    printkln!("all thread:");
-    unsafe {
-        ALL_THREAD_LIST.get_mut().iter().for_each(|node| {
-            let task_struct = elem2entry!(TaskStruct, all_tag, node);
-            printkln!("thread name: {}", unsafe { (&*task_struct).name });
-            printkln!("task struct addr:0x{:x}", task_struct as u32);
-            printkln!("task struct stack addr:0x{:x}", (&*task_struct).kernel_stack as u32);
-        })
-    };
+// pub fn print_thread() {
+//     printkln!("all thread:");
+//     unsafe {
+//         ALL_THREAD_LIST.get_mut().iter().for_each(|node| {
+//             let task_struct = elem2entry!(TaskStruct, all_tag, node);
+//             printkln!("thread name: {}", unsafe { (&*task_struct).name });
+//             printkln!("task struct addr:0x{:x}", task_struct as u32);
+//             printkln!("task struct stack addr:0x{:x}", (&*task_struct).kernel_stack as u32);
+//         })
+//     };
     
-}
+// }
 
 /**
  * 启动一个内核线程
@@ -146,19 +100,12 @@ pub fn thread_start(
     // 填充PCB页的中断栈
     pcb_page.init_thread_stack(func, arg);
 
+    let task = &mut pcb_page.task_struct;
     // 加入全部线程list
-    unsafe {
-        ALL_THREAD_LIST
-            .get_mut()
-            .append(&mut pcb_page.task_struct.all_tag)
-    };
+    thread::append_all_thread(task);
 
     // 添加到就绪线程
-    unsafe {
-        READY_THREAD_LIST
-            .get_mut()
-            .append(&mut pcb_page.task_struct.general_tag)
-    };
+    thread::append_read_thread(task);
 
     pcb_page
 }
@@ -189,29 +136,29 @@ pub fn block_thread(task: &mut TaskStruct, task_status: TaskStatus) {
     instruction::set_interrupt(old_status);
 }
 
-/**
- * 唤醒某一个线程。
- * 某个阻塞的线程只能被其他线程唤醒
- */
-#[inline(never)]
-pub fn wake_thread(task: &mut TaskStruct)  {
-    // 关闭中断
-    let old_status = instruction::disable_interrupt();
-    // 只能是这三种状态之一
-    let allow_status = [TaskStatus::TaskBlocked, TaskStatus::TaskHanging, TaskStatus::TaskWaiting];
-    if !allow_status.contains(&task.task_status) {
-        MY_PANIC!("could not wake up thread; name:{}, status:{:?}", task.name, &task.task_status);
-    }
+// /**
+//  * 唤醒某一个线程。
+//  * 某个阻塞的线程只能被其他线程唤醒
+//  */
+// #[inline(never)]
+// pub fn wake_thread(task: &mut TaskStruct)  {
+//     // 关闭中断
+//     let old_status = instruction::disable_interrupt();
+//     // 只能是这三种状态之一
+//     let allow_status = [TaskStatus::TaskBlocked, TaskStatus::TaskHanging, TaskStatus::TaskWaiting];
+//     if !allow_status.contains(&task.task_status) {
+//         MY_PANIC!("could not wake up thread; name:{}, status:{:?}", task.name, &task.task_status);
+//     }
 
-    ASSERT!(task.task_status != TaskStatus::TaskReady);
-    // 设置为就绪状态
-    task.task_status = TaskStatus::TaskReady;
-    // 放入就绪队列
-    append_read_thread(task);
+//     ASSERT!(task.task_status != TaskStatus::TaskReady);
+//     // 设置为就绪状态
+//     task.task_status = TaskStatus::TaskReady;
+//     // 放入就绪队列
+//     thread::append_read_thread(task);
 
-    // 恢复中断
-    instruction::set_interrupt(old_status);
-}
+//     // 恢复中断
+//     instruction::set_interrupt(old_status);
+// }
 
 /**
  * 让当前任务让出CPU，重新进入就绪队列
@@ -222,10 +169,10 @@ pub fn thread_yield() {
 
     // 关闭中断。防止该线程重复加入就绪队列
     let old_status = instruction::disable_interrupt();
-    ASSERT!(!get_ready_thread().contains(&cur_task.general_tag));
+    ASSERT!(!thread::get_ready_thread().contains(&cur_task.general_tag));
     
     // 当前线程加入就绪队列
-    append_read_thread(cur_task);
+    thread::append_read_thread(cur_task);
     cur_task.set_status(TaskStatus::TaskReady);
 
     // 切换到其他线程执行

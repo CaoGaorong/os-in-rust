@@ -1,6 +1,6 @@
 use os_in_rust_common::{bios_mem::{ARDSType, AddressRangeDescriptorStructure}, context::BootContext, ASSERT};
 
-use crate::{device, filesystem::{self}, interrupt, memory, sys_call, thread_management, tss};
+use crate::{device, filesystem::{self}, interrupt, memory, sys_call, thread, thread_management, tss};
 
 #[inline(never)]
 #[no_mangle]
@@ -36,18 +36,26 @@ pub fn init_all(boot_info: &BootContext) {
     // 加载TSS
     tss::tss_init();
 
+    thread::check_task_stack("overflow after tss init");
+
     // 注册系统调用函数
     sys_call::sys_call_api::init();
 
+    thread::check_task_stack("overflow after syscall init");
+
     // 初始化硬盘ATA通道
     device::ata_init();
+    thread::check_task_stack("overflow after ata init");
 
     // 给每个分区，安装文件系统
     device::install_filesystem_for_all_part();
+    thread::check_task_stack("overflow after fs init");
 
     // 初始化文件系统
     filesystem::mount_part("sdb5");
+    thread::check_task_stack("overflow after fs mounted");
 
     // 初始化根目录
     filesystem::init_root_dir();
+    thread::check_task_stack("overflow after root dir init");
 }
