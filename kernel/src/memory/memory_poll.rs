@@ -2,7 +2,7 @@ use core::{mem::{self, size_of}, slice};
 
 use os_in_rust_common::{constants, paging::PageTable, pool::MemPool, racy_cell::RacyCell};
 
-use crate::{mutex::Mutex, page_util};
+use crate::mutex::Mutex;
 
 
 /**

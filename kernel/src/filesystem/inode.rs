@@ -1,9 +1,9 @@
 use core::{fmt::Display, mem::size_of, ptr, slice};
 
-use os_in_rust_common::{constants, domain::{InodeNo, LbaAddr}, elem2entry, linked_list::LinkedNode, printk, printkln, utils, MY_PANIC};
+use os_in_rust_common::{constants, domain::{InodeNo, LbaAddr}, elem2entry, linked_list::LinkedNode, printk, utils, MY_PANIC};
 use os_in_rust_common::racy_cell::RacyCell;
 
-use crate::{console_println, memory, sync::Lock, thread};
+use crate::{memory, sync::Lock, thread};
 
 use super::{constant, fs::FileSystem};
 
@@ -109,7 +109,7 @@ pub struct OpenedInode {
 }
 impl Display for OpenedInode {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        printk!("('i_no: {}, i_size: {}, open_cnts: {}')", self.i_no, self.i_size, self.open_cnts);
+        printk!("(i_no: {}, i_size: {}, open_cnts: {})", self.i_no, self.i_size, self.open_cnts);
         Result::Ok(())
     }
 }
@@ -173,28 +173,6 @@ impl OpenedInode {
         self.open_cnts += 1;
         self.lock.unlock();
     }
-
-    /**
-     * 关闭某一个打开了的Inode
-     */
-    #[inline(never)]
-    pub fn inode_close(&mut self, fs: &mut FileSystem) {
-        self.lock.lock();
-        self.open_cnts -= 1;
-        if self.open_cnts == 0 {
-            // if fs.open_inodes.contains(&self.tag) {
-            //     fs.open_inodes.remove(&self.tag);
-            // }
-            let cur_task = &mut thread::current_thread().task_struct;
-            let pgdir_bak = cur_task.pgdir;
-            cur_task.pgdir = ptr::null_mut();
-            memory::sys_free(self as *const _ as usize);
-            cur_task.pgdir = pgdir_bak;
-            self.lock.unlock();
-            return;
-        }
-        self.lock.unlock();
-    }
 }
 
 /**
@@ -225,24 +203,19 @@ impl InodeLocation {
         }
     }
 }
-
  /**
  * 从该文件系统中，根据inode_no打开一个Inode
  */
 #[inline(never)]
 pub fn inode_open(fs: &mut FileSystem, i_no: InodeNo) -> &'static mut OpenedInode {
     // 现在已打开的列表中找到这个inode
-    let exist_inode = fs.open_inodes.iter().map(|inode_tag| {
-        OpenedInode::parse_by_tag(inode_tag)
-    }).find(|inode| {
-        inode.i_no == i_no
-    }).map(|inode| {
-        inode
-    });
-    // 如果已经找到了，那么直接返回
-    if let Option::Some(node) = exist_inode {
-        node.reopen();
-        return node;
+    for inode_tag in fs.open_inodes.iter() {
+        let exist_inode = OpenedInode::parse_by_tag(inode_tag);
+        // 如果找到了
+        if exist_inode.i_no == i_no {
+            exist_inode.reopen();
+            return exist_inode;
+        }
     }
 
     // 从堆中申请内存。常驻内存
@@ -254,12 +227,27 @@ pub fn inode_open(fs: &mut FileSystem, i_no: InodeNo) -> &'static mut OpenedInod
     *opened_inode = OpenedInode::new(inode);
 
     // 添加到打开的列表中
-    fs.open_inodes.append(&mut opened_inode.tag);
+    fs.append_inode(opened_inode);
     return opened_inode;
 }
 
-pub fn inode_close(fs: &mut FileSystem, inode: &OpenedInode) {
-
+pub fn inode_close(fs: &mut FileSystem, inode: &mut OpenedInode) {
+    inode.lock.lock();
+    inode.open_cnts -= 1;
+    if inode.open_cnts == 0 {
+        // 从打开的链表中，移除该inode
+        fs.remove_inode(inode);
+        // 解锁
+        inode.lock.unlock();
+        let cur_task = &mut thread::current_thread().task_struct;
+        let pgdir_bak = cur_task.pgdir;
+        cur_task.pgdir = ptr::null_mut();
+        // 释放空间
+        memory::sys_free(inode as *const _ as usize);
+        cur_task.pgdir = pgdir_bak;
+        return;
+    }
+    inode.lock.unlock();
 }
 
 /**
@@ -269,6 +257,7 @@ pub fn inode_close(fs: &mut FileSystem, inode: &OpenedInode) {
  * 返回值：
  *   - Inode： 加载到的inode
  */
+#[inline(never)]
 pub fn load_inode(fs: &FileSystem, i_no: InodeNo) -> Inode {
     let inode_location = self::locate_inode(fs, i_no);
     let disk = unsafe { &mut *fs.base_part.from_disk };
@@ -277,9 +266,8 @@ pub fn load_inode(fs: &FileSystem, i_no: InodeNo) -> Inode {
     // 从硬盘中读取扇区
     disk.read_sectors(inode_location.lba, inode_location.sec_cnt, inode_buf);
 
-    let mut target_inode = Inode::empty();
     // 根据字节偏移量，找到这个inode数据
-    target_inode = unsafe { *(inode_buf[inode_location.bytes_off .. ].as_ptr() as usize as *const Inode) };
+    let target_inode = unsafe { *(inode_buf[inode_location.bytes_off .. ].as_ptr() as *const Inode) };
     memory::sys_free(inode_buf.as_ptr() as usize);
 
     target_inode

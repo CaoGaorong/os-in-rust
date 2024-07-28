@@ -7,7 +7,7 @@ use crate::{
 ;
 
 use super::{
-    constant, dir, dir_entry::DirEntry, inode::{self, OpenedInode}
+    constant, dir, dir_entry::{DirEntry, DirEntrySearchReq}, inode::{self, OpenedInode}
 };
 
 #[derive(Debug)]
@@ -19,11 +19,11 @@ pub enum DirError {
 }
 
 #[derive(Debug)]
-pub struct ReadDir {
+pub struct ReadDir<'a> {
     /**
      * 该目录对应的inode
      */
-    inode: &'static OpenedInode,
+    inode: &'a mut OpenedInode,
 
     /**
      * 该目录的全路径
@@ -32,10 +32,10 @@ pub struct ReadDir {
 
 }
 
-impl ReadDir {
+impl <'a> ReadDir<'a> {
     
     #[inline(never)]
-    pub fn new(inode: &'static OpenedInode, dir_path: &str) -> Self {
+    pub fn new(inode: &'a mut OpenedInode, dir_path: &str) -> Self {
         let mut dir = Self {
             inode: inode,
             path: [0; constant::MAX_FILE_PATH_LEN],
@@ -50,7 +50,7 @@ impl ReadDir {
     }
 
     #[inline(never)]
-    pub fn iter(&self) -> ReadDirIterator {
+    pub fn iter(&'a mut self) -> ReadDirIterator {
         let buf: &mut [u8; constants::DISK_SECTOR_SIZE] = memory::malloc(constants::DISK_SECTOR_SIZE);
         ReadDirIterator::new(self.inode, buf)
     }
@@ -58,7 +58,7 @@ impl ReadDir {
 
 #[derive(Debug)]
 pub struct ReadDirIterator<'a> {
-    inode: &'static OpenedInode,
+    inode: &'a mut OpenedInode,
     block_idx: usize,
     dir_entry_buf: &'a mut [u8; constants::DISK_SECTOR_SIZE],
     dir_entry_idx: usize,
@@ -66,7 +66,7 @@ pub struct ReadDirIterator<'a> {
 
 impl <'a> ReadDirIterator<'a> {
     #[inline(never)]
-    pub fn new(inode: &'static OpenedInode, dir_entry_buf: &'static mut [u8; constants::DISK_SECTOR_SIZE]) -> Self {
+    pub fn new(inode: &'a mut OpenedInode, dir_entry_buf: &'a mut [u8; constants::DISK_SECTOR_SIZE]) -> Self {
         Self {
             inode,
             block_idx: 0,
@@ -80,6 +80,7 @@ impl <'a> Drop for ReadDirIterator<'a> {
     
     #[inline(never)]
     fn drop(&mut self) {
+        inode::inode_close(fs::get_filesystem(), self.inode);
         memory::sys_free(self.dir_entry_buf.as_ptr() as usize);
     }
 }
@@ -155,15 +156,19 @@ pub fn create_dir(path: &str) -> Result<(), DirError> {
     }
     let (_, parent_dir_inode) = parent_dir.unwrap();
     // 搜索要创建的inode
-    let dir_entry = dir_entry::do_search_dir_entry(fs, parent_dir_inode, dir_entry_name);
+    let dir_entry = dir_entry::do_search_dir_entry(fs, parent_dir_inode, DirEntrySearchReq::build().entry_name(dir_entry_name));
     // 如果已经存在了，报错
     if dir_entry.is_some() {
+        // 把这个parent dir inode关闭掉
+        inode::inode_close(fs, parent_dir_inode);
         return Result::Err(DirError::AlreadyExists);
     }
 
-    dir::mkdir(fs, parent_dir_inode, dir_entry_name);
-    // 把这个inode关闭掉
-    // parent_dir_inode.inode_close(fs);
+    let dir_inode = dir::mkdir(fs, parent_dir_inode, dir_entry_name);
+    // 把这个parent dir inode关闭掉
+    inode::inode_close(fs, parent_dir_inode);
+    // 关闭当前inode
+    inode::inode_close(fs, dir_inode);
     return Result::Ok(());
 }
 
@@ -173,9 +178,9 @@ pub fn create_dir_all(path: &str) -> Result<(), DirError> {
         return Result::Err(DirError::DirPathIllegal);
     }
     let fs = fs::get_filesystem();
-
-    let root_dir = fs.get_root_dir();
-    let mut base_inode = root_dir.get_inode_ref();
+    
+    // 根目录为基准目录
+    let mut base_inode = inode::inode_open(fs, fs.super_block.root_inode_no);
 
     // 使用/分隔每个目录项
     let mut dir_entry_split = path.split("/");
@@ -184,11 +189,23 @@ pub fn create_dir_all(path: &str) -> Result<(), DirError> {
         if entry_name.is_empty() {
             continue;
         }
+        let search_result = dir_entry::do_search_dir_entry(fs, base_inode, DirEntrySearchReq::build().entry_name(entry_name));
+        // 如果该目录项已经存在了，搜索下一层
+        if search_result.is_some() {
+            // 关掉inode
+            inode::inode_close(fs, base_inode);
+            // 打开找到了inode
+            base_inode = inode::inode_open(fs, search_result.unwrap().i_no);
+            continue;
+        }
         // 创建子目录
         let sub_dir_entry = dir::mkdir(fs, base_inode, entry_name);
-        // 基于子目录
-        base_inode = inode::inode_open(fs, sub_dir_entry.i_no);
+        inode::inode_close(fs, base_inode);
+        // 再次遍历基于子目录
+        base_inode = sub_dir_entry;
     }
+
+    inode::inode_close(fs, base_inode);
     return Result::Ok(());
 }
 

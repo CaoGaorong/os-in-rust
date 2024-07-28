@@ -1,9 +1,6 @@
-use os_in_rust_common::{ASSERT, MY_PANIC};
+use super::{dir_entry::{self, FileType}, fs::{self, FileSystem}, inode::{self, OpenedInode}};
 
-
-use super::{dir_entry::{self, DirEntry, FileType}, fs::{self, FileSystem}, inode::{self, OpenedInode}};
-
-/**
+/** 
  * 文件系统中的目录的结构以及操作
  */
 
@@ -22,57 +19,7 @@ pub fn load_root_dir() {
     let file_system = fs::get_filesystem();
     let root_inode = inode::load_inode(file_system, file_system.super_block.root_inode_no);
     file_system.set_root_inode(root_inode);
-}
-
-
-
-
-
-#[inline(never)]
-pub fn search(file_path: &str) -> Option<DirEntry> {
-    let fs  = fs::get_filesystem();
-    let result = dir_entry::search_dir_entry(fs, file_path);
-    if result.is_none() {
-        return Option::None;
-    }
-    Option::Some(result.unwrap().0)
-}
-
-
-#[derive(Debug)]
-pub enum CreateDirError {
-    DirEntryExist,
-    CouldNotCreateRootDir,
-    DirPathMustStartWithRoot,
-}
-
-/**
- * 创建一个目录
- */
-pub fn mkdir_p(fs: &mut FileSystem, dir_path: &str) -> Result<bool, CreateDirError>{
-    let dir_path = dir_path.trim();
-    if "/".eq(dir_path) {
-        return Result::Err(CreateDirError::CouldNotCreateRootDir);
-    }
-    if !dir_path.starts_with("/") {
-        return Result::Err(CreateDirError::DirPathMustStartWithRoot);
-    }
-    let root_dir = fs.get_root_dir();
-
-    let mut base_inode = root_dir.get_inode_ref();
-
-    let mut dir_entry_split = dir_path.split("/");
-    // 遍历每个entry
-    while let Option::Some(entry_name) = dir_entry_split.next() {
-        if entry_name.is_empty() {
-            continue;
-        }
-        // 创建子目录
-        let sub_dir_entry = self::mkdir(fs, base_inode, entry_name);
-        // 基于子目录
-        base_inode = inode::inode_open(fs, sub_dir_entry.i_no);
-    }
-    return Result::Ok(true);
+    file_system.append_inode(&mut file_system.get_root_dir().inode);
 }
 
 /**
@@ -89,20 +36,6 @@ pub fn mkdir(fs: &mut FileSystem, parent_dir_inode: &mut OpenedInode, dir_name: 
     dir_entry::do_create_dir_entry(fs, entry_inode, Option::Some(entry_inode.i_no), ".", FileType::Directory);
     
     entry_inode
-}
-
-
-#[inline(never)]
-pub fn mkdir_in_root(dir_name: &str) -> &'static mut OpenedInode {
-    let file_system = fs::get_filesystem();
-    let root_dir = file_system.get_root_dir();
-    mkdir(file_system, root_dir.get_inode_ref(), dir_name)
-}
-
-#[inline(never)]
-pub fn mkdir_p_in_root(dir_path: &str) -> Result<bool, CreateDirError> {
-    let file_system = fs::get_filesystem();
-    mkdir_p(file_system, dir_path)
 }
 
 

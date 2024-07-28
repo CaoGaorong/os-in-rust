@@ -4,7 +4,7 @@ pub mod inode;
 pub mod dir;
 mod init;
 mod file;
-mod dir_entry;
+pub mod dir_entry;
 mod file_descriptor;
 mod global_file_table;
 pub mod fs;
@@ -25,6 +25,7 @@ pub use init::mount_part;
 
 pub use dir_entry::FileType;
 pub use dir_entry::DirEntry;
+pub use dir_entry::current_inode_entry;
 
 pub use dir_api::create_dir;
 pub use dir_api::create_dir_all;

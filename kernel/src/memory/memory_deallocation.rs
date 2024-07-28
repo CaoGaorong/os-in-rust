@@ -6,7 +6,7 @@ use os_in_rust_common::{constants, pool::MemPool, printk, printkln, ASSERT, MY_P
 
 use crate::{page_util, thread};
 
-use super::{mem_block::{Arena, MemBlock, MemBlockAllocator}, memory_poll::{get_kernel_addr_pool, get_kernel_mem_pool, get_user_mem_pool}};
+use super::{mem_block::MemBlock, memory_poll::{get_kernel_addr_pool, get_kernel_mem_pool, get_user_mem_pool}};
 
 
 

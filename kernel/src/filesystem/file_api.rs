@@ -2,7 +2,7 @@ use os_in_rust_common::{cstr_write, printkln, ASSERT};
 
 use crate::{filesystem::{constant, file, fs}, thread};
 
-use super::{dir_entry, file::{FileError, OpenedFile}, file_descriptor::FileDescriptor, global_file_table};
+use super::{dir_entry::{self, DirEntrySearchReq}, file::{FileError, OpenedFile}, file_descriptor::FileDescriptor, global_file_table};
 
 #[derive(Clone, Copy)]
 pub struct OpenOptions {
@@ -123,12 +123,12 @@ impl File {
         if opend_file.is_none() {
             return Result::Err(FileError::BadDescriptor);
         }
-        // 2. 释放全局的文件结构
-        global_file_table::release_file(global_idx);
-
         // 3. 关闭这个文件inode
         let opend_file = opend_file.unwrap();
         opend_file.close_file(fs::get_filesystem());
+
+        // 2. 释放全局的文件结构
+        global_file_table::release_file(global_idx);
         return Result::Ok(());
     }
 
@@ -214,6 +214,7 @@ impl File {
 
 impl Drop for File {
     fn drop(&mut self) {
+        // printkln!("drop fd: {:?}", self.fd);
         // 文件离开作用域，自动关闭文件
         let res = self.close();
         ASSERT!(res.is_ok());
@@ -244,7 +245,7 @@ pub fn remove_file(path: &str) -> Result<(), FileError> {
 
     // 找该文件的目录项
     let (_, parent_dir_inode) = parent_dir_entry.unwrap();
-    let file_entry = dir_entry::do_search_dir_entry(fs, parent_dir_inode, file_entry_name);
+    let file_entry = dir_entry::do_search_dir_entry(fs, parent_dir_inode, DirEntrySearchReq::build().entry_name(file_entry_name));
     if file_entry.is_none() {
         return Result::Err(FileError::NotFound);
     }

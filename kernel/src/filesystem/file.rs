@@ -2,9 +2,9 @@
 use os_in_rust_common::{constants, printkln, ASSERT};
 
 
-use crate::{memory, thread};
+use crate::{console_println, memory, thread};
 use super::{
-    dir_entry, file_descriptor::FileDescriptor, fs::{self, FileSystem}, global_file_table, inode::{self, OpenedInode}, FileType
+    dir_entry::{self, DirEntrySearchReq}, file_descriptor::FileDescriptor, fs::{self, FileSystem}, global_file_table, inode::{self, OpenedInode}, FileType
 };
 
 /**
@@ -39,7 +39,7 @@ impl OpenedFile {
      * 关闭某个文件
      */
     pub fn close_file(&mut self, fs: &mut FileSystem) {
-        self.inode.inode_close(fs);
+        inode::inode_close(fs, self.inode);
     }
 }
 
@@ -89,14 +89,12 @@ pub fn open_file(file_path: &str, append: bool) -> Result<FileDescriptor, FileEr
     if searched_file.is_none() {
         return Result::Err(FileError::NotFound);
     }
-    let (searched_file, _) = searched_file.unwrap();
+    let (searched_file, file_inode) = searched_file.unwrap();
 
     // 如果打开的是一个文件夹，不允许打开
     if searched_file.file_type as FileType == FileType::Directory {
         return Result::Err(FileError::IsADirectory);
     }
-    // 打开inode
-    let file_inode = inode::inode_open(fs, searched_file.i_no);
     
     // 得到一个打开文件
     let opened_file = OpenedFile::new(file_inode, append);
@@ -149,12 +147,14 @@ pub fn create_file(file_path: &str) -> Result<FileDescriptor, FileError> {
     }
     // 在搜索一下这个文件是否存在
     let dir_inode = search_dir.unwrap().1;
-    let search_entry = dir_entry::do_search_dir_entry(fs, dir_inode, file_name);
+    let search_entry = dir_entry::do_search_dir_entry(fs, dir_inode, DirEntrySearchReq::build().entry_name(file_name));
     if search_entry.is_some() {
+        inode::inode_close(fs, dir_inode);
         return Result::Err(FileError::AlreadyExists);
     }
 
     let opened_inode = dir_entry::create_dir_entry(fs, dir_inode, file_name, FileType::Regular);
+    inode::inode_close(fs, dir_inode);
     
 
     // 得到一个打开文件

@@ -95,6 +95,9 @@ impl InodeNo {
     pub fn add(&self, offset: usize) -> Self {
         Self::new(self.data + offset as u32)
     }
+    pub fn get_data(&self) -> u32 {
+        self.data
+    }
 }
 
 impl Display for InodeNo {

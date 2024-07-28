@@ -112,6 +112,10 @@ impl LinkedList {
      * head tail
      */
     pub fn append(&mut self, node: &mut LinkedNode) {
+        // 不可以重复插入
+        if self.contains(node) {
+            return;
+        }
         // 初始化，清空数据
         node.init();
 
@@ -231,9 +235,12 @@ impl LinkedList {
         }
     }
 
+    #[inline(never)]
     pub fn size(&self) -> usize {
         self.iter().count()
     }
+
+    #[inline(never)]
     pub fn iter(&self) -> LinkedNodeIterator {
         LinkedNodeIterator {
             current: self.head,

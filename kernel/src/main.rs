@@ -45,7 +45,7 @@ static PROCESS_NAME: &str = "user process";
 // #[inline(never)]
 fn test_read_dir_entry() {
     let dir = filesystem::read_dir("/dev/proc/");
-    let dir = dir.unwrap();
+    let mut dir = dir.unwrap();
     console_println!("read dir: {:?}", dir.get_path());
     let iterator = dir.iter();
     // printkln!("read dir: {:?}", iterator);
@@ -146,12 +146,16 @@ pub extern "C" fn _start(boot_info: &BootContext) {
     self::test_create_dir();
     self::test_read_dir_entry();
     self::test_create_file();
-    thread::check_task_stack("fuck");
     let fs = fs::get_filesystem();
-    fs.open_inodes.iter().for_each(|node_tag| {
+    for node_tag in fs.open_inodes.iter() {
         let inode = OpenedInode::parse_by_tag(node_tag);
-        printkln!("{}", inode);
-    });
+        let entry = filesystem::current_inode_entry(inode);
+        if entry.is_empty() {
+            continue;
+        }
+        // console_println!("inode_no{}, open_cnt:{}", inode.i_no, inode.open_cnts);
+        printkln!("inode: {}, name:{}, open_cnt:{}", inode.i_no, entry.get_name(), inode.open_cnts);
+    }
 
     
     // 打印线程信息

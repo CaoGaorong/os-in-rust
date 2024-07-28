@@ -1,8 +1,8 @@
 use core::{mem::size_of, slice};
 
-use os_in_rust_common::{constants, cstr_write, cstring_utils, domain::{InodeNo, LbaAddr}, printkln, utils, ASSERT};
+use os_in_rust_common::{constants, cstr_write, cstring_utils, domain::{InodeNo, LbaAddr}, printkln, utils, ASSERT, MY_PANIC};
 
-use crate::{device::ata::Disk, memory};
+use crate::{device::ata::Disk, filesystem::fs, memory};
 
 use super::{constant, fs::FileSystem, inode::{self, Inode, OpenedInode}};
 
@@ -48,6 +48,7 @@ pub struct DirEntry {
      */
     pub file_type: FileType,
 }
+
 
 impl DirEntry {
     pub fn new(i_no: InodeNo, file_name: &str, file_type: FileType) -> Self {
@@ -117,9 +118,9 @@ pub fn search_dir_entry(filesystem: &mut FileSystem, file_path: &str) -> Option<
             continue;
         }
         // 根据名称搜索目录项
-        let dir_entry = do_search_dir_entry(filesystem, &mut cur_inode, file_entry_name);
+        let dir_entry = do_search_dir_entry(filesystem, cur_inode, DirEntrySearchReq::build().entry_name(file_entry_name));
         // 关掉inode
-        // cur_inode.inode_close(filesystem);
+        inode::inode_close(filesystem, cur_inode);
         // 如果目录项不存在
         if dir_entry.is_none() {
             return Option::None;
@@ -127,8 +128,7 @@ pub fn search_dir_entry(filesystem: &mut FileSystem, file_path: &str) -> Option<
 
         let dir_entry = dir_entry.unwrap();
         // 根据inode号，打开
-        let opened_inode = inode::inode_open(filesystem, dir_entry.i_no);
-        cur_inode = opened_inode;
+        cur_inode = inode::inode_open(filesystem, dir_entry.i_no);
 
         // 搜索下一个目录项
         cur_dir_entry = dir_entry;
@@ -137,13 +137,38 @@ pub fn search_dir_entry(filesystem: &mut FileSystem, file_path: &str) -> Option<
     return Option::Some((cur_dir_entry, cur_inode));
 }
 
+#[derive(Clone, Copy)]
+pub struct DirEntrySearchReq<'a> {
+    entry_name: Option<&'a str>,
+    i_no: Option<InodeNo>
+}
+impl <'a>DirEntrySearchReq<'a> {
+    pub fn build() -> Self {
+        Self {
+            entry_name: Option::None,
+            i_no: Option::None,
+        }
+    }
+    pub fn entry_name(&mut self, name: &'a str) -> Self {
+        self.entry_name = Option::Some(name);
+        *self
+    }
+    pub fn i_no(&mut self, i_no: InodeNo) -> Self {
+        self.i_no = Option::Some(i_no);
+        *self
+    }
+    pub fn is_empty(&self) -> bool {
+        self.entry_name.is_none() && self.i_no.is_none()
+    }
+}
+
 
 /**
  * 查找某个目录dir_inode下，名为entry_name的目录项
  */
 #[inline(never)]
-pub fn do_search_dir_entry(fs: &mut FileSystem, dir_inode: &mut OpenedInode, entry_name: &str) -> Option<DirEntry> {
-    if entry_name.is_empty() {
+pub fn do_search_dir_entry(fs: &mut FileSystem, dir_inode: &mut OpenedInode, search_req: DirEntrySearchReq) -> Option<DirEntry> {
+    if search_req.is_empty() {
         return Option::None;
     }
     // 如果直接块都满了，那么就需要加载间接块
@@ -157,8 +182,7 @@ pub fn do_search_dir_entry(fs: &mut FileSystem, dir_inode: &mut OpenedInode, ent
     let disk = unsafe { &mut *fs.base_part.from_disk };
     
     // 开辟缓冲区
-    let buff_addr = memory::sys_malloc(constants::DISK_SECTOR_SIZE);
-    let buff_u8 = unsafe { slice::from_raw_parts_mut(buff_addr as *mut u8, constants::DISK_SECTOR_SIZE) };
+    let buff_u8: &mut [u8; constants::DISK_SECTOR_SIZE] = memory::malloc(constants::DISK_SECTOR_SIZE);
 
     // 遍历所有的数据区，根据名称找目录项
     for block_lba in data_blocks {
@@ -168,15 +192,32 @@ pub fn do_search_dir_entry(fs: &mut FileSystem, dir_inode: &mut OpenedInode, ent
         disk.read_sectors(*block_lba, 1, buff_u8);
 
         // 读取出的数据，转成页目录项列表
-        let dir_entry_list = unsafe { slice::from_raw_parts(buff_addr as *const DirEntry, constants::DISK_SECTOR_SIZE / size_of::<DirEntry>()) };
-        let find = dir_entry_list.iter().find(|entry| entry.get_name() == entry_name);
+        let dir_entry_list = unsafe { slice::from_raw_parts(buff_u8.as_ptr() as *const DirEntry, constants::DISK_SECTOR_SIZE / size_of::<DirEntry>()) };
+        let find = dir_entry_list.iter().find(|entry| {
+            // 根据名称过滤
+            if search_req.entry_name.is_some() {
+                if entry.get_name() != search_req.entry_name.unwrap() {
+                    return false;
+                }
+            }
+            // 根据inode编号过滤
+            if search_req.i_no.is_some() {
+                if entry.i_no != search_req.i_no.unwrap() {
+                    return false;
+                }
+            }
+            return true;
+        });
         
         // 找到了，直接返回
         if find.is_some() {
-            fs.open_inodes.append(&mut dir_inode.tag);
-            return Option::Some(*find.unwrap());
+            // fs.append_inode(dir_inode);
+            let target_entry = *find.unwrap();
+            memory::sys_free(buff_u8.as_ptr() as usize);
+            return Option::Some(target_entry);
         }
     }
+    memory::sys_free(buff_u8.as_ptr() as usize);
     return Option::None;
 }
 
@@ -195,7 +236,7 @@ pub fn create_dir_entry(fs: &mut FileSystem, parent_inode: &mut OpenedInode, ent
     let created_entry_inode = self::do_create_dir_entry(fs, parent_inode, Option::None, entry_name, file_type);
 
     /***2. 填充内存结构*****/
-    fs.open_inodes.append(&mut created_entry_inode.tag);
+    fs.append_inode(created_entry_inode);
 
     // 返回创建好了目录项
     created_entry_inode
@@ -246,7 +287,7 @@ pub fn do_create_dir_entry(fs: &mut FileSystem, parent_inode: &mut OpenedInode, 
  *  比如buf[512]，发现第100项可用，那么返回值是 &buf[100]
  */
 // #[inline(never)]
-fn find_available_entry(data_blocks: &mut [LbaAddr], u8buf: &mut[u8; constants::DISK_SECTOR_SIZE], disk: &mut Disk) -> Option<(usize, usize)> {
+fn find_available_entry(data_blocks: &[LbaAddr], u8buf: &mut[u8; constants::DISK_SECTOR_SIZE], disk: &mut Disk) -> Option<(usize, usize)> {
     // 再转成DirEntryList
     let dir_buf = unsafe { slice::from_raw_parts(u8buf.as_ptr() as *const DirEntry, u8buf.len() / size_of::<DirEntry>()) };
 
@@ -354,4 +395,33 @@ pub fn sync_dir_entry(fs: &mut FileSystem, parent_inode: &mut OpenedInode, dir_e
 
     // 释放缓冲区的空间
     memory::sys_free(buf.as_ptr() as usize);
+}
+
+/**
+ * 找到某个inode的上一级目录
+ */
+#[inline(never)]
+fn parent_entry(opened_inode: &mut OpenedInode) -> DirEntry {
+    let fs = fs::get_filesystem();
+    // 找到..目录项，这个就是上一级目录
+    let parent_entry = self::do_search_dir_entry(fs, opened_inode, DirEntrySearchReq::build().entry_name(".."));
+    ASSERT!(parent_entry.is_some());
+    parent_entry.unwrap()
+}
+
+
+/**
+ * 得到当前inode所在的Entry
+ */
+#[inline(never)]
+pub fn current_inode_entry(opened_inode: &mut OpenedInode) -> DirEntry {
+    let fs = fs::get_filesystem();
+    // 现在找到父目录
+    let parent_entry = self::parent_entry(opened_inode);
+    // 父目录对应的inode
+    let inode = inode::load_inode(fs, parent_entry.i_no);
+    let mut parent_inode = OpenedInode::new(inode);
+    // 然后在父目录里面遍历inode号
+    let search_result = self::do_search_dir_entry(fs, &mut parent_inode, DirEntrySearchReq::build().i_no(opened_inode.i_no));
+    search_result.unwrap()
 }

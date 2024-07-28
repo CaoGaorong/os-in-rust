@@ -1,6 +1,6 @@
-use core::{mem::size_of, slice};
+use core::slice;
 
-use os_in_rust_common::{bitmap::BitMap, constants, domain::{InodeNo, LbaAddr}, linked_list::LinkedList, printkln, racy_cell::RacyCell, utils, ASSERT, MY_PANIC};
+use os_in_rust_common::{bitmap::BitMap, constants, domain::{InodeNo, LbaAddr}, linked_list::{LinkedList, LinkedNodeIterator}, printkln, racy_cell::RacyCell, utils, ASSERT, MY_PANIC};
 
 use crate::device::ata::{Disk, Partition};
 
@@ -10,7 +10,7 @@ use super::{inode::{Inode, OpenedInode}, superblock::SuperBlock};
  * 文件系统。中任何操作都是基于分区的
  */
 
- /**
+/**
  * 当前的挂载的分区
  */
 static CUR_FILE_SYSTEM: RacyCell<Option<FileSystem>> = RacyCell::new(Option::None);
@@ -109,6 +109,28 @@ impl FileSystem {
         ASSERT!(root_dir.is_some());
         let root_dir = root_dir.unwrap();
         unsafe { root_dir.get_mut() }
+    }
+
+    #[inline(never)]
+    pub fn append_inode(&mut self, inode: &mut OpenedInode) {
+        self.open_inodes.append(&mut inode.tag);
+    }
+
+    #[inline(never)]
+    pub fn remove_inode(&mut self, inode: &mut OpenedInode) {
+        self.open_inodes.remove(&mut inode.tag)
+    }
+
+    #[inline(never)]
+    pub fn find_inode(&self, i_no: InodeNo) -> Option<&mut OpenedInode> {
+        for inode_tag in self.open_inodes.iter() {
+            let exist_inode = OpenedInode::parse_by_tag(inode_tag);
+            // 如果找到了
+            if exist_inode.i_no == i_no {
+                return Option::Some(exist_inode);
+            }
+        }
+        return Option::None;
     }
 
 }

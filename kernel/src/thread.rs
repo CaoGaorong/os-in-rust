@@ -80,7 +80,8 @@ pub fn current_thread() -> &'static mut PcbPage {
 #[inline(never)]
 pub fn check_task_stack(msg: &str) {
     let cur_task = &current_thread().task_struct;
-    if cur_task.stack_magic != constants::TASK_STRUCT_STACK_MAGIC {
+    // 这里cur_task.pid != 0 是为了防止PCB还未初始化
+    if cur_task.pid != 0 && cur_task.stack_magic != constants::TASK_STRUCT_STACK_MAGIC {
         MY_PANIC!("thread {} stack overflow, {}", cur_task.get_name(), msg);
     }
 }
@@ -287,7 +288,9 @@ impl TaskStruct {
         self.fd_table = FileDescriptorTable::new();
     }
 
+    #[inline(never)]
     pub fn get_name(&self) -> &str {
+        ASSERT!(self.stack_magic == constants::TASK_STRUCT_STACK_MAGIC);
         let task_name = cstring_utils::read_from_bytes(&self.name);
         ASSERT!(task_name.is_some());
         task_name.unwrap()

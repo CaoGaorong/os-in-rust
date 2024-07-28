@@ -3,7 +3,7 @@ use core::ptr;
 
 use os_in_rust_common::{instruction, linked_list::LinkedList, printkln, ASSERT};
 
-use crate::{console_println, thread::{self, TaskStruct}, thread_management};
+use crate::{thread::{self, TaskStruct}, thread_management};
 
 /**
  * 定义一个信号量
@@ -158,6 +158,7 @@ impl Lock {
     #[inline(never)]
     pub fn unlock(&mut self) {
         let current_task = &thread::current_thread().task_struct;
+        thread::check_task_stack("failed to unlock");
         // println!("cur:{}, holder:{}", current_task.name, unsafe {&*self.holder}.name);
         // println!("holder:{}", self.holder as u32);
         ASSERT!(current_task as *const _ as u32 == self.holder as u32);

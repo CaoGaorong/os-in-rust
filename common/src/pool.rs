@@ -1,4 +1,4 @@
-use core::{fmt::Display, mem::size_of};
+use core::fmt::Display;
 
 use crate::{bitmap::{BitMap, MemoryError}, printkln};
 

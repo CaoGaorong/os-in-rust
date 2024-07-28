@@ -1,10 +1,10 @@
 use core::{mem::size_of, ptr, task};
 
 use os_in_rust_common::{
-    constants, elem2entry, instruction, linked_list::LinkedList, printkln, racy_cell::RacyCell, ASSERT, MY_PANIC
+    constants, instruction, ASSERT
 };
 
-use crate::{memory, scheduler, sync::Lock, thread::{self, PcbPage, TaskStatus, TaskStruct, ThreadArg, ThreadFunc}};
+use crate::{memory, scheduler, thread::{self, PcbPage, TaskStatus, TaskStruct, ThreadArg, ThreadFunc}};
 
 
 /**
