@@ -1,8 +1,6 @@
-use core::{mem::{self, size_of}, slice};
+use core::{mem::{self}, slice};
 
 use os_in_rust_common::{constants, paging::PageTable, pool::MemPool, racy_cell::RacyCell};
-
-use crate::mutex::Mutex;
 
 
 /**
@@ -15,37 +13,37 @@ use crate::mutex::Mutex;
 /**
  * 内核物理内存池
  */
-static KERNEL_MEM_POOL: RacyCell<Mutex<MemPool>> = RacyCell::new(Mutex::new(MemPool::empty()));
+static KERNEL_MEM_POOL: RacyCell<MemPool> = RacyCell::new(MemPool::empty());
 
 /**
  * 用户物理内存池
  */
-static USER_MEM_POOL: RacyCell<Mutex<MemPool>> = RacyCell::new(Mutex::new(MemPool::empty()));
+static USER_MEM_POOL: RacyCell<MemPool> = RacyCell::new(MemPool::empty());
 
 /**
  * 用户地址池
  */
-static KERNEL_ADDR_POOL: RacyCell<Mutex<MemPool>> = RacyCell::new(Mutex::new(MemPool::empty()));
+static KERNEL_ADDR_POOL: RacyCell<MemPool> = RacyCell::new(MemPool::empty());
 
 
 /**
  * 获取内核物理内存池
  */
-pub fn get_kernel_mem_pool() -> &'static mut Mutex<MemPool> {
+pub fn get_kernel_mem_pool() -> &'static mut MemPool {
     unsafe { KERNEL_MEM_POOL.get_mut() }
 }
 
 /**
  * 获取用户物理内存池
  */
-pub fn get_user_mem_pool() -> &'static mut Mutex<MemPool> {
+pub fn get_user_mem_pool() -> &'static mut MemPool {
     unsafe { USER_MEM_POOL.get_mut() }
 }
 
 /**
  * 获取内核虚拟地址内存池
  */
-pub fn get_kernel_addr_pool() -> &'static mut Mutex<MemPool> {
+pub fn get_kernel_addr_pool() -> &'static mut MemPool {
     unsafe { KERNEL_ADDR_POOL.get_mut() }
 }
 
@@ -79,7 +77,7 @@ pub fn mem_pool_init(all_mem: u32) {
 
 
     /* 1. 内核物理内存池 */
-    let mut kernel_mem_pool = unsafe { KERNEL_MEM_POOL.get_mut().lock() };
+    let kernel_mem_pool = unsafe { KERNEL_MEM_POOL.get_mut() };
     *kernel_mem_pool = compose_pool(
         // 池子描述的内存起始地址。也就是可用内存之上
         used_mem, 
@@ -93,7 +91,7 @@ pub fn mem_pool_init(all_mem: u32) {
     bit_map_addr += kernel_mem_pool.bitmap.size;
 
     /* 2. 用户物理内存池 */
-    let mut user_mem_pool = unsafe { USER_MEM_POOL.get_mut().lock() };
+    let user_mem_pool = unsafe { USER_MEM_POOL.get_mut() };
     *user_mem_pool = compose_pool(
         // 池子描述的内存起始地址
         used_mem + (pages_for_pool * constants::PAGE_SIZE) as usize, 
@@ -105,7 +103,7 @@ pub fn mem_pool_init(all_mem: u32) {
     bit_map_addr += user_mem_pool.bitmap.size;
 
     /* 3. 内核虚拟地址池 */
-    let mut kernel_addr_pool = unsafe { KERNEL_ADDR_POOL.get_mut().lock() };
+    let kernel_addr_pool = unsafe { KERNEL_ADDR_POOL.get_mut() };
     *kernel_addr_pool = compose_pool(
         // 虚拟地址的开始。位于高端1G，再跨过1MB
         constants::KERNEL_ADDR_START + constants::REAL_MEMORY, 

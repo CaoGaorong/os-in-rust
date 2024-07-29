@@ -34,6 +34,7 @@ macro_rules! printkln {
 }
 
 #[no_mangle]
+#[inline(never)]
 pub fn print(args: fmt::Arguments) {
     unsafe{ WRITER.get_mut().write_fmt(args).unwrap()};
 }

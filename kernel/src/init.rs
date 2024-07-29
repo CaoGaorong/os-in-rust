@@ -29,7 +29,7 @@ pub fn init_all(boot_info: &BootContext) {
     .max()
     .unwrap();
     
-    memory::mem_pool_init(os_memory_size);
+    memory::memory_poll::mem_pool_init(os_memory_size);
 
     thread_management::thread_init();
 

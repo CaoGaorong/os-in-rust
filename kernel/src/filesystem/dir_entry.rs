@@ -193,26 +193,11 @@ pub fn do_search_dir_entry(fs: &mut FileSystem, dir_inode: &mut OpenedInode, sea
 
         // 读取出的数据，转成页目录项列表
         let dir_entry_list = unsafe { slice::from_raw_parts(buff_u8.as_ptr() as *const DirEntry, constants::DISK_SECTOR_SIZE / size_of::<DirEntry>()) };
-        let find = dir_entry_list.iter().find(|entry| {
-            // 根据名称过滤
-            if search_req.entry_name.is_some() {
-                if entry.get_name() != search_req.entry_name.unwrap() {
-                    return false;
-                }
-            }
-            // 根据inode编号过滤
-            if search_req.i_no.is_some() {
-                if entry.i_no != search_req.i_no.unwrap() {
-                    return false;
-                }
-            }
-            return true;
-        });
+        let find = self::locate_dir_entry(dir_entry_list, search_req);
         
         // 找到了，直接返回
         if find.is_some() {
-            // fs.append_inode(dir_inode);
-            let target_entry = *find.unwrap();
+            let target_entry = dir_entry_list[find.unwrap()];
             memory::sys_free(buff_u8.as_ptr() as usize);
             return Option::Some(target_entry);
         }
@@ -349,9 +334,9 @@ pub fn sync_dir_entry(fs: &mut FileSystem, parent_inode: &mut OpenedInode, dir_e
     let buf: &mut [u8; constants::DISK_SECTOR_SIZE] = memory::malloc(constants::DISK_SECTOR_SIZE);
     // let buf = unsafe { slice::from_raw_parts_mut(buff_addr as *mut u8, constants::DISK_SECTOR_SIZE) };
     // 缓冲区格式转成 目录项
-    let entry_len = utils::div_ceil(constants::DISK_SECTOR_SIZE as u32, size_of::<DirEntry>() as u32) as usize;
+    // let entry_len = utils::div_ceil(constants::DISK_SECTOR_SIZE as u32, size_of::<DirEntry>() as u32) as usize;
     // let entry_len = entry_len - 1;
-    // let entry_len = (constants::DISK_SECTOR_SIZE as u32 / size_of::<DirEntry>() as u32) as usize;
+    let entry_len = constants::DISK_SECTOR_SIZE / size_of::<DirEntry>();
     // let entry_len = (constants::DISK_SECTOR_SIZE + size_of::<DirEntry>() - 1) / size_of::<DirEntry>();
     let dir_list = unsafe { slice::from_raw_parts_mut(buf.as_mut_ptr() as *mut DirEntry,  entry_len) };
 
@@ -401,7 +386,7 @@ pub fn sync_dir_entry(fs: &mut FileSystem, parent_inode: &mut OpenedInode, dir_e
  * 找到某个inode的上一级目录
  */
 #[inline(never)]
-fn parent_entry(opened_inode: &mut OpenedInode) -> DirEntry {
+pub fn parent_entry(opened_inode: &mut OpenedInode) -> DirEntry {
     let fs = fs::get_filesystem();
     // 找到..目录项，这个就是上一级目录
     let parent_entry = self::do_search_dir_entry(fs, opened_inode, DirEntrySearchReq::build().entry_name(".."));
@@ -424,4 +409,95 @@ pub fn current_inode_entry(opened_inode: &mut OpenedInode) -> DirEntry {
     // 然后在父目录里面遍历inode号
     let search_result = self::do_search_dir_entry(fs, &mut parent_inode, DirEntrySearchReq::build().i_no(opened_inode.i_no));
     search_result.unwrap()
+}
+
+
+/**
+ * 在dir_entry_list列表中，根据搜索条件entry_req找到符合条件的数据，返回dir_entry_list的下标
+ */
+fn locate_dir_entry(dir_entry_list: &[DirEntry], entry_req: DirEntrySearchReq) -> Option<usize> {
+    for (idx, entry) in dir_entry_list.iter().enumerate() {
+        // 根据名称过滤
+        if entry_req.entry_name.is_some() {
+            if entry.get_name() != entry_req.entry_name.unwrap() {
+                continue;
+            }
+        }
+        // 根据inode编号过滤
+        if entry_req.i_no.is_some() {
+            if entry.i_no != entry_req.i_no.unwrap() {
+                continue;
+            }
+        }
+        return Option::Some(idx);
+    }
+    return Option::None;
+}
+
+/**
+ * 删除某一个目录项
+ * 读取block_lba该扇区的数据，并且把数据加载到buf中，然后根据entry_req作为搜索条件，找到这个目录项，进行删除
+ */
+fn do_remove_dir_entry(disk: &mut Disk, block_lba: LbaAddr, buf: &mut [u8; constants::DISK_SECTOR_SIZE], entry_req: DirEntrySearchReq) -> bool {
+    if block_lba.is_empty() {
+        return false;
+    }
+    // 清零缓冲区
+    unsafe { buf.as_mut_ptr().write_bytes(0, buf.len()) };
+
+    let entry_len = constants::DISK_SECTOR_SIZE / size_of::<DirEntry>();
+    let dir_entry_list: &mut [DirEntry] = unsafe { slice::from_raw_parts_mut(buf.as_mut_ptr() as *mut DirEntry,  entry_len) };
+    // 读取该扇区
+    disk.read_sectors(block_lba, 1, buf);
+    let find = self::locate_dir_entry(dir_entry_list, entry_req);
+    // 如果在找不到目录项，返回
+    if find.is_none() {
+        return false;
+    }
+
+    // 如果找到了
+    let target_entry = &mut dir_entry_list[find.unwrap()];
+    let target_entry = target_entry as *mut _ as *mut u8;
+    // 这个目录项清零
+    unsafe { target_entry.write_bytes(0, size_of::<DirEntry>()) };
+    disk.write_sector(buf, block_lba, 1);
+    return true;
+}
+
+/**
+ * 删除某个目录项
+ *  - 先遍历直接块，然后遍历间接块，找到那个目录项。
+ *  - 然后把目录项清空，然后写回到硬盘中
+ */
+#[inline(never)]
+pub fn remove_dir_entry(fs: &mut FileSystem, parent_dir_inode: &mut OpenedInode, entry_req: DirEntrySearchReq) -> bool {
+    let disk: &mut Disk = unsafe { &mut *fs.base_part.from_disk };
+    // 搞一个缓冲区
+    let buf: &mut [u8; constants::DISK_SECTOR_SIZE] = memory::malloc(constants::DISK_SECTOR_SIZE);
+
+    // 遍历直接块
+    for block_lba in parent_dir_inode.get_direct_data_blocks_ref().iter() {
+        if block_lba.is_empty() {
+            continue;
+        }
+        // 删除目录项
+        if self::do_remove_dir_entry(disk, *block_lba, buf, entry_req) {
+            return true;
+        }
+    }
+
+    // 加载间接块
+    inode::load_indirect_data_block(fs, parent_dir_inode);
+
+    // 遍历间接块
+    for block_lba in parent_dir_inode.get_indirect_data_blocks_ref().iter() {
+        if block_lba.is_empty() {
+            continue;
+        }
+        // 删除目录项
+        if self::do_remove_dir_entry(disk, *block_lba, buf, entry_req) {
+            return true;
+        }
+    }
+    return false;
 }

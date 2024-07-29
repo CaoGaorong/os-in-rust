@@ -181,6 +181,17 @@ impl InodePool {
     }
 
     /**
+     * 释放某个inode
+     */
+    pub fn release_inode(&mut self, i_no: InodeNo) {
+        let bit_off = (self.start_ino - i_no).get_data() as usize;
+        // 设置这位为不被占用
+        self.inode_bitmap.set_bit(bit_off, false);
+        // 把位图同步保存
+        self.sync_inode_pool(i_no);
+    }
+
+    /**
      * ino号inode所在的inode位图同步到硬盘
      */
     #[inline(never)]
@@ -264,6 +275,17 @@ impl DataBlockPool {
         // 把申请到的块，同步到硬盘
         self.sync_block_pool(block_lba);
         block_lba
+    }
+
+    /** 
+     * 释放block_lba地址对应的块
+     */
+    pub fn release_block(&mut self, block_lba: LbaAddr) {
+        let bit_off: usize = (block_lba - self.block_start_lba).try_into().unwrap();
+        // 把块位图这一位设置为不占用
+        self.block_bitmap.set_bit(bit_off, false);
+        // 把申请到的块，同步到硬盘
+        self.sync_block_pool(block_lba);
     }
 
     /**

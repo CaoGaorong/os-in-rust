@@ -1,11 +1,11 @@
 
 use core::{mem::size_of, ptr};
 
-use os_in_rust_common::{constants, pool::MemPool, printk, printkln, utils, ASSERT, MY_PANIC};
+use os_in_rust_common::{constants, pool::MemPool, utils, ASSERT, MY_PANIC};
 
-use crate::{page_util, thread};
+use crate::page_util;
 
-use super::{mem_block::{self, Arena, MemBlockAllocator}, memory_poll::{self, get_kernel_addr_pool, get_kernel_mem_pool, get_user_mem_pool}};
+use super::mem_block::{Arena, MemBlockAllocator};
 
 /**
  * ************************************************************
@@ -14,36 +14,9 @@ use super::{mem_block::{self, Arena, MemBlockAllocator}, memory_poll::{self, get
  */
 
 /**
- * 申请内存
- */
-#[inline(never)]
-pub fn malloc<T>(bytes: usize) -> &'static mut T {
-    let addr = sys_malloc(bytes);
-    let ptr = addr as *mut T;
-    // 返回数据
-    unsafe { &mut *ptr }
-}
-
-/**
- * 在内核空间申请bytes字节的空间
- */
-#[inline(never)]
-pub fn sys_malloc(bytes: usize) -> usize {
-    // 当前任务
-    let task = &mut thread::current_thread().task_struct;
-
-    // 找出物理内存池。内核程序或者用户程序
-    if task.pgdir == ptr::null_mut() {
-        malloc_bytes(&mut get_kernel_addr_pool().lock(), &mut get_kernel_mem_pool().lock() , mem_block::get_kernel_mem_block_allocator(), bytes)
-    } else {
-        malloc_bytes(&mut task.vaddr_pool, &mut get_user_mem_pool().lock(), &mut task.mem_block_allocator, bytes)
-    }
-}
-
-/**
  * 在某个Task中，从堆内存中分配bytes个字节
  */
-fn malloc_bytes(vaddr_pool: &mut MemPool, phy_mem_pool: &mut MemPool, allocator: &'static mut MemBlockAllocator, bytes: usize) -> usize {
+pub fn malloc_bytes(vaddr_pool: &mut MemPool, phy_mem_pool: &mut MemPool, allocator: &'static mut MemBlockAllocator, bytes: usize) -> usize {
     // 如果申请很大量的字节空间，直接分配整页
     if bytes > constants::MINIMAL_BLOCK_SIZE * 2usize.pow(constants::MEM_BLOCK_CONTAINER_CNT as u32 - 1) {
         // 计算需要申请多少个页
@@ -108,19 +81,11 @@ fn malloc_bytes(vaddr_pool: &mut MemPool, phy_mem_pool: &mut MemPool, allocator:
     return first_block as *const _ as usize;
 }
 
-/**
- * 申请page_cnt个内核页。得到虚拟地址
- */
-pub fn malloc_kernel_page(page_cnt: usize) -> usize{ 
-    // println!("malloc kernel  {} page", page_cnt);
-    malloc_page(&mut get_kernel_addr_pool().lock(), &mut get_kernel_mem_pool().lock(), page_cnt)
-}
-
 
 /**
  * 从addr_pool地址池中申请连续的page_cnt页虚拟地址，从mem_pool中申请不连续的page_cnt物理页，并且构建虚拟地址和物理地址的页表联系。返回虚拟起始地址
  */
-fn malloc_page(addr_pool: &mut MemPool, mem_pool: &mut MemPool, page_cnt: usize) -> usize {
+pub fn malloc_page(addr_pool: &mut MemPool, mem_pool: &mut MemPool, page_cnt: usize) -> usize {
     // 从虚拟地址池中申请连续的虚拟地址
     let addr_apply_res = addr_pool.apply(page_cnt);
     if addr_apply_res.is_err() {
@@ -143,7 +108,7 @@ fn malloc_page(addr_pool: &mut MemPool, mem_pool: &mut MemPool, page_cnt: usize)
 /**
  * 已知虚拟地址virtual_addr，然后前往mem_pool物理空间池申请1页空间，并且返回物理空间池的物理地址
  */
-fn malloc_phy_by_vaddr(virtual_addr: usize, mem_pool: &mut MemPool) -> usize{
+pub fn malloc_phy_by_vaddr(virtual_addr: usize, mem_pool: &mut MemPool) -> usize{
     let mem_apply_res = mem_pool.apply_one();
     ASSERT!(mem_apply_res.is_ok());
     // 从物理地址池中申请1页
@@ -155,9 +120,3 @@ fn malloc_phy_by_vaddr(virtual_addr: usize, mem_pool: &mut MemPool) -> usize{
     phy_addr
 }
 
-/**
- * 已知栈顶，分配一个物理页
- */
-pub fn malloc_user_stack_page(user_stack_top: usize) {
-    malloc_phy_by_vaddr(user_stack_top, &mut get_user_mem_pool().lock());
-}

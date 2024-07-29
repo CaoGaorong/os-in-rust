@@ -1,8 +1,8 @@
-use os_in_rust_common::{cstr_write, printkln, ASSERT};
+use os_in_rust_common::{cstr_write, cstring_utils, printkln, ASSERT};
 
 use crate::{filesystem::{constant, file, fs}, thread};
 
-use super::{dir_entry::{self, DirEntrySearchReq}, file::{FileError, OpenedFile}, file_descriptor::FileDescriptor, global_file_table};
+use super::{dir_entry::{self, DirEntrySearchReq}, file::{FileError, OpenedFile}, file_descriptor::FileDescriptor, global_file_table, inode};
 
 #[derive(Clone, Copy)]
 pub struct OpenOptions {
@@ -210,6 +210,12 @@ impl File {
         }
         return Result::Ok(opened_file.unwrap());
     }
+
+    pub fn get_path(&self) -> &str {
+        let res = cstring_utils::read_from_bytes(&self.path);
+        ASSERT!(res.is_some());
+        res.unwrap()
+    }
 }
 
 impl Drop for File {
@@ -221,37 +227,16 @@ impl Drop for File {
     }
 }
 
+/**
+ * 删除文件
+ */
 pub fn remove_file(path: &str) -> Result<(), FileError> {
-    if path.ends_with("/") {
-        return Result::Err(FileError::IsADirectory);
-    }
-    // 最后一个斜线的下标
-    let last_slash_idx = path.rfind("/");
-    if last_slash_idx.is_none() {
-        return Result::Err(FileError::FilePathIllegal);
-    }
-    let last_slash_idx = last_slash_idx.unwrap();
-    // 父目录的路径
-    let parent_dir_path = &path[..last_slash_idx.max(1)];
-    // 要创建的目录项的名称
-    let file_entry_name = &path[last_slash_idx + 1..];
-
-    let fs = fs::get_filesystem();
-    // 先找父目录项
-    let parent_dir_entry = dir_entry::search_dir_entry(fs, parent_dir_path);
-    if parent_dir_entry.is_none() {
-        return Result::Err(FileError::ParentDirNotExists);
-    }
-
-    // 找该文件的目录项
-    let (_, parent_dir_inode) = parent_dir_entry.unwrap();
-    let file_entry = dir_entry::do_search_dir_entry(fs, parent_dir_inode, DirEntrySearchReq::build().entry_name(file_entry_name));
-    if file_entry.is_none() {
-        return Result::Err(FileError::NotFound);
-    }
-
+    // 打开这个文件
+    let file = File::open(path)?;
+    let opened_file = file.get_opened_file()?;
+    let fs: &mut fs::FileSystem = fs::get_filesystem();
+    
     // 删除这个文件
-
-
+    file::remove_file(fs, opened_file)?;
     return Result::Ok(());
 }

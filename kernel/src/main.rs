@@ -83,7 +83,8 @@ fn test_write_read_file() {
 #[inline(never)]
 fn test_create_file() {
     // 创建文件
-    printkln!("create test.txt: {:?}", File::create("/test.txt"));
+    let res = File::create("/test.txt");
+    printkln!("create test.txt, path:{}", res.unwrap().get_path());
     // 重复创建，失败
     printkln!("{:?}", File::create("/test.txt"));
 
@@ -135,6 +136,9 @@ fn test_create_dir() {
     printkln!("folder18 res:{:?}", filesystem::create_dir("/dev/proc/folder18"));
     printkln!("folder19 res:{:?}", filesystem::create_dir("/dev/proc/folder19"));
     printkln!("folder20 res:{:?}", filesystem::create_dir("/dev/proc/folder20"));
+
+    // 删除一个文件夹   
+    printkln!("remove folder1 res:{:?}", filesystem::remove_dir("/dev/proc/folder1"));
 }
 
 #[inline(never)]
@@ -144,8 +148,8 @@ pub extern "C" fn _start(boot_info: &BootContext) {
 
     init::init_all(boot_info);
     self::test_create_dir();
-    self::test_read_dir_entry();
-    self::test_create_file();
+    // self::test_read_dir_entry();
+    // self::test_create_file();
     let fs = fs::get_filesystem();
     for node_tag in fs.open_inodes.iter() {
         let inode = OpenedInode::parse_by_tag(node_tag);

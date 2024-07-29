@@ -2,11 +2,11 @@
 
 use core::ptr;
 
-use os_in_rust_common::{constants, pool::MemPool, printk, printkln, ASSERT, MY_PANIC};
+use os_in_rust_common::{constants, pool::MemPool, ASSERT, MY_PANIC};
 
-use crate::{page_util, thread};
+use crate::page_util;
 
-use super::{mem_block::MemBlock, memory_poll::{get_kernel_addr_pool, get_kernel_mem_pool, get_user_mem_pool}};
+use super::mem_block::MemBlock;
 
 
 
@@ -16,21 +16,7 @@ use super::{mem_block::MemBlock, memory_poll::{get_kernel_addr_pool, get_kernel_
  * ************************************************************
  */
 
-/**
- * 是否某一块空间
- *  - vaddr_to_free: 要释放的空间的地址
- */
-#[inline(never)]
-pub fn sys_free(vaddr_to_free: usize) {
-    // 当前任务
-    let task = &mut thread::current_thread().task_struct;
-    // 找出物理内存池。内核程序或者用户程序
-    if task.pgdir == ptr::null_mut() {
-        free_bytes(&mut get_kernel_addr_pool().lock(), &mut get_kernel_mem_pool().lock() , vaddr_to_free);
-    } else {
-        free_bytes(&mut task.vaddr_pool, &mut get_user_mem_pool().lock(), vaddr_to_free);
-    }
-}
+
 
 /**
  * 释放字节空间
@@ -39,7 +25,7 @@ pub fn sys_free(vaddr_to_free: usize) {
  *   - vaddr_to_free：要释放的地址（注意这个是mem_block的地址，而不是arena的地址）
  */
 #[inline(never)]
-fn free_bytes(addr_pool: &mut MemPool, mem_pool: &mut MemPool, vaddr_to_free: usize) {
+pub fn free_bytes(addr_pool: &mut MemPool, mem_pool: &mut MemPool, vaddr_to_free: usize) {
     // 根据要释放的那个地址，转成mem_block
     let mem_block = unsafe { &mut *(vaddr_to_free as *mut MemBlock) };
     // 然后找到该内存块归属的arena

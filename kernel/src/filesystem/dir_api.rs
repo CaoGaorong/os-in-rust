@@ -16,6 +16,7 @@ pub enum DirError {
     NotFound,
     ParentDirNotExists,
     AlreadyExists,
+    DirectoryNotEmpty,
 }
 
 #[derive(Debug)]
@@ -233,4 +234,40 @@ fn search_dir_entry(path: &str) -> Result<&'static mut OpenedInode, DirError> {
         return Result::Err(DirError::NotFound);
     }
     return Result::Ok(searched_file.unwrap().1);
+}
+
+
+/**
+ * 删除一个目录
+ */
+#[inline(never)]
+pub fn remove_dir(path: &str) -> Result<(),  DirError> {
+    let fs = fs::get_filesystem();
+    let dir = self::read_dir(path)?;
+    let dir_inode = dir.inode;
+    // 如果存在数据，无法删除
+    if dir_inode.i_size > (size_of::<DirEntry>() * 2).try_into().unwrap() {
+        inode::inode_close(fs, dir_inode);
+        return Result::Err(DirError::DirectoryNotEmpty);
+    }
+
+    // 找到父目录
+    let parent_dir = dir_entry::parent_entry(dir_inode);
+    let parent_dir_inode = inode::inode_open(fs, parent_dir.i_no);
+
+    // 指定父目录，删除当前目录项
+    let succeed = dir_entry::remove_dir_entry(fs, parent_dir_inode, DirEntrySearchReq::build().i_no(dir_inode.i_no));
+    inode::inode_close(fs, dir_inode);
+    // inode::inode_close(fs, dir_inode);
+    if !succeed {
+        inode::inode_close(fs, parent_dir_inode);
+        return Result::Err(DirError::NotFound);
+    }
+    // 父目录占用的空间减少
+    parent_dir_inode.i_size -= size_of::<DirEntry>() as u32;
+    inode::sync_inode(fs, parent_dir_inode);
+    // 关闭打开的父目录
+    inode::inode_close(fs, parent_dir_inode);
+
+    return Result::Ok(());
 }

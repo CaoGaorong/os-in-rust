@@ -1,10 +1,12 @@
 
+use core::mem::size_of;
+
 use os_in_rust_common::{constants, printkln, ASSERT};
 
 
 use crate::{console_println, memory, thread};
 use super::{
-    dir_entry::{self, DirEntrySearchReq}, file_descriptor::FileDescriptor, fs::{self, FileSystem}, global_file_table, inode::{self, OpenedInode}, FileType
+    dir_entry::{self, DirEntrySearchReq}, file_descriptor::FileDescriptor, fs::{self, FileSystem}, global_file_table, inode::{self, OpenedInode}, DirEntry, FileType
 };
 
 /**
@@ -71,6 +73,8 @@ pub enum FileError {
     // 文件
     BadDescriptor,
 
+    // 无法删除一个打开中的文件
+    CouldNotRemoveAnOpenedFile
 }
 
 // pub fn close_file()
@@ -400,6 +404,31 @@ pub fn read_file(fs: &mut FileSystem, file: &mut OpenedFile, buff: &mut [u8]) ->
 }
 
 
-pub fn remove_file(fs: &mut FileSystem, file: &mut OpenedFile) {
+/**
+ * 删除一个文件
+ *   1. 删除inode（包括该inode的数据区）
+ *   2. 删除目录项（所在父目录，的目录项）
+ */
+pub fn remove_file(fs: &mut FileSystem, file: &mut OpenedFile) -> Result<(), FileError> {
+    if file.inode.open_cnts > 1 {
+        return Result::Err(FileError::CouldNotRemoveAnOpenedFile);
+    }
+    // 删除Inode
+    inode::inode_remove(fs, file.inode);
 
+    // 找到当前文件的父目录
+    let parent_dir = dir_entry::parent_entry(file.inode);
+    let parent_dir_inode = inode::inode_open(fs, parent_dir.i_no);
+
+    // 指定父目录，删掉当前文件
+    let delete = dir_entry::remove_dir_entry(fs, parent_dir_inode, DirEntrySearchReq::build().i_no(file.inode.i_no));
+    if delete {
+        // 父目录少一个目录项，减少
+        parent_dir_inode.i_size -= size_of::<DirEntry>() as u32;
+        // 保存
+        inode::sync_inode(fs, parent_dir_inode)
+    }
+    // 关闭父目录
+    inode::inode_close(fs, parent_dir_inode);
+    return Result::Ok(());
 }

@@ -1,5 +1,4 @@
 mod test {
-    use kernel::filesystem::file;
     use tests::file_system;
 
     #[test]

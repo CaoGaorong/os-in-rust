@@ -1,6 +1,6 @@
 use core::{fmt::Display, mem::size_of, ptr, slice};
 
-use os_in_rust_common::{constants, domain::{InodeNo, LbaAddr}, elem2entry, linked_list::LinkedNode, printk, utils, MY_PANIC};
+use os_in_rust_common::{constants, disk, domain::{InodeNo, LbaAddr}, elem2entry, linked_list::LinkedNode, printk, utils, MY_PANIC};
 use os_in_rust_common::racy_cell::RacyCell;
 
 use crate::{memory, sync::Lock, thread};
@@ -234,7 +234,7 @@ pub fn inode_open(fs: &mut FileSystem, i_no: InodeNo) -> &'static mut OpenedInod
 pub fn inode_close(fs: &mut FileSystem, inode: &mut OpenedInode) {
     inode.lock.lock();
     inode.open_cnts -= 1;
-    if inode.open_cnts == 0 {
+    if inode.open_cnts <= 1 {
         // 从打开的链表中，移除该inode
         fs.remove_inode(inode);
         // 解锁
@@ -382,8 +382,35 @@ pub fn load_indirect_data_block(fs: &mut FileSystem, opened_inode: &mut OpenedIn
 
 
 /**
- * 删除一个inode，以及该inode下的数据区
+ * 删除一个inode，以及清除该inode下的数据区
  */
-pub fn inode_remove(fs: &mut FileSystem, i_no: InodeNo) {
-    
+pub fn inode_remove(fs: &mut FileSystem, inode: &mut OpenedInode) {
+    let disk = unsafe { &mut *fs.base_part.from_disk };
+    let buf: &mut [u8; constants::DISK_SECTOR_SIZE] = memory::malloc(constants::DISK_SECTOR_SIZE);
+
+    // 在inode位图中释放这个inode
+    fs.inode_pool.release_inode(inode.i_no);
+
+    // 加载所有的数据区
+    self::load_indirect_data_block(fs, inode);
+
+    // 先把数据区清零。不然下次别人用的时候，里面都是脏数据
+    for block_lba in inode.get_data_blocks_ref() {
+        // 清零
+        unsafe { buf.as_mut_ptr().write_bytes(0, buf.len()) };
+        // 写入到硬盘
+        disk.write_sector(buf, *block_lba, 1)
+    }
+    // 释放缓冲区
+    memory::sys_free(buf.as_ptr() as usize);
+
+
+    // 释放 该inode的所有数据区
+    for block_lba in inode.get_data_blocks_ref() {
+        if block_lba.is_empty() {
+            continue;
+        }
+        // 释放这个数据区
+        fs.data_block_pool.release_block(*block_lba);
+    }
 }
