@@ -4,7 +4,7 @@ use os_in_rust_common::{bitmap::BitMap, constants, domain::{InodeNo, LbaAddr}, l
 
 use crate::device::ata::{Disk, Partition};
 
-use super::{inode::{Inode, OpenedInode}, superblock::SuperBlock};
+use super::{inode::{Inode, OpenedInode}, superblock::SuperBlock, DirEntry};
 
 /**
  * 文件系统。中任何操作都是基于分区的
@@ -99,16 +99,26 @@ impl FileSystem {
     }
 
     pub fn set_root_inode(&mut self, inode: Inode) {
+        // 填充根目录
         self.root_dir = Option::Some(RacyCell::new(Dir::new(OpenedInode::new(inode))));
+        let opened_inode = unsafe { self.root_dir.as_mut().unwrap().get_mut()}.get_inode_ref();
+        // 根目录的打开次数为1
+        opened_inode.open_cnts = 1;
+        self.open_inodes.append(&mut opened_inode.tag);
     }
 
+    // #[inline(never)]
+    // pub fn get_root_dir(&self) -> &mut Dir {
+    //     let file_system = self;
+    //     let root_dir = file_system.root_dir.as_ref();
+    //     ASSERT!(root_dir.is_some());
+    //     let root_dir = root_dir.unwrap();
+    //     unsafe { root_dir.get_mut() }
+    // }
+
     #[inline(never)]
-    pub fn get_root_dir(&self) -> &'static mut Dir {
-        let file_system = self::get_filesystem();
-        let root_dir = file_system.root_dir.as_mut();
-        ASSERT!(root_dir.is_some());
-        let root_dir = root_dir.unwrap();
-        unsafe { root_dir.get_mut() }
+    pub fn get_root_inode(&mut self) -> &mut OpenedInode {
+        unsafe { self.root_dir.as_mut().unwrap().get_mut()}.get_inode_ref()
     }
 
     #[inline(never)]
@@ -122,7 +132,7 @@ impl FileSystem {
     }
 
     #[inline(never)]
-    pub fn find_inode(&self, i_no: InodeNo) -> Option<&mut OpenedInode> {
+    pub fn find_inode(&self, i_no: InodeNo) -> Option<&'static mut OpenedInode> {
         for inode_tag in self.open_inodes.iter() {
             let exist_inode = OpenedInode::parse_by_tag(inode_tag);
             // 如果找到了
@@ -131,6 +141,15 @@ impl FileSystem {
             }
         }
         return Option::None;
+    }
+
+
+    #[inline(never)]
+    pub fn iter_open_nodes<F>(&self, f: F) where F: Fn(&mut OpenedInode) {
+        for node_tag in self.open_inodes.iter() {
+            let inode = OpenedInode::parse_by_tag(node_tag);
+            f(inode);
+        }
     }
 
 }

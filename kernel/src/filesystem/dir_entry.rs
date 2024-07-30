@@ -2,9 +2,9 @@ use core::{mem::size_of, slice};
 
 use os_in_rust_common::{constants, cstr_write, cstring_utils, domain::{InodeNo, LbaAddr}, printkln, utils, ASSERT, MY_PANIC};
 
-use crate::{device::ata::Disk, filesystem::fs, memory};
+use crate::{device::ata::Disk, memory};
 
-use super::{constant, fs::FileSystem, inode::{self, Inode, OpenedInode}};
+use super::{constant, fs::{self, FileSystem}, inode::{self, Inode, OpenedInode}};
 
 
 /**
@@ -97,10 +97,7 @@ pub fn search_dir_entry(filesystem: &mut FileSystem, file_path: &str) -> Option<
         return Option::None;
     }
 
-    let root_inode_no = filesystem.get_root_dir().inode.i_no;
-    
-    // 成功搜索过的路径
-    let mut searched_path = "/";
+    let root_inode_no = filesystem.get_root_inode().i_no;
     // 当前的inode，是根目录的inode
     let mut cur_inode = inode::inode_open(filesystem, root_inode_no);
     // 当前的目录项。默认是根目录
@@ -215,50 +212,46 @@ pub fn do_search_dir_entry(fs: &mut FileSystem, dir_inode: &mut OpenedInode, sea
  *   - 把这个inode挂到该目录下（把目录项放写入到目录对应的数据区）
  */
 #[inline(never)]
-pub fn create_dir_entry(fs: &mut FileSystem, parent_inode: &mut OpenedInode, entry_name: &str, file_type: FileType) -> &'static mut OpenedInode {
+pub fn create_dir_entry(fs: &mut FileSystem, parent_inode: &mut OpenedInode, entry_name: &str, file_type: FileType) -> InodeNo {
 
     /****1. 创建一个目录项 */
-    let created_entry_inode = self::do_create_dir_entry(fs, parent_inode, Option::None, entry_name, file_type);
+    let created_entry_inode = self::do_create_dir_entry(fs, parent_inode, entry_name, file_type);
 
     /***2. 填充内存结构*****/
     fs.append_inode(created_entry_inode);
 
-    // 返回创建好了目录项
-    created_entry_inode
+    created_entry_inode.i_no
 }
 
 /**
  * 在parent_inode目录下，创建名为entry_name，并且inode号为entry_inode的目录项。
  */
 #[inline(never)]
-pub fn do_create_dir_entry(fs: &mut FileSystem, parent_inode: &mut OpenedInode, entry_inode: Option<InodeNo>, entry_name: &str, file_type: FileType) -> &'static mut OpenedInode {
-    let (inode_no, opened_inode) = if entry_inode.is_none() {
-        /***1. 创建文件的inode。物理结构，同步到硬盘中*****/
-        // 从当前分区中，申请1个inode，并且写入硬盘（inode位图）
-        let inode_no = fs.inode_pool.apply_inode(1);
+pub fn do_create_dir_entry(fs: &mut FileSystem, parent_inode: &mut OpenedInode, entry_name: &str, file_type: FileType) -> &'static mut OpenedInode {
+    /***1. 创建文件的inode。物理结构，同步到硬盘中*****/
+    // 从当前分区中，申请1个inode，并且写入硬盘（inode位图）
+    let inode_no = fs.inode_pool.apply_inode(1);
 
-        // 创建一个inode
-        let inode = Inode::new(inode_no);
-        let opened_inode: &mut OpenedInode = memory::malloc(size_of::<OpenedInode>());
-        *opened_inode = OpenedInode::new(inode);
+    // 创建一个inode
+    let inode = Inode::new(inode_no);
+    let opened_inode: &mut OpenedInode = memory::malloc_system(size_of::<OpenedInode>());
+    *opened_inode = OpenedInode::new(inode);
 
-        // 把inode写入硬盘（inode列表）
-        inode::sync_inode(fs, opened_inode);
-        (inode_no, opened_inode)
-    } else {
-        let inode_no: InodeNo = entry_inode.unwrap();
-        let opened_inode = inode::inode_open(fs, inode_no);
-        (inode_no, opened_inode)
-    };
+    // 把inode写入硬盘（inode列表）
+    inode::sync_inode(fs, opened_inode);
 
     /***2. 把这个新文件作为一个目录项，挂到父目录中*****/
-    // 创建一个目录项
-    let dir_entry = DirEntry::new(inode_no, entry_name, file_type);
+    self::do_create_dir_entry_with_inode(fs, parent_inode, inode_no, entry_name, file_type);
 
+    opened_inode
+}
+
+#[inline(never)]
+pub fn do_create_dir_entry_with_inode(fs: &mut FileSystem, parent_inode: &mut OpenedInode, i_no: InodeNo, entry_name: &str, file_type: FileType) {
+    // 根据节点的inode号，创建一个目录项
+    let dir_entry = DirEntry::new(i_no, entry_name, file_type);
     // 把目录项挂到目录并且写入硬盘（inode数据区）
     self::sync_dir_entry(fs, parent_inode, &dir_entry);
-    
-    opened_inode
 }
 
 /**
@@ -401,8 +394,16 @@ pub fn parent_entry(opened_inode: &mut OpenedInode) -> DirEntry {
 #[inline(never)]
 pub fn current_inode_entry(opened_inode: &mut OpenedInode) -> DirEntry {
     let fs = fs::get_filesystem();
+
+    // 根目录，就是当前目录
+    if opened_inode.i_no == fs.super_block.root_inode_no {
+        // 根目录
+        return DirEntry::new(InodeNo::new(0), "/", FileType::Directory);
+    }
+
     // 现在找到父目录
     let parent_entry = self::parent_entry(opened_inode);
+    ASSERT!(!parent_entry.is_empty());
     // 父目录对应的inode
     let inode = inode::load_inode(fs, parent_entry.i_no);
     let mut parent_inode = OpenedInode::new(inode);

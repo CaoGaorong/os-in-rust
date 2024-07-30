@@ -42,7 +42,7 @@ use thread::ThreadArg;
 static PROCESS_NAME: &str = "user process";
 // static text: &'static str = "012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789";
 
-// #[inline(never)]
+#[inline(never)]
 fn test_read_dir_entry() {
     let dir = filesystem::read_dir("/dev/proc/");
     let mut dir = dir.unwrap();
@@ -102,6 +102,7 @@ fn test_create_file() {
     printkln!("fd table:{}", fd_table);
 }
 
+#[inline(never)]
 fn print_opened_inode() {
     let fs = filesystem::fs::get_filesystem();
     printk!("opened inode: ");
@@ -148,19 +149,18 @@ pub extern "C" fn _start(boot_info: &BootContext) {
 
     init::init_all(boot_info);
     self::test_create_dir();
-    // self::test_read_dir_entry();
-    // self::test_create_file();
+    self::test_read_dir_entry();
+    self::test_create_file();
+
     let fs = fs::get_filesystem();
-    for node_tag in fs.open_inodes.iter() {
-        let inode = OpenedInode::parse_by_tag(node_tag);
+    fs.iter_open_nodes(|inode| {
         let entry = filesystem::current_inode_entry(inode);
         if entry.is_empty() {
-            continue;
+            return;
         }
         // console_println!("inode_no{}, open_cnt:{}", inode.i_no, inode.open_cnts);
         printkln!("inode: {}, name:{}, open_cnt:{}", inode.i_no, entry.get_name(), inode.open_cnts);
-    }
-
+    });
     
     // 打印线程信息
     // thread_management::print_thread();

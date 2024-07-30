@@ -1,6 +1,6 @@
 use core::mem::size_of;
 
-use os_in_rust_common::constants;
+use os_in_rust_common::{constants, domain::InodeNo};
 
 use super::dir_entry::DirEntry;
 

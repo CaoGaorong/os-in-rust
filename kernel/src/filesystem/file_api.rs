@@ -220,7 +220,6 @@ impl File {
 
 impl Drop for File {
     fn drop(&mut self) {
-        // printkln!("drop fd: {:?}", self.fd);
         // 文件离开作用域，自动关闭文件
         let res = self.close();
         ASSERT!(res.is_ok());

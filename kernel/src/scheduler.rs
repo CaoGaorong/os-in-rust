@@ -1,6 +1,6 @@
 use core::arch::asm;
 
-use os_in_rust_common::{constants, instruction, ASSERT, MY_PANIC};
+use os_in_rust_common::{instruction, ASSERT};
 
 use crate::thread::{self, TaskStatus, TaskStruct};
 

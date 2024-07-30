@@ -2,12 +2,10 @@ use core::mem::size_of;
 
 use os_in_rust_common::{constants, cstr_write, cstring_utils};
 
-use crate::{
-    filesystem::{dir_entry, fs}, memory}
-;
+use crate::memory;
 
 use super::{
-    constant, dir, dir_entry::{DirEntry, DirEntrySearchReq}, inode::{self, OpenedInode}
+    constant, dir, dir_entry::{self, DirEntry, DirEntrySearchReq}, fs, inode::{self, OpenedInode}
 };
 
 #[derive(Debug)]
@@ -51,9 +49,22 @@ impl <'a> ReadDir<'a> {
     }
 
     #[inline(never)]
-    pub fn iter(&'a mut self) -> ReadDirIterator {
+    pub fn iter(&'a mut self) -> ReadDirIterator<'a> {
         let buf: &mut [u8; constants::DISK_SECTOR_SIZE] = memory::malloc(constants::DISK_SECTOR_SIZE);
-        ReadDirIterator::new(self.inode, buf)
+        ReadDirIterator::<'a>::new(self.inode, buf)
+    }
+
+    pub fn is_empty(&self) -> bool {
+        // 如果inode的数据区，只有两个目录，那么说明空了
+        self.inode.i_size <= (size_of::<DirEntry>() * 2).try_into().unwrap()
+    }
+
+    /**
+     * 关掉这个inode
+     */
+    pub fn close(&mut self) {
+        let fs = fs::get_filesystem();
+        inode::inode_close(fs, self.inode);
     }
 }
 
@@ -165,11 +176,9 @@ pub fn create_dir(path: &str) -> Result<(), DirError> {
         return Result::Err(DirError::AlreadyExists);
     }
 
-    let dir_inode = dir::mkdir(fs, parent_dir_inode, dir_entry_name);
+    dir::mkdir(fs, parent_dir_inode, dir_entry_name);
     // 把这个parent dir inode关闭掉
     inode::inode_close(fs, parent_dir_inode);
-    // 关闭当前inode
-    inode::inode_close(fs, dir_inode);
     return Result::Ok(());
 }
 
@@ -200,10 +209,11 @@ pub fn create_dir_all(path: &str) -> Result<(), DirError> {
             continue;
         }
         // 创建子目录
-        let sub_dir_entry = dir::mkdir(fs, base_inode, entry_name);
+        let sub_dir_inode = dir::mkdir(fs, base_inode, entry_name);
         inode::inode_close(fs, base_inode);
+
         // 再次遍历基于子目录
-        base_inode = sub_dir_entry;
+        base_inode = inode::inode_open(fs, sub_dir_inode);
     }
 
     inode::inode_close(fs, base_inode);
@@ -243,22 +253,21 @@ fn search_dir_entry(path: &str) -> Result<&'static mut OpenedInode, DirError> {
 #[inline(never)]
 pub fn remove_dir(path: &str) -> Result<(),  DirError> {
     let fs = fs::get_filesystem();
-    let dir = self::read_dir(path)?;
-    let dir_inode = dir.inode;
+    let mut dir_to_remove = self::read_dir(path)?;
     // 如果存在数据，无法删除
-    if dir_inode.i_size > (size_of::<DirEntry>() * 2).try_into().unwrap() {
-        inode::inode_close(fs, dir_inode);
+    if !dir_to_remove.is_empty() {
+        dir_to_remove.close();
         return Result::Err(DirError::DirectoryNotEmpty);
     }
 
     // 找到父目录
-    let parent_dir = dir_entry::parent_entry(dir_inode);
+    let parent_dir = dir_entry::parent_entry(dir_to_remove.inode);
+    dir_to_remove.close();
+
     let parent_dir_inode = inode::inode_open(fs, parent_dir.i_no);
 
     // 指定父目录，删除当前目录项
-    let succeed = dir_entry::remove_dir_entry(fs, parent_dir_inode, DirEntrySearchReq::build().i_no(dir_inode.i_no));
-    inode::inode_close(fs, dir_inode);
-    // inode::inode_close(fs, dir_inode);
+    let succeed = dir_entry::remove_dir_entry(fs, parent_dir_inode, DirEntrySearchReq::build().i_no(dir_to_remove.inode.i_no));
     if !succeed {
         inode::inode_close(fs, parent_dir_inode);
         return Result::Err(DirError::NotFound);

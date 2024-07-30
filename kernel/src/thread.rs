@@ -1,4 +1,4 @@
-use core::{arch::asm, fmt::{write, Display, Pointer}, mem::size_of, ptr};
+use core::{arch::asm, fmt::Display, mem::size_of, ptr};
 
 use os_in_rust_common::{constants, cstr_write, cstring_utils, elem2entry, instruction::{self, enable_interrupt}, linked_list::{LinkedList, LinkedNode}, paging::{self, PageTable}, pool::MemPool, printkln, racy_cell::RacyCell, reg_cr3::{self, CR3}, reg_eflags::{self, EFlags, FlagEnum}, selector::SegmentSelector, ASSERT, MY_PANIC};
 
@@ -43,7 +43,9 @@ pub fn set_idle_thread(thread: &'static mut TaskStruct) {
 
 pub fn get_idle_thread() -> &'static mut TaskStruct {
     let idle_thread = unsafe { IDLE_THREAD.get_mut() };
-    ASSERT!(idle_thread.is_some());
+    if idle_thread.is_none() {
+        MY_PANIC!("idle thread not exist");
+    }
     let idle_thread = idle_thread.as_deref_mut();
     idle_thread.unwrap()
 }
@@ -80,10 +82,7 @@ pub fn current_thread() -> &'static mut PcbPage {
 #[inline(never)]
 pub fn check_task_stack(msg: &str) {
     let cur_task = &current_thread().task_struct;
-    // 这里cur_task.pid != 0 是为了防止PCB还未初始化
-    if cur_task.pid != 0 && cur_task.stack_magic != constants::TASK_STRUCT_STACK_MAGIC {
-        MY_PANIC!("thread {} stack overflow, {}", cur_task.get_name(), msg);
-    }
+    cur_task.check_stack_magic(msg);
 }
 
 /**
@@ -290,7 +289,9 @@ impl TaskStruct {
 
     #[inline(never)]
     pub fn get_name(&self) -> &str {
-        ASSERT!(self.stack_magic == constants::TASK_STRUCT_STACK_MAGIC);
+        if self.stack_magic != constants::TASK_STRUCT_STACK_MAGIC {
+            MY_PANIC!("error to get task name");
+        }
         let task_name = cstring_utils::read_from_bytes(&self.name);
         ASSERT!(task_name.is_some());
         task_name.unwrap()
@@ -354,6 +355,14 @@ impl TaskStruct {
     */
     pub fn parse_by_general_tag(general_tag: &LinkedNode) -> *mut Self {
         elem2entry!(Self, general_tag, general_tag as *const LinkedNode as usize)
+    }
+
+    #[inline(never)]
+    pub fn check_stack_magic(&self, msg: &str) {
+        // 这里cur_task.pid != 0 是为了防止PCB还未初始化
+        if self.pid != 0 && self.stack_magic != constants::TASK_STRUCT_STACK_MAGIC {
+            MY_PANIC!("thread {} stack overflow, {}", self.get_name(), msg);
+        }
     }
 
 }

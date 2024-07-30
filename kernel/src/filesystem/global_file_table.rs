@@ -26,6 +26,7 @@ impl FileTable {
     /**
      * 在文件表中，注册一个文件
      */
+    #[inline(never)]
     pub fn register_file(&mut self, file: OpenedFile) -> Option<usize> {
         let idx = self.get_free_index();
         if idx.is_some() {

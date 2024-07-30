@@ -1,6 +1,6 @@
 use core::{fmt::Display, mem::size_of, ptr, slice};
 
-use os_in_rust_common::{constants, disk, domain::{InodeNo, LbaAddr}, elem2entry, linked_list::LinkedNode, printk, utils, MY_PANIC};
+use os_in_rust_common::{constants, domain::{InodeNo, LbaAddr}, elem2entry, linked_list::LinkedNode, printk, utils, MY_PANIC};
 use os_in_rust_common::racy_cell::RacyCell;
 
 use crate::{memory, sync::Lock, thread};
@@ -119,7 +119,7 @@ impl OpenedInode {
         let mut inode = Self {
             i_no: base_inode.i_no,
             i_size: base_inode.i_size,
-            open_cnts: 1, // 创建出来就是打开了一次
+            open_cnts: 0, // 创建出来认为打开0次，放入到了列表里
             write_deny: false,
             tag: LinkedNode::new(),
             lock: Lock::new(),
@@ -218,23 +218,33 @@ pub fn inode_open(fs: &mut FileSystem, i_no: InodeNo) -> &'static mut OpenedInod
         }
     }
 
+    // let find = fs.find_inode(i_no);
+    // if find.is_some() {
+    //     let exist_inode = find.unwrap();
+    //     exist_inode.reopen();
+    //     return exist_inode;
+    // }
+
     // 从堆中申请内存。常驻内存
-    let opened_inode: &mut OpenedInode = memory::malloc(size_of::<OpenedInode>());
+    let opened_inode: &mut OpenedInode = memory::malloc_system(size_of::<OpenedInode>());
 
     // 如果已打开列表没有这个inode，那么需要从硬盘中加载
     let inode = self::load_inode(fs, i_no);
     // 把加载的inode，封装为一个打开的结构
     *opened_inode = OpenedInode::new(inode);
+    // 打开次数 + 1
+    opened_inode.reopen();
 
     // 添加到打开的列表中
     fs.append_inode(opened_inode);
     return opened_inode;
 }
 
+#[inline(never)]
 pub fn inode_close(fs: &mut FileSystem, inode: &mut OpenedInode) {
     inode.lock.lock();
     inode.open_cnts -= 1;
-    if inode.open_cnts <= 1 {
+    if inode.open_cnts <= 0 {
         // 从打开的链表中，移除该inode
         fs.remove_inode(inode);
         // 解锁

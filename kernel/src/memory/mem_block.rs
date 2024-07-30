@@ -1,4 +1,4 @@
-use core::mem::{self, size_of};
+use core::mem::size_of;
 
 use lazy_static::lazy_static;
 use os_in_rust_common::{constants, elem2entry, linked_list::{LinkedList, LinkedNode}, printk, printkln, racy_cell::RacyCell, ASSERT, MY_PANIC};
@@ -280,6 +280,9 @@ impl Arena {
      * 这个Arena是否在使用中
      */
     pub fn in_use(&self) -> bool {
+        if self.block_size == 0 {
+            MY_PANIC!("block size is zero");
+        }
         // 总可用的mem_block = (总空间 - arena头) / 单个mem_block大小
         let total_blocks = (self.occupy_page_cnt * constants::PAGE_SIZE as usize - size_of::<Arena>()) / self.block_size;
         // 如果目前剩余的mem_block和总mem_block不相等，说明有mem_block被使用了

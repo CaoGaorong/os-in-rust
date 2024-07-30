@@ -6,7 +6,7 @@ use os_in_rust_common::{constants, printkln, ASSERT};
 
 use crate::{console_println, memory, thread};
 use super::{
-    dir_entry::{self, DirEntrySearchReq}, file_descriptor::FileDescriptor, fs::{self, FileSystem}, global_file_table, inode::{self, OpenedInode}, DirEntry, FileType
+    constant, dir_entry::{self, DirEntrySearchReq}, file_descriptor::FileDescriptor, fs::{self, FileSystem}, global_file_table, inode::{self, OpenedInode}, DirEntry, FileType
 };
 
 /**
@@ -160,8 +160,8 @@ pub fn create_file(file_path: &str) -> Result<FileDescriptor, FileError> {
     let opened_inode = dir_entry::create_dir_entry(fs, dir_inode, file_name, FileType::Regular);
     inode::inode_close(fs, dir_inode);
     
-
     // 得到一个打开文件
+    let opened_inode = inode::inode_open(fs, opened_inode);
     let opened_file = OpenedFile::new(opened_inode, false);
 
     // 把这个文件注册到 「系统文件结构数组中」
