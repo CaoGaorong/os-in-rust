@@ -5,7 +5,7 @@ use os_in_rust_common::{constants, cstr_write, cstring_utils};
 use crate::memory;
 
 use super::{
-    constant, dir, dir_entry::{self, DirEntry, DirEntrySearchReq}, fs, inode::{self, OpenedInode}
+    constant, dir, dir_entry::{self, DirEntry, DirEntrySearchReq}, file_util, fs, inode::{self, OpenedInode}
 };
 
 #[derive(Debug)]
@@ -142,23 +142,18 @@ pub fn create_dir(path: &str) -> Result<(), DirError> {
     if !path.starts_with("/") {
         return Result::Err(DirError::DirPathIllegal);
     }
-    let fs = fs::get_filesystem();
-
-    let mut path = path;
-    // 去掉最后一个斜线
-    if path.ends_with("/") {
-        path = &path[..path.len() - 1];
-    }
-    // 最后一个斜线的下标
-    let last_slash_idx = path.rfind("/");
-    if last_slash_idx.is_none() {
+    if path == "/" {
         return Result::Err(DirError::DirPathIllegal);
     }
-    let last_slash_idx = last_slash_idx.unwrap();
-    // 父目录的路径
-    let parent_dir_path = &path[..last_slash_idx.max(1)];
-    // 要创建的目录项的名称
-    let dir_entry_name = &path[last_slash_idx + 1..];
+    
+    let fs = fs::get_filesystem();
+
+    let split_res = file_util::split_file_path(path);
+    if split_res.is_none() {
+        return Result::Err(DirError::DirPathIllegal);
+    }
+
+    let (parent_dir_path, dir_entry_name) = split_res.unwrap();
 
     // 父目录的inode
     let parent_dir = dir_entry::search_dir_entry(fs, parent_dir_path);
@@ -262,18 +257,18 @@ pub fn remove_dir(path: &str) -> Result<(),  DirError> {
 
     // 找到父目录
     let parent_dir = dir_entry::parent_entry(dir_to_remove.inode);
-    dir_to_remove.close();
 
     let parent_dir_inode = inode::inode_open(fs, parent_dir.i_no);
 
     // 指定父目录，删除当前目录项
     let succeed = dir_entry::remove_dir_entry(fs, parent_dir_inode, DirEntrySearchReq::build().i_no(dir_to_remove.inode.i_no));
+    // 已经删除完了，关闭那个删除过的inode
+    dir_to_remove.close();
     if !succeed {
         inode::inode_close(fs, parent_dir_inode);
         return Result::Err(DirError::NotFound);
     }
-    // 父目录占用的空间减少
-    parent_dir_inode.i_size -= size_of::<DirEntry>() as u32;
+    // 父目录操作完成后，保存到硬盘
     inode::sync_inode(fs, parent_dir_inode);
     // 关闭打开的父目录
     inode::inode_close(fs, parent_dir_inode);

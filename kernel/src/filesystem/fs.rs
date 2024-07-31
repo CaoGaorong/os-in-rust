@@ -77,7 +77,7 @@ pub struct FileSystem {
     /**
      * 当前挂载的分区，打开的inode节点队列
      */
-    pub open_inodes: LinkedList,
+    open_inodes: LinkedList,
 }
 
 unsafe impl Sync for FileSystem {}
@@ -203,7 +203,7 @@ impl InodePool {
      * 释放某个inode
      */
     pub fn release_inode(&mut self, i_no: InodeNo) {
-        let bit_off = (self.start_ino - i_no).get_data() as usize;
+        let bit_off = (i_no - self.start_ino).get_data() as usize;
         // 设置这位为不被占用
         self.inode_bitmap.set_bit(bit_off, false);
         // 把位图同步保存

@@ -10,6 +10,7 @@ mod global_file_table;
 pub mod fs;
 mod file_api;
 mod dir_api;
+mod file_util;
 
 
 pub use file_descriptor::FileDescriptorTable;
@@ -36,3 +37,4 @@ pub use dir_api::remove_dir;
 pub use file_api::File;
 pub use file_api::SeekFrom;
 pub use file_api::OpenOptions;
+pub use file_api::remove_file;

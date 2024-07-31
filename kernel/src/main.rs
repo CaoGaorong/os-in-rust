@@ -48,7 +48,6 @@ fn test_read_dir_entry() {
     let mut dir = dir.unwrap();
     console_println!("read dir: {:?}", dir.get_path());
     let iterator = dir.iter();
-    // printkln!("read dir: {:?}", iterator);
     for dir_entry in  iterator {
         console_println!("entry_name: {:?}, file_type: {:?}", dir_entry.get_name(), dir_entry.file_type as FileType);
     }
@@ -89,7 +88,7 @@ fn test_create_file() {
     printkln!("{:?}", File::create("/test.txt"));
 
     // 创建一个父目录不存在的文件
-    printkln!("{:?}", File::create("/dev/proc/test.rs"));
+    printkln!("{:?}", File::create("/dev/proc/abc/test.rs"));
 
     printkln!("create a.txt: {:?}", File::create("/a.txt"));
     printkln!("create b.txt: {:?}", File::create("/b.txt"));
@@ -100,18 +99,10 @@ fn test_create_file() {
 
     let fd_table = &thread::current_thread().task_struct.fd_table;
     printkln!("fd table:{}", fd_table);
+
+    printkln!("remove a.txt: {:?}", filesystem::remove_file("/a.txt"));
 }
 
-#[inline(never)]
-fn print_opened_inode() {
-    let fs = filesystem::fs::get_filesystem();
-    printk!("opened inode: ");
-    fs.open_inodes.iter().for_each(|inode_tag|{
-        let inode = OpenedInode::parse_by_tag(inode_tag);
-        printk!("{} ", inode.i_no);
-    });
-    printkln!();
-}
 #[inline(never)]
 fn test_create_dir() {
     

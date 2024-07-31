@@ -62,7 +62,7 @@ mod test {
 
     #[test]
     pub fn read_dir_entry() {
-        let entry_list = file_system::read_dir_entry("/dev/proc");
+        let entry_list = file_system::read_dir_entry("/");
         if entry_list.is_none() {
             println!("目录不存在");
             return;

@@ -1,12 +1,12 @@
 
-use core::mem::size_of;
+use core::{fmt::Display, mem::size_of};
 
 use os_in_rust_common::{constants, printkln, ASSERT};
 
 
 use crate::{console_println, memory, thread};
 use super::{
-    constant, dir_entry::{self, DirEntrySearchReq}, file_descriptor::FileDescriptor, fs::{self, FileSystem}, global_file_table, inode::{self, OpenedInode}, DirEntry, FileType
+    constant, dir_entry::{self, DirEntrySearchReq}, file_descriptor::FileDescriptor, file_util, fs::{self, FileSystem}, global_file_table, inode::{self, OpenedInode}, DirEntry, FileType
 };
 
 /**
@@ -126,23 +126,17 @@ pub fn open_file(file_path: &str, append: bool) -> Result<FileDescriptor, FileEr
 #[inline(never)]
 pub fn create_file(file_path: &str) -> Result<FileDescriptor, FileError> {
     let fs = fs::get_filesystem();
-
-    let last_slash_idx = file_path.rfind("/");
-    // 没有根目录，报错
-    if !file_path.starts_with("/") || last_slash_idx.is_none() {
-        return Result::Err(FileError::FilePathIllegal);
-    }
-    let last_slash_idx = last_slash_idx.unwrap();
-    // 斜杠在最后一个字符，这说明是一个目录，也报错
-    if last_slash_idx == file_path.len() - 1 {
+    // 斜杠结尾的，是目录，不是文件
+    if file_path.ends_with("/") {
         return Result::Err(FileError::IsADirectory);
     }
-    // 该文件的目录路径, 该文件的名称
-    let (dir_path, file_name) = if last_slash_idx == 0 {
-        ("/", &file_path[1..])
-    } else {
-        (&file_path[..last_slash_idx],  &file_path[last_slash_idx+1..])
-    };
+
+    // 把文件路径，分为父目录路径和文件名称
+    let split_result = file_util::split_file_path(file_path);
+    if split_result.is_none() {
+        return Result::Err(FileError::FilePathIllegal);
+    }
+    let (dir_path, file_name) = split_result.unwrap();
 
     // 先搜索一下，目录是否存在
     let search_dir = dir_entry::search_dir_entry(fs, dir_path);
@@ -406,29 +400,24 @@ pub fn read_file(fs: &mut FileSystem, file: &mut OpenedFile, buff: &mut [u8]) ->
 
 /**
  * 删除一个文件
- *   1. 删除inode（包括该inode的数据区）
- *   2. 删除目录项（所在父目录，的目录项）
+ *   1. 删除这个文件的数据内容（inode）
+ *   2. 删除这个文件所在父目录的目录项
  */
-pub fn remove_file(fs: &mut FileSystem, file: &mut OpenedFile) -> Result<(), FileError> {
-    if file.inode.open_cnts > 1 {
+#[inline(never)]
+pub fn remove_file(fs: &mut FileSystem, parent_inode: &mut OpenedInode, inode_to_remove: &OpenedInode) -> Result<(), FileError> {
+    if inode_to_remove.open_cnts > 1 {
         return Result::Err(FileError::CouldNotRemoveAnOpenedFile);
     }
-    // 删除Inode
-    inode::inode_remove(fs, file.inode);
 
-    // 找到当前文件的父目录
-    let parent_dir = dir_entry::parent_entry(file.inode);
-    let parent_dir_inode = inode::inode_open(fs, parent_dir.i_no);
+    // 1. 删除Inode
+    inode::inode_remove(fs, inode_to_remove);
 
-    // 指定父目录，删掉当前文件
-    let delete = dir_entry::remove_dir_entry(fs, parent_dir_inode, DirEntrySearchReq::build().i_no(file.inode.i_no));
-    if delete {
-        // 父目录少一个目录项，减少
-        parent_dir_inode.i_size -= size_of::<DirEntry>() as u32;
-        // 保存
-        inode::sync_inode(fs, parent_dir_inode)
+    // 2. 删除这个文件所在父目录的目录项
+    let delete = dir_entry::remove_dir_entry(fs, parent_inode, DirEntrySearchReq::build().i_no(inode_to_remove.i_no));
+    if !delete {
+        return Result::Err(FileError::NotFound);
     }
-    // 关闭父目录
-    inode::inode_close(fs, parent_dir_inode);
+    // 父目录操作完成后，保存到硬盘
+    inode::sync_inode(fs, parent_inode);
     return Result::Ok(());
 }

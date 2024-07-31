@@ -51,6 +51,15 @@ pub struct DirEntry {
 
 
 impl DirEntry {
+
+    pub fn empty() -> Self {
+        Self {
+            i_no: InodeNo::new(0),
+            name: [0; constant::MAX_FILE_NAME],
+            file_type: FileType::Unknown,
+        }
+    }
+
     pub fn new(i_no: InodeNo, file_name: &str, file_type: FileType) -> Self {
         let mut dir_entry = Self {
             i_no: i_no,
@@ -190,7 +199,7 @@ pub fn do_search_dir_entry(fs: &mut FileSystem, dir_inode: &mut OpenedInode, sea
 
         // 读取出的数据，转成页目录项列表
         let dir_entry_list = unsafe { slice::from_raw_parts(buff_u8.as_ptr() as *const DirEntry, constants::DISK_SECTOR_SIZE / size_of::<DirEntry>()) };
-        let find = self::locate_dir_entry(dir_entry_list, search_req);
+        let find = self::find_dir_entry(dir_entry_list, search_req);
         
         // 找到了，直接返回
         if find.is_some() {
@@ -416,7 +425,8 @@ pub fn current_inode_entry(opened_inode: &mut OpenedInode) -> DirEntry {
 /**
  * 在dir_entry_list列表中，根据搜索条件entry_req找到符合条件的数据，返回dir_entry_list的下标
  */
-fn locate_dir_entry(dir_entry_list: &[DirEntry], entry_req: DirEntrySearchReq) -> Option<usize> {
+#[inline(never)]
+fn find_dir_entry(dir_entry_list: &[DirEntry], entry_req: DirEntrySearchReq) -> Option<usize> {
     for (idx, entry) in dir_entry_list.iter().enumerate() {
         // 根据名称过滤
         if entry_req.entry_name.is_some() {
@@ -450,17 +460,14 @@ fn do_remove_dir_entry(disk: &mut Disk, block_lba: LbaAddr, buf: &mut [u8; const
     let dir_entry_list: &mut [DirEntry] = unsafe { slice::from_raw_parts_mut(buf.as_mut_ptr() as *mut DirEntry,  entry_len) };
     // 读取该扇区
     disk.read_sectors(block_lba, 1, buf);
-    let find = self::locate_dir_entry(dir_entry_list, entry_req);
+    let find = self::find_dir_entry(dir_entry_list, entry_req);
     // 如果在找不到目录项，返回
     if find.is_none() {
         return false;
     }
 
-    // 如果找到了
-    let target_entry = &mut dir_entry_list[find.unwrap()];
-    let target_entry = target_entry as *mut _ as *mut u8;
-    // 这个目录项清零
-    unsafe { target_entry.write_bytes(0, size_of::<DirEntry>()) };
+    // 如果找到了，清空这个目录项
+    dir_entry_list[find.unwrap()] = DirEntry::empty();
     disk.write_sector(buf, block_lba, 1);
     return true;
 }
@@ -478,11 +485,13 @@ pub fn remove_dir_entry(fs: &mut FileSystem, parent_dir_inode: &mut OpenedInode,
 
     // 遍历直接块
     for block_lba in parent_dir_inode.get_direct_data_blocks_ref().iter() {
+        unsafe { buf.as_mut_ptr().write_bytes(0, buf.len()) };
         if block_lba.is_empty() {
             continue;
         }
         // 删除目录项
         if self::do_remove_dir_entry(disk, *block_lba, buf, entry_req) {
+            parent_dir_inode.i_size -= size_of::<DirEntry>() as u32;
             return true;
         }
     }
@@ -492,11 +501,13 @@ pub fn remove_dir_entry(fs: &mut FileSystem, parent_dir_inode: &mut OpenedInode,
 
     // 遍历间接块
     for block_lba in parent_dir_inode.get_indirect_data_blocks_ref().iter() {
+        unsafe { buf.as_mut_ptr().write_bytes(0, buf.len()) };
         if block_lba.is_empty() {
             continue;
         }
         // 删除目录项
         if self::do_remove_dir_entry(disk, *block_lba, buf, entry_req) {
+            parent_dir_inode.i_size -= size_of::<DirEntry>() as u32;
             return true;
         }
     }

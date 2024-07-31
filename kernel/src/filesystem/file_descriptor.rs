@@ -28,6 +28,13 @@ pub struct FileDescriptor {
     value: usize
 }
 
+impl Display for FileDescriptor {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        printkln!("{}", self.value);
+        Result::Ok(())
+    }
+}
+
 impl FileDescriptor {
     pub fn new(value: usize) -> Self {
         Self {

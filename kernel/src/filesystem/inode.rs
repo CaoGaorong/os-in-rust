@@ -209,21 +209,21 @@ impl InodeLocation {
 #[inline(never)]
 pub fn inode_open(fs: &mut FileSystem, i_no: InodeNo) -> &'static mut OpenedInode {
     // 现在已打开的列表中找到这个inode
-    for inode_tag in fs.open_inodes.iter() {
-        let exist_inode = OpenedInode::parse_by_tag(inode_tag);
-        // 如果找到了
-        if exist_inode.i_no == i_no {
-            exist_inode.reopen();
-            return exist_inode;
-        }
-    }
-
-    // let find = fs.find_inode(i_no);
-    // if find.is_some() {
-    //     let exist_inode = find.unwrap();
-    //     exist_inode.reopen();
-    //     return exist_inode;
+    // for inode_tag in fs.open_inodes.iter() {
+    //     let exist_inode = OpenedInode::parse_by_tag(inode_tag);
+    //     // 如果找到了
+    //     if exist_inode.i_no == i_no {
+    //         exist_inode.reopen();
+    //         return exist_inode;
+    //     }
     // }
+
+    let find = fs.find_inode(i_no);
+    if find.is_some() {
+        let exist_inode = find.unwrap();
+        exist_inode.reopen();
+        return exist_inode;
+    }
 
     // 从堆中申请内存。常驻内存
     let opened_inode: &mut OpenedInode = memory::malloc_system(size_of::<OpenedInode>());
@@ -394,26 +394,24 @@ pub fn load_indirect_data_block(fs: &mut FileSystem, opened_inode: &mut OpenedIn
 /**
  * 删除一个inode，以及清除该inode下的数据区
  */
-pub fn inode_remove(fs: &mut FileSystem, inode: &mut OpenedInode) {
+#[inline(never)]
+pub fn inode_remove(fs: &mut FileSystem, inode: &OpenedInode) {
     let disk = unsafe { &mut *fs.base_part.from_disk };
     let buf: &mut [u8; constants::DISK_SECTOR_SIZE] = memory::malloc(constants::DISK_SECTOR_SIZE);
 
     // 在inode位图中释放这个inode
     fs.inode_pool.release_inode(inode.i_no);
 
-    // 加载所有的数据区
-    self::load_indirect_data_block(fs, inode);
-
-    // 先把数据区清零。不然下次别人用的时候，里面都是脏数据
+    // 把该inode下的所有数据区扇区清零
     for block_lba in inode.get_data_blocks_ref() {
         // 清零
         unsafe { buf.as_mut_ptr().write_bytes(0, buf.len()) };
         // 写入到硬盘
         disk.write_sector(buf, *block_lba, 1)
     }
+
     // 释放缓冲区
     memory::sys_free(buf.as_ptr() as usize);
-
 
     // 释放 该inode的所有数据区
     for block_lba in inode.get_data_blocks_ref() {

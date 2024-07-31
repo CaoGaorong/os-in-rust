@@ -1,8 +1,10 @@
+use core::fmt::{Debug, Display};
+
 use os_in_rust_common::{cstr_write, cstring_utils, printkln, ASSERT};
 
 use crate::{filesystem::{constant, file, fs}, thread};
 
-use super::{dir_entry::{self, DirEntrySearchReq}, file::{FileError, OpenedFile}, file_descriptor::FileDescriptor, global_file_table, inode};
+use super::{dir_entry::{self, DirEntrySearchReq}, file::{FileError, OpenedFile}, file_descriptor::FileDescriptor, file_util, global_file_table, inode};
 
 #[derive(Clone, Copy)]
 pub struct OpenOptions {
@@ -78,6 +80,12 @@ pub struct File {
     write: bool,
     read: bool,
 }
+// impl Debug for File {
+//     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+//         printkln!("File(fd: {}, path:{}, write:{}, read:{})", self.fd, self.get_path(), self.write, self.read);
+//         return Result::Ok(());
+//     }
+// }
 
 impl File {
 
@@ -229,13 +237,43 @@ impl Drop for File {
 /**
  * 删除文件
  */
+#[inline(never)]
 pub fn remove_file(path: &str) -> Result<(), FileError> {
-    // 打开这个文件
-    let file = File::open(path)?;
-    let opened_file = file.get_opened_file()?;
+    if path == "/" {
+        return Result::Err(FileError::FilePathIllegal);
+    }
+    let split_res = file_util::split_file_path(path);
+    if split_res.is_none() {
+        return Result::Err(FileError::FilePathIllegal);
+    }
     let fs: &mut fs::FileSystem = fs::get_filesystem();
+    let (dir_path, file_name) = split_res.unwrap();
+
+    // 该文件所在的父目录
+    let parent_dir = dir_entry::search_dir_entry(fs, dir_path);
+    if parent_dir.is_none() {
+        return Result::Err(FileError::ParentDirNotExists);
+    }
+    let (_, parent_dir_inode) = parent_dir.unwrap();
     
-    // 删除这个文件
-    file::remove_file(fs, opened_file)?;
+    // 在该父目录下，搜索该文件
+    let cur_file_entry = dir_entry::do_search_dir_entry(fs, parent_dir_inode, DirEntrySearchReq::build().entry_name(file_name));
+    if cur_file_entry.is_none() {
+        inode::inode_close(fs, parent_dir_inode);
+        return Result::Err(FileError::NotFound);
+    }
+    // 该文件的inode
+    let cur_file_entry = cur_file_entry.unwrap();
+    let cur_file_inode = inode::inode_open(fs, cur_file_entry.i_no);
+    
+    // 把这个文件的数据扇区LBA地址都加载出来（间接扇区）
+    inode::load_indirect_data_block(fs, cur_file_inode);
+    // 指定父目录，删除这个文件inode
+    file::remove_file(fs, parent_dir_inode, cur_file_inode)?;
+    
+    // 关闭inode
+    inode::inode_close(fs, parent_dir_inode);
+    inode::inode_close(fs, cur_file_inode);
+    // remove_res
     return Result::Ok(());
 }
