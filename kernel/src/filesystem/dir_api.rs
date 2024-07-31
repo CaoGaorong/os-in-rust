@@ -256,9 +256,9 @@ pub fn remove_dir(path: &str) -> Result<(),  DirError> {
     }
 
     // 找到父目录
-    let parent_dir = dir_entry::parent_entry(dir_to_remove.inode);
+    let parent_dir_inode = dir_entry::parent_entry(dir_to_remove.inode);
 
-    let parent_dir_inode = inode::inode_open(fs, parent_dir.i_no);
+    let parent_dir_inode = inode::inode_open(fs, parent_dir_inode);
 
     // 指定父目录，删除当前目录项
     let succeed = dir_entry::remove_dir_entry(fs, parent_dir_inode, DirEntrySearchReq::build().i_no(dir_to_remove.inode.i_no));

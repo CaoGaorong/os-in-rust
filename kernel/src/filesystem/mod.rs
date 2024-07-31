@@ -21,8 +21,10 @@ pub use file_descriptor::FileDescriptor;
 
 pub use init::init;
 pub use init::install_filesystem;
-pub use dir::init_root_dir;
 pub use init::mount_part;
+pub use dir::init_root_dir;
+pub use dir::change_dir;
+pub use dir::get_cwd;
 
 pub use dir_entry::FileType;
 pub use dir_entry::DirEntry;

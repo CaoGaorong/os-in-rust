@@ -152,6 +152,15 @@ pub extern "C" fn _start(boot_info: &BootContext) {
         // console_println!("inode_no{}, open_cnt:{}", inode.i_no, inode.open_cnts);
         printkln!("inode: {}, name:{}, open_cnt:{}", inode.i_no, entry.get_name(), inode.open_cnts);
     });
+
+    let cur_task = &mut thread::current_thread().task_struct;
+
+    // 更改工作目录
+    filesystem::change_dir(cur_task, "/dev/proc/");
+    let mut buf: [u8; 10] = [0; 10];
+    filesystem::get_cwd(cur_task, &mut buf);
+    let cwd = cstring_utils::read_from_bytes(&buf);
+    printkln!("cwd:{:?}", cwd.unwrap());
     
     // 打印线程信息
     // thread_management::print_thread();

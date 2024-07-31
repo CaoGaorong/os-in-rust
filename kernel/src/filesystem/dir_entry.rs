@@ -388,12 +388,12 @@ pub fn sync_dir_entry(fs: &mut FileSystem, parent_inode: &mut OpenedInode, dir_e
  * 找到某个inode的上一级目录
  */
 #[inline(never)]
-pub fn parent_entry(opened_inode: &mut OpenedInode) -> DirEntry {
+pub fn parent_entry(opened_inode: &mut OpenedInode) -> InodeNo {
     let fs = fs::get_filesystem();
     // 找到..目录项，这个就是上一级目录
     let parent_entry = self::do_search_dir_entry(fs, opened_inode, DirEntrySearchReq::build().entry_name(".."));
     ASSERT!(parent_entry.is_some());
-    parent_entry.unwrap()
+    parent_entry.unwrap().i_no
 }
 
 
@@ -411,10 +411,9 @@ pub fn current_inode_entry(opened_inode: &mut OpenedInode) -> DirEntry {
     }
 
     // 现在找到父目录
-    let parent_entry = self::parent_entry(opened_inode);
-    ASSERT!(!parent_entry.is_empty());
+    let parent_entry_inode = self::parent_entry(opened_inode);
     // 父目录对应的inode
-    let inode = inode::load_inode(fs, parent_entry.i_no);
+    let inode = inode::load_inode(fs, parent_entry_inode);
     let mut parent_inode = OpenedInode::new(inode);
     // 然后在父目录里面遍历inode号
     let search_result = self::do_search_dir_entry(fs, &mut parent_inode, DirEntrySearchReq::build().i_no(opened_inode.i_no));

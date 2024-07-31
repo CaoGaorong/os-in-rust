@@ -1,6 +1,6 @@
 use core::{arch::asm, fmt::Display, mem::size_of, ptr};
 
-use os_in_rust_common::{constants, cstr_write, cstring_utils, elem2entry, instruction::{self, enable_interrupt}, linked_list::{LinkedList, LinkedNode}, paging::{self, PageTable}, pool::MemPool, printkln, racy_cell::RacyCell, reg_cr3::{self, CR3}, reg_eflags::{self, EFlags, FlagEnum}, selector::SegmentSelector, ASSERT, MY_PANIC};
+use os_in_rust_common::{constants, cstr_write, cstring_utils, domain::InodeNo, elem2entry, instruction::{self, enable_interrupt}, linked_list::{LinkedList, LinkedNode}, paging::{self, PageTable}, pool::MemPool, printkln, racy_cell::RacyCell, reg_cr3::{self, CR3}, reg_eflags::{self, EFlags, FlagEnum}, selector::SegmentSelector, ASSERT, MY_PANIC};
 
 use crate::{console_println, filesystem::FileDescriptorTable, memory::mem_block::MemBlockAllocator, page_util, pid_allocator, tss};
 
@@ -251,6 +251,11 @@ pub struct TaskStruct {
      * 内存块分配器。支持分配多种规格的内存块
      */
     pub mem_block_allocator: MemBlockAllocator,
+
+    /**
+     * 该进程的工作目录的inode
+     */
+    pub cwd_inode: Option<InodeNo>,
 
     /**
      * 栈边界的魔数
