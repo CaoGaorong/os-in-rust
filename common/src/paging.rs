@@ -1,3 +1,5 @@
+use core::mem::size_of;
+
 use crate::{constants, utils};
 
  /**
@@ -37,7 +39,11 @@ use crate::{constants, utils};
       * 得到某一目录项
       */
      pub fn get_entry(&self, index: usize) -> &PageTableEntry {
-         &self.data[index]
+        &self.data[index]
+     }
+
+     pub fn get_entry_mut(&mut self, index: usize) -> &mut PageTableEntry {
+        &mut self.data[index]
      }
  
      /**
@@ -133,8 +139,14 @@ use crate::{constants, utils};
             self.data &= !0x1;
         }
      }
-     pub fn get_data(&self) -> u32 {
-         self.data
-     }
+    pub fn get_data(&self) -> u32 {
+        self.data
+    }
+
+    pub fn parse_table(&mut self, idx: usize) -> &mut PageTable {
+        // 当前项的地址 - 前面的项的个数 * 项大小 = 页表的起始地址
+        unsafe { &mut *(((self as *mut _ as usize) - (idx * size_of::<PageTableEntry>())) as *mut PageTable) }
+    }
+
  }
  

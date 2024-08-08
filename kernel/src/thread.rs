@@ -1,6 +1,6 @@
 use core::{arch::asm, fmt::Display, mem::size_of, ptr};
 
-use os_in_rust_common::{constants, cstr_write, cstring_utils, domain::InodeNo, elem2entry, instruction::{self, enable_interrupt}, linked_list::{LinkedList, LinkedNode}, paging::{self, PageTable}, pool::MemPool, printkln, racy_cell::RacyCell, reg_cr3::{self, CR3}, reg_eflags::{self, EFlags, FlagEnum}, selector::SegmentSelector, ASSERT, MY_PANIC};
+use os_in_rust_common::{constants, cstr_write, cstring_utils, domain::InodeNo, elem2entry, instruction::{self, enable_interrupt}, linked_list::{LinkedList, LinkedNode}, paging::{self, PageTable}, pool::MemPool, printkln, racy_cell::RacyCell, reg_cr3::{self, CR3}, reg_eflags::{self, EFlags, FlagEnum}, selector::SegmentSelector, utils, ASSERT, MY_PANIC};
 
 use crate::{console_println, filesystem::FileDescriptorTable, memory::mem_block::MemBlockAllocator, page_util, pid_allocator, tss};
 
@@ -175,6 +175,15 @@ impl PcbPage {
     pub fn do_load(&self) {
         todo!()
     }
+
+    pub fn shallow_fork(&self) -> Self {
+        Self {
+            task_struct: self.task_struct.shallow_fork(self as *const _ as u32),
+            zero: [0; PCB_PAGE_BLANK_SIZE],
+            thread_stack: self.thread_stack,
+            interrupt_stack: self.interrupt_stack,
+        }
+    }
 }
 
 impl Display for PcbPage {
@@ -192,6 +201,10 @@ pub struct TaskStruct {
      * pid
      */
     pub pid: u8,
+    /**
+     * 父任务的pid
+     */
+    pub parent_pid: u8,
     /**
      * PCB内核栈地址
      */
@@ -367,6 +380,31 @@ impl TaskStruct {
         // 这里cur_task.pid != 0 是为了防止PCB还未初始化
         if self.pid != 0 && self.stack_magic != constants::TASK_STRUCT_STACK_MAGIC {
             MY_PANIC!("thread {} stack overflow, {}", self.get_name(), msg);
+        }
+    }
+
+    /**
+     * 浅拷贝
+     */
+    pub fn shallow_fork(&self, pcb_page_addr: u32) -> Self {
+        Self {
+            pid: pid_allocator::allocate(),
+            parent_pid: self.pid,
+            kernel_stack: self.kernel_stack,
+            name: self.name,
+            task_status: TaskStatus::TaskReady,
+            priority: self.priority,
+            left_ticks: self.left_ticks,
+            elapsed_ticks: 0,
+            pgdir: ptr::null_mut(),
+            fd_table: FileDescriptorTable::new(),
+            general_tag: LinkedNode::new(),
+            all_tag: LinkedNode::new(),
+            vaddr_pool: MemPool::empty(),
+            pcb_page_addr: pcb_page_addr,
+            mem_block_allocator: MemBlockAllocator::new(),
+            cwd_inode: self.cwd_inode,
+            stack_magic: self.stack_magic,
         }
     }
 

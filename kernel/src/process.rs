@@ -2,7 +2,7 @@ use core::{arch::{asm, global_asm}, mem::{self, size_of}, ptr::slice_from_raw_pa
 
 use os_in_rust_common::{bitmap::BitMap, constants, instruction, paging::{self, PageTable, PageTableEntry}, pool::MemPool, printkln, utils};
 
-use crate::{console_println, interrupt, memory, mutex::Mutex, page_util, thread::{self, TaskStruct, ThreadArg}};
+use crate::{console_println, interrupt, memory, mutex::Mutex, page_util, thread::{self, TaskStruct, ThreadArg}, thread_management};
 
 /**
  * 用户进程的实现
@@ -13,7 +13,7 @@ pub extern "C" fn start_process(func_addr: ThreadArg) {
 
     // console_println!("user process:{}", pcb_page.task_struct.name);
     // 申请一个用户页，作为栈空间
-    memory::malloc_user_stack_page(constants::USER_STACK_TOP_ADDR);
+    memory::malloc_user_page_by_vaddr(constants::USER_STACK_TOP_ADDR);
 
     pcb_page.init_intr_stack(func_addr, constants::USER_STACK_BASE_ADDR as u32);
 
@@ -64,31 +64,6 @@ pub fn create_page_dir() -> *mut PageTable {
     page_table
 }
 
-/**
- * 申请用户进程虚拟地址池
- * 关键在于向堆空间申请，作为位图
- */
-pub fn apply_user_addr_pool() -> MemPool {
-    /**** 1. 计算位图需要多大的堆空间 */
-    // 虚拟地址的长度。单位字节
-    let virtual_addr_len = constants::KERNEL_ADDR_START - constants::USER_PROCESS_ADDR_START;
-    // 位图的1位，代表一页虚拟地址。那么位图中一共需要bitmap_bit_len位
-    let bitmap_bit_len = utils::div_ceil(virtual_addr_len as u32, constants::PAGE_SIZE as u32) as usize;
-    // 位图中一共需要bitmap_byte_len个字节
-    let bitmap_byte_len = utils::div_ceil(bitmap_bit_len as u32, 8) as usize;
-    // 该位图一共需要bitmap_page_cnt页
-    let bitmap_page_cnt =  utils::div_ceil(bitmap_byte_len as u32, constants::PAGE_SIZE as u32) as usize; 
-    
-    /**** 2. 申请堆空间 */
-    // 向堆空间申请空间
-    let bitmap_addr = memory::malloc_kernel_page(bitmap_page_cnt);
-    
-    /**** 3. 把申请到的堆空间，构建一个虚拟地址池 */
-    // 把这一块空间，转成一个数组的引用
-    let bitmap_array = unsafe { &*slice_from_raw_parts(bitmap_addr as *const u8, bitmap_byte_len) };
-    // 进程的虚拟地址池
-    MemPool::new(constants::USER_PROCESS_ADDR_START, BitMap::new(bitmap_array))
-}
 
 pub fn process_execute(process_name: &'static str, func: extern "C" fn()) {
     // 申请1页空间
@@ -99,7 +74,7 @@ pub fn process_execute(process_name: &'static str, func: extern "C" fn()) {
     pcb_page.init_task_struct(process_name, constants::TASK_DEFAULT_PRIORITY, pcb_page_addr as u32);
     
     // 设置用户地址池
-    pcb_page.task_struct.vaddr_pool = apply_user_addr_pool();
+    pcb_page.task_struct.vaddr_pool = thread_management::apply_user_addr_pool();
 
     // 设置线程栈
     pcb_page.init_thread_stack(start_process, func as u32);

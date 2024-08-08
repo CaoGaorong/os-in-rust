@@ -1,10 +1,10 @@
 use core::{mem::size_of, ptr, task};
 
 use os_in_rust_common::{
-    constants, instruction, ASSERT
+    bitmap::BitMap, constants, instruction, paging::PageTable, pool::MemPool, utils, ASSERT
 };
 
-use crate::{memory, scheduler, thread::{self, PcbPage, TaskStatus, TaskStruct, ThreadArg, ThreadFunc}};
+use crate::{device::constant, memory, scheduler, thread::{self, PcbPage, TaskStatus, TaskStruct, ThreadArg, ThreadFunc}};
 
 
 /**
@@ -136,30 +136,6 @@ pub fn block_thread(task: &mut TaskStruct, task_status: TaskStatus) {
     instruction::set_interrupt(old_status);
 }
 
-// /**
-//  * 唤醒某一个线程。
-//  * 某个阻塞的线程只能被其他线程唤醒
-//  */
-// #[inline(never)]
-// pub fn wake_thread(task: &mut TaskStruct)  {
-//     // 关闭中断
-//     let old_status = instruction::disable_interrupt();
-//     // 只能是这三种状态之一
-//     let allow_status = [TaskStatus::TaskBlocked, TaskStatus::TaskHanging, TaskStatus::TaskWaiting];
-//     if !allow_status.contains(&task.task_status) {
-//         MY_PANIC!("could not wake up thread; name:{}, status:{:?}", task.name, &task.task_status);
-//     }
-
-//     ASSERT!(task.task_status != TaskStatus::TaskReady);
-//     // 设置为就绪状态
-//     task.task_status = TaskStatus::TaskReady;
-//     // 放入就绪队列
-//     thread::append_read_thread(task);
-
-//     // 恢复中断
-//     instruction::set_interrupt(old_status);
-// }
-
 /**
  * 让当前任务让出CPU，重新进入就绪队列
  */
@@ -180,4 +156,47 @@ pub fn thread_yield() {
 
     // 恢复中断
     instruction::set_interrupt(old_status);
+}
+
+/**
+ * 申请用户进程虚拟地址池
+ * 关键在于向堆空间申请，作为位图
+ */
+pub fn apply_user_addr_pool() -> MemPool {
+    /**** 1. 计算位图需要多大的堆空间 */
+    // 虚拟地址的长度。单位字节
+    let virtual_addr_len = constants::KERNEL_ADDR_START - constants::USER_PROCESS_ADDR_START;
+    // 位图的1位，代表一页虚拟地址。那么位图中一共需要bitmap_bit_len位
+    let bitmap_bit_len = utils::div_ceil(virtual_addr_len as u32, constants::PAGE_SIZE as u32) as usize;
+    // 位图中一共需要bitmap_byte_len个字节
+    let bitmap_byte_len = utils::div_ceil(bitmap_bit_len as u32, 8) as usize;
+    // 该位图一共需要bitmap_page_cnt页
+    let bitmap_page_cnt =  utils::div_ceil(bitmap_byte_len as u32, constants::PAGE_SIZE as u32) as usize; 
+    
+    /**** 2. 申请堆空间 */
+    // 向堆空间申请空间
+    let bitmap_addr = memory::malloc_kernel_page(bitmap_page_cnt);
+    
+    /**** 3. 把申请到的堆空间，构建一个虚拟地址池 */
+    // 把这一块空间，转成一个数组的引用
+    let bitmap_array = unsafe { &*core::slice::from_raw_parts(bitmap_addr as *const u8, bitmap_byte_len) };
+    // 进程的虚拟地址池
+    MemPool::new(constants::USER_PROCESS_ADDR_START, BitMap::new(bitmap_array))
+}
+
+pub fn fork() {
+    // 当前PCB
+    let cur_pcb = thread::current_thread();
+    // 申请一个空间，子任务的PCB
+    let sub_pcb = unsafe { &mut *(memory::malloc_kernel_page(1) as *mut PcbPage) };
+    
+    // 子任务的PCB填充数据。浅拷贝
+    *sub_pcb = cur_pcb.shallow_fork();
+    // 申请1页作为页表
+    sub_pcb.task_struct.pgdir = memory::malloc_kernel_page(1) as *mut PageTable;
+    // 申请堆空间，作为用户地址位图
+    sub_pcb.task_struct.vaddr_pool = self::apply_user_addr_pool();
+
+
+
 }

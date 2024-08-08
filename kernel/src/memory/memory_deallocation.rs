@@ -33,7 +33,7 @@ pub fn free_bytes(addr_pool: &mut MemPool, mem_pool: &mut MemPool, vaddr_to_free
     // 对于大页，没有经过容器，所以直接释放掉
     if !arena.in_use() && arena.supply_for() == ptr::null_mut() {
         // 释放整页。把该arena占用的内存页直接释放
-        free_page(addr_pool, mem_pool, arena as *const _ as usize, arena.occupy_pages());
+        free_page(addr_pool, mem_pool, arena as *const _ as usize, arena.occupy_pages(), true);
         return;
     }
     // 如果arena整整齐齐了，那么可以释放整个页了
@@ -64,7 +64,7 @@ pub fn free_bytes(addr_pool: &mut MemPool, mem_pool: &mut MemPool, vaddr_to_free
     
     
     // 4. 释放Arena所占的空间
-    free_page(addr_pool, mem_pool, arena as *const _ as usize, arena.occupy_pages());
+    free_page(addr_pool, mem_pool, arena as *const _ as usize, arena.occupy_pages(), true);
     container.lock.unlock();
 }
 
@@ -76,7 +76,7 @@ pub fn free_bytes(addr_pool: &mut MemPool, mem_pool: &mut MemPool, vaddr_to_free
  * - page_cnt: 要释放的页的数量
  */
 #[inline(never)]
-fn free_page(addr_pool: &mut MemPool, mem_pool: &mut MemPool, vaddr_start: usize, page_cnt: usize) {
+pub fn free_page(addr_pool: &mut MemPool, mem_pool: &mut MemPool, vaddr_start: usize, page_cnt: usize, phy_free: bool) {
     // 确保这个释放的地址，在当前的虚拟地址池中
     ASSERT!(addr_pool.in_pool(vaddr_start));
     ASSERT!(addr_pool.in_pool(vaddr_start + constants::PAGE_SIZE as usize * page_cnt));
@@ -102,7 +102,9 @@ fn free_page(addr_pool: &mut MemPool, mem_pool: &mut MemPool, vaddr_start: usize
         }
 
         // 把物理地址放回池子中
-        mem_pool.restore(phy_addr);
+        if phy_free {
+            mem_pool.restore(phy_addr);
+        }
 
         // 取消该虚拟地址页表项的p位
         page_util::unset_pte(vaddr);
