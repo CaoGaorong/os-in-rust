@@ -6,32 +6,11 @@
 #![feature(naked_functions)]
 #![feature(panic_info_message)]
 
-mod interrupt;
-mod init;
-mod thread_management;
-mod scheduler;
-mod sync;
-mod mutex;
-mod console;
-mod keyboard;
-mod scancode;
-mod printer;
-pub mod blocking_queue;
-pub mod tss;
-mod memory;
-pub mod process;
-mod thread;
-mod sys_call;
-mod pid_allocator;
-mod page_util;
-mod device;
-mod filesystem;
-
 
 use core::{arch::asm, mem::size_of, panic::PanicInfo};
 use device::ata::{Disk, Partition};
-use filesystem::inode::OpenedInode;
-use filesystem::{fs, DirEntry, File, FileType, OpenOptions, SeekFrom};
+use filesystem::{fs, File, FileType, OpenOptions};
+use kernel::{console_println, device, filesystem, init, memory, println, sys_call, thread};
 use memory::mem_block::{Arena, MemBlock};
 use os_in_rust_common::{cstring_utils, instruction, vga};
 use os_in_rust_common::{ASSERT, constants, context::BootContext, elem2entry, printk, printkln};

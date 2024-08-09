@@ -1,6 +1,31 @@
 use core::fmt::Display;
 
-use crate::{bitmap::{BitMap, MemoryError}, printkln};
+use crate::{bitmap::{BitMap, MemoryError}, constants, printkln};
+
+
+pub struct MemPoolIterator<'a> {
+    mem_pool: &'a MemPool,
+    bit_idx: usize,
+}
+
+impl <'a> Iterator for MemPoolIterator<'a> {
+    type Item = (usize, bool);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        // 如果遍历超过了位图长度，那么就结束了
+        if self.bit_idx >= self.mem_pool.bitmap.bits_len() {
+            return Option::None;
+        }
+
+        // 地址 = 起始地址 + 下标 * 粒度
+        let cur_addr = self.mem_pool.addr_start + self.bit_idx * self.mem_pool.granularity;
+        // 下一位
+        self.bit_idx += 1;
+
+        // 返回遍历到的地址，以及是否被使用
+        Option::Some((cur_addr, self.mem_pool.bitmap.is_set(self.bit_idx)))
+    }
+}
 
 #[repr(C, packed)]
 pub struct MemPool {
@@ -31,7 +56,7 @@ impl Display for MemPool {
 impl MemPool {
     pub fn new(addr_start: usize, bitmap: BitMap) -> Self {
         Self {
-            addr_start, bitmap, granularity: 4 * 1024
+            addr_start, bitmap, granularity: constants::PAGE_SIZE as usize,
         }
     }
 
@@ -107,5 +132,12 @@ impl MemPool {
         let bit_idx = (addr - self.addr_start) / self.granularity;
         self.bitmap.set_bit(bit_idx, false);
         return true;
+    }
+
+    pub fn iter(&self) -> MemPoolIterator {
+        MemPoolIterator {
+            mem_pool: self,
+            bit_idx: 0,
+        }
     }
 }

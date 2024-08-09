@@ -137,8 +137,9 @@ pub fn malloc_user_page_by_vaddr(vaddr: usize) {
  *  @param page_table: 该数据拷贝到页目录表后，所在的页表（因为可能页表不存在的话就需要申请空间，因此可以为空）（当前任务可访问的虚拟地址）
  * 
  */
-pub fn copy_single_page<'a>(page_data: &[u8; constants::PAGE_SIZE as usize], to_dir_table: &'a mut PageTable, page_table: Option<&'a mut PageTable>) -> Option<&'a mut PageTable> {
-    
+pub fn copy_single_page<'a>(page_data: &[u8], to_dir_table: &mut PageTable, page_table: Option<&'a mut PageTable>) -> &'a mut PageTable {
+    ASSERT!(page_data.len() == constants::PAGE_SIZE as usize);
+
     /*** 1. 把这一页的数据，先复制一份出来  */
     // 申请一块空间，用于存放我们要复制的数据
     let new_page_data_addr = self::malloc_kernel_page(1);
@@ -173,5 +174,5 @@ pub fn copy_single_page<'a>(page_data: &[u8; constants::PAGE_SIZE as usize], to_
     /**** 4. 释放申请的内存（不要释放物理地址，只是释放该内存空间跟当前任务的链接关系） */
     self::free_kernel_page(new_page_data_addr, 1, false);
 
-    Option::Some(page_table)
+    page_table
 }

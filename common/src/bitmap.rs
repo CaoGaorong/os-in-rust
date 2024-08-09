@@ -108,6 +108,26 @@ impl BitMap {
     }
 
     /**
+     * 某一bit的下标，该位是否被set为1
+     */
+    pub fn is_set(&self, bit_idx: usize) -> bool {
+        ASSERT!(self.init);
+        ASSERT!(bit_idx <= self.size * 8);
+
+        // 转成字节数组
+        let bitmap = unsafe { core::slice::from_raw_parts(self.map_ptr, self.size) };
+        // 该位所在的字节
+        let byte_idx = bit_idx / 8;
+        // 定位到那一个字节
+        let byte = bitmap[byte_idx];
+        
+        // 该位所在字节内的偏移
+        let bit_offset = bit_idx % 8;
+
+        return byte & (1 << bit_offset) == (1 << bit_offset);
+    }
+
+    /**
      * 该位图中，一共位的长度
      */
     pub fn bits_len(&self) -> usize {

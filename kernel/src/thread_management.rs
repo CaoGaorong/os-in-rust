@@ -183,20 +183,3 @@ pub fn apply_user_addr_pool() -> MemPool {
     // 进程的虚拟地址池
     MemPool::new(constants::USER_PROCESS_ADDR_START, BitMap::new(bitmap_array))
 }
-
-pub fn fork() {
-    // 当前PCB
-    let cur_pcb = thread::current_thread();
-    // 申请一个空间，子任务的PCB
-    let sub_pcb = unsafe { &mut *(memory::malloc_kernel_page(1) as *mut PcbPage) };
-    
-    // 子任务的PCB填充数据。浅拷贝
-    *sub_pcb = cur_pcb.shallow_fork();
-    // 申请1页作为页表
-    sub_pcb.task_struct.pgdir = memory::malloc_kernel_page(1) as *mut PageTable;
-    // 申请堆空间，作为用户地址位图
-    sub_pcb.task_struct.vaddr_pool = self::apply_user_addr_pool();
-
-
-
-}
