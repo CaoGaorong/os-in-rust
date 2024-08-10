@@ -10,7 +10,7 @@
 use core::{arch::asm, mem::size_of, panic::PanicInfo};
 use device::ata::{Disk, Partition};
 use filesystem::{fs, File, FileType, OpenOptions};
-use kernel::{console_println, device, filesystem, init, memory, println, sys_call, thread};
+use kernel::{console_println, device, filesystem, init, memory, page_util, println, sys_call, thread};
 use memory::mem_block::{Arena, MemBlock};
 use os_in_rust_common::{cstring_utils, instruction, vga};
 use os_in_rust_common::{ASSERT, constants, context::BootContext, elem2entry, printk, printkln};
@@ -334,8 +334,8 @@ pub fn test_malloc_free() {
 
     // 两个都释放了，那么按理说PTE的P位应该已经清除了
     let arena = unsafe { & *(addr2 as *const MemBlock) }.arena_addr();
-    let pde = unsafe { &*page_util::addr_to_pde(arena as *const _ as usize) };
-    let pte = unsafe { &*page_util::addr_to_pte(arena as *const _ as usize) };
+    let pde = page_util::addr_to_pde(arena as *const _ as usize);
+    let pte = page_util::addr_to_pte(arena as *const _ as usize);
 
     // 确保PDE存在
     assert_true(pde.present(), "SYSTEM ERROR, PDE ERROR");

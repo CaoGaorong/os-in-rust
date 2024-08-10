@@ -4,6 +4,7 @@ use crate::{instruction, printkln, vga};
 
 
 // #[track_caller]
+#[inline(never)]
 pub fn _panic_spin(file: &str, line: u32, col: u32, condition: fmt::Arguments) {
     // 把中断关闭
     instruction::disable_interrupt();

@@ -135,7 +135,7 @@ pub fn malloc_user_page_by_vaddr(vaddr: usize) {
  *  @param page_data: 需要复制的数据（当前程序可以访问，经过了当前任务页表的映射）
  *  @param to_dir_table: 数据要拷贝到的页目录表（此时该地址，是当前任务可以访问的虚拟地址），这是其他任务的页目录表
  *  @param page_table: 该数据拷贝到页目录表后，所在的页表（因为可能页表不存在的话就需要申请空间，因此可以为空）（当前任务可访问的虚拟地址）
- * 
+ *
  */
 pub fn copy_single_page<'a>(page_data: &[u8], to_dir_table: &mut PageTable, page_table: Option<&'a mut PageTable>) -> &'a mut PageTable {
     ASSERT!(page_data.len() == constants::PAGE_SIZE as usize);

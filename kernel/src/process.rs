@@ -2,7 +2,7 @@ use core::{arch::{asm, global_asm}, mem::{self, size_of}, ptr::slice_from_raw_pa
 
 use os_in_rust_common::{bitmap::BitMap, constants, instruction, paging::{self, PageTable, PageTableEntry}, pool::MemPool, printkln, utils};
 
-use crate::{console_println, interrupt, memory, mutex::Mutex, page_util, thread::{self, TaskStruct, ThreadArg}, thread_management};
+use crate::{console_println, interrupt, memory, mutex::Mutex, page_util, pid_allocator, thread::{self, TaskStruct, ThreadArg}, thread_management};
 
 /**
  * 用户进程的实现
@@ -71,7 +71,7 @@ pub fn process_execute(process_name: &'static str, func: extern "C" fn()) {
     // 强转
     let pcb_page = unsafe { &mut *(pcb_page_addr as *mut thread::PcbPage) };
     // 初始化任务信息
-    pcb_page.init_task_struct(process_name, constants::TASK_DEFAULT_PRIORITY, pcb_page_addr as u32);
+    pcb_page.init_task_struct(pid_allocator::allocate(), process_name, constants::TASK_DEFAULT_PRIORITY, pcb_page_addr as u32);
     
     // 设置用户地址池
     pcb_page.task_struct.vaddr_pool = thread_management::apply_user_addr_pool();

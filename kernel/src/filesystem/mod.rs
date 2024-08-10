@@ -40,3 +40,6 @@ pub use file_api::File;
 pub use file_api::SeekFrom;
 pub use file_api::OpenOptions;
 pub use file_api::remove_file;
+
+
+pub use global_file_table::get_opened_file;

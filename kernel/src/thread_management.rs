@@ -1,10 +1,10 @@
 use core::{mem::size_of, ptr, task};
 
 use os_in_rust_common::{
-    bitmap::BitMap, constants, instruction, paging::PageTable, pool::MemPool, utils, ASSERT
+    bitmap::BitMap, constants, instruction, pool::MemPool, utils, ASSERT
 };
 
-use crate::{device::constant, memory, scheduler, thread::{self, PcbPage, TaskStatus, TaskStruct, ThreadArg, ThreadFunc}};
+use crate::{memory, pid_allocator, scheduler, thread::{self, PcbPage, TaskStatus, ThreadArg, ThreadFunc}};
 
 
 /**
@@ -30,7 +30,7 @@ pub fn make_thread_main() {
     // 根据当前运行的线程，找到PCB
     let pcb_page = thread::current_thread();
     // 初始化PCB数据
-    pcb_page.init_task_struct(constants::MAIN_THREAD_NAME, constants::TASK_DEFAULT_PRIORITY, pcb_page as *const _ as u32);
+    pcb_page.init_task_struct(pid_allocator::allocate(), constants::MAIN_THREAD_NAME, constants::TASK_DEFAULT_PRIORITY, pcb_page as *const _ as u32);
 
     // main线程，设置为运行中
     pcb_page.task_struct.task_status = TaskStatus::TaskRunning;
@@ -56,7 +56,7 @@ extern "C" fn idle_thread(unused: ThreadArg) {
     loop {
         // 阻塞当前线程
         let cur_task = &mut thread::current_thread().task_struct;
-        block_thread(cur_task, TaskStatus::TaskBlocked);
+        scheduler::block_thread(cur_task, TaskStatus::TaskBlocked);
         // hlt
         instruction::halt();
     }
@@ -95,7 +95,7 @@ pub fn thread_start(
     let pcb_page: &'static mut PcbPage = unsafe { &mut *(page_addr as *mut PcbPage) };
 
     // 构建PCB页
-    pcb_page.init_task_struct(thread_name, priority, page_addr as u32);
+    pcb_page.init_task_struct(pid_allocator::allocate(), thread_name, priority, page_addr as u32);
 
     // 填充PCB页的中断栈
     pcb_page.init_thread_stack(func, arg);
@@ -110,31 +110,6 @@ pub fn thread_start(
     pcb_page
 }
 
-/**
- * 阻塞某一个线程。（一般阻塞操作都是线程阻塞自身）
- *      这里利用关闭中断和开启中断，来实现方法的原子性。先disable_interrupt，然后恢复中断
- *      - let old_status = disable_interrupt();
- *      - set_interrupt(old_status);
- * 
- * 关于这个操作本身有没有并发问题？
- *      但是其实没有并发问题，因为当disable_interrupt()的cti指令执行后，就不存在线程切换，就不可能有其他线程来抢夺
- *      因此如果是cti指令前并发（当前线程被切走），那没关系，当该线程被切回来后，会接着执行cti操作，不影响后续
- *      如果是cti指令执行之后，那更不可能并发，因为不会切换线程了
- */
-pub fn block_thread(task: &mut TaskStruct, task_status: TaskStatus) {
-    // 只能是这三种状态之一
-    let allow_status = [TaskStatus::TaskBlocked, TaskStatus::TaskHanging, TaskStatus::TaskWaiting];
-    ASSERT!(allow_status.contains(&task_status));
-    
-    // 关闭中断
-    let old_status = instruction::disable_interrupt();
-    // 设置任务位阻塞状态
-    task.set_status(task_status);
-    // 切换线程
-    scheduler::schedule();
-    // 恢复中断 - 被唤醒之后的操作
-    instruction::set_interrupt(old_status);
-}
 
 /**
  * 让当前任务让出CPU，重新进入就绪队列
@@ -162,6 +137,7 @@ pub fn thread_yield() {
  * 申请用户进程虚拟地址池
  * 关键在于向堆空间申请，作为位图
  */
+#[inline(never)]
 pub fn apply_user_addr_pool() -> MemPool {
     /**** 1. 计算位图需要多大的堆空间 */
     // 虚拟地址的长度。单位字节

@@ -46,9 +46,10 @@ impl FileDescriptor {
 /**
  * 文件描述符表
  */
-#[repr(transparent)]
+#[repr(C)]
 pub struct FileDescriptorTable {
     data: [Option<usize>; constants::MAX_FILES_PER_PROC],
+    start_idx: usize,
 }
 impl FileDescriptorTable {
     /**
@@ -61,7 +62,15 @@ impl FileDescriptorTable {
         fd_table[StdFileDescriptor::StdErrorNo as usize] = Option::Some(StdFileDescriptor::StdErrorNo as usize);
         Self {
             data: fd_table,
+            start_idx: fd_table.iter().map(|d| d.is_some()).count(),
         }
+    }
+
+    /**
+     * 得到文件描述符（不包括标准输入、输出等内建的）
+     */
+    pub fn get_file_descriptors(&self) -> &[Option<usize>] {
+        &self.data[self.start_idx ..]
     }
 
     /**

@@ -5,6 +5,33 @@ use os_in_rust_common::{instruction, ASSERT};
 use crate::thread::{self, TaskStatus, TaskStruct};
 
 
+/**
+ * 阻塞某一个线程。（一般阻塞操作都是线程阻塞自身）
+ *      这里利用关闭中断和开启中断，来实现方法的原子性。先disable_interrupt，然后恢复中断
+ *      - let old_status = disable_interrupt();
+ *      - set_interrupt(old_status);
+ * 
+ * 关于这个操作本身有没有并发问题？
+ *      但是其实没有并发问题，因为当disable_interrupt()的cti指令执行后，就不存在线程切换，就不可能有其他线程来抢夺
+ *      因此如果是cti指令前并发（当前线程被切走），那没关系，当该线程被切回来后，会接着执行cti操作，不影响后续
+ *      如果是cti指令执行之后，那更不可能并发，因为不会切换线程了
+ */
+#[inline(never)]
+pub fn block_thread(task: &mut TaskStruct, task_status: TaskStatus) {
+    // 只能是这三种状态之一
+    let allow_status = [TaskStatus::TaskBlocked, TaskStatus::TaskHanging, TaskStatus::TaskWaiting];
+    ASSERT!(allow_status.contains(&task_status));
+    
+    // 关闭中断
+    let old_status = instruction::disable_interrupt();
+    // 设置任务位阻塞状态
+    task.set_status(task_status);
+    // 切换线程
+    self::schedule();
+    // 恢复中断 - 被唤醒之后的操作
+    instruction::set_interrupt(old_status);
+}
+
 
 /**
  * 检查任务的调度

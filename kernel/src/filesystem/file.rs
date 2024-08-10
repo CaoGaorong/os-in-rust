@@ -38,6 +38,13 @@ impl OpenedFile {
     }
 
     /**
+     * 该文件再次打开
+     */
+    pub fn reopen(&mut self) {
+        self.inode.reopen();
+    }
+    
+    /**
      * 关闭某个文件
      */
     pub fn close_file(&mut self, fs: &mut FileSystem) {

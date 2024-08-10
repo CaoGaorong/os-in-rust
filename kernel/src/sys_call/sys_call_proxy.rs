@@ -2,6 +2,8 @@ use core::arch::asm;
 use core::fmt;
 use os_in_rust_common::vga::WRITER;
 
+use crate::pid_allocator::Pid;
+
 use super::sys_call::SystemCallNo;
 
 /**
@@ -67,6 +69,21 @@ pub fn malloc<T>(bytes: usize) -> *mut T {
 pub fn free<T>(ptr: *const T) {
     let addr = ptr as u32;
     do_sys_call(SystemCallNo::Free, Option::Some(addr as u32), Option::None, Option::None);
+}
+
+pub enum ForkResult {
+    Parent(Pid),
+    Child
+}
+
+pub fn fork() -> ForkResult {
+    // 调用系统调用的fork
+    let fork_res = self::do_sys_call(SystemCallNo::Fork, Option::None, Option::None, Option::None);
+    if fork_res == 0 {
+        ForkResult::Child
+    } else {
+        ForkResult::Parent(Pid::new(fork_res.try_into().unwrap()))
+    }
 }
 
 /**

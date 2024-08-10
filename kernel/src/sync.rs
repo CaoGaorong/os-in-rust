@@ -3,7 +3,7 @@ use core::ptr;
 
 use os_in_rust_common::{instruction, linked_list::LinkedList, printkln, ASSERT};
 
-use crate::{thread::{self, TaskStruct}, thread_management};
+use crate::{scheduler::{self}, thread::{self, TaskStruct}};
 
 /**
  * 定义一个信号量
@@ -27,7 +27,7 @@ impl Semaphore {
      * 创建一个有初始化值的信号量
      */
     pub const fn new(value: u32) -> Self {
-        let mut linked_list = LinkedList::new();
+        let linked_list = LinkedList::new();
         Self {
             value,
             waiters: linked_list,
@@ -50,7 +50,7 @@ impl Semaphore {
             ASSERT!(!self.waiters.contains(&current_thread.general_tag));
             // 把自己放入该信号量的等待队列
             self.waiters.append(&mut current_thread.general_tag);
-            thread_management::block_thread(current_thread, thread::TaskStatus::TaskBlocked);
+            scheduler::block_thread(current_thread, thread::TaskStatus::TaskBlocked);
         }
         // 把信号量减一
         self.value -= 1;

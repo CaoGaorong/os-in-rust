@@ -2,8 +2,8 @@ use core::{fmt, slice, str};
 
 use os_in_rust_common::{printkln, ASSERT};
 
-use crate::{console, memory, thread};
-use super::sys_call::{self, register_handler, HandlerType, SystemCallNo};
+use crate::{console, fork, memory, thread};
+use super::sys_call::{self, HandlerType, SystemCallNo};
 
 /**
  * 这里是系统调用暴露出去的接口
@@ -28,6 +28,9 @@ pub fn init() {
     
     // free
     sys_call::register_handler(SystemCallNo::Free, HandlerType::OneParam(free));
+    
+    // fork
+    sys_call::register_handler(SystemCallNo::Fork, HandlerType::NoneParam(fork));
 }
 
 /**
@@ -74,4 +77,12 @@ fn malloc(bytes: u32) -> u32 {
 fn free(addr_to_free: u32) -> u32 {
     memory::sys_free(addr_to_free.try_into().unwrap());
     0
+}
+
+
+/**
+ * fork
+ */
+fn fork() -> u32 {
+    fork::fork().get_data().try_into().unwrap()
 }

@@ -57,6 +57,11 @@ pub enum SystemCallNo {
      * 释放内存空间
      */
     Free = 0x04,
+    
+    /**
+     * fork进程
+     */
+    Fork = 0x05,
 }
 
 /**

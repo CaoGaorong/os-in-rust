@@ -2,7 +2,7 @@ use core::{arch::asm, fmt::Display, mem::size_of, ptr};
 
 use os_in_rust_common::{constants, cstr_write, cstring_utils, domain::InodeNo, elem2entry, instruction::{self, enable_interrupt}, linked_list::{LinkedList, LinkedNode}, paging::{self, PageTable}, pool::MemPool, printkln, racy_cell::RacyCell, reg_cr3::{self, CR3}, reg_eflags::{self, EFlags, FlagEnum}, selector::SegmentSelector, utils, ASSERT, MY_PANIC};
 
-use crate::{console_println, filesystem::FileDescriptorTable, memory::mem_block::MemBlockAllocator, page_util, pid_allocator::{self, Pid}, tss};
+use crate::{console_println, filesystem::FileDescriptorTable, interrupt, memory::mem_block::MemBlockAllocator, page_util, pid_allocator, pid_allocator::Pid, tss};
 
 
 /**
@@ -63,11 +63,20 @@ pub type ThreadArg = u32;
 
 
 
-extern "C" fn kernel_thread(function: ThreadFunc, arg: ThreadArg) {
+#[inline(never)]
+extern "C" fn kernel_thread_wrapper(function: ThreadFunc, arg: ThreadArg) {
     // 开启中断。线程切换依赖时钟中断
     enable_interrupt();
     function(arg)
 }
+
+
+#[inline(never)]
+extern "C" fn kernel_exit_wrapper(function: ThreadFunc, arg: ThreadArg) {
+    interrupt::intr_exit();
+}
+
+
 
 
 /**
@@ -131,11 +140,11 @@ impl PcbPage {
     /**
      * 初始化PCB
      */
-    pub fn init_task_struct(&mut self, name: &'static str, priority: u8, pcb_page_addr: u32) {
+    pub fn init_task_struct(&mut self, pid: Pid, name: &'static str, priority: u8, pcb_page_addr: u32) {
         // 线程栈的地址
         let thread_stack_ptr = &mut self.thread_stack as *mut ThreadStack as u32;
         // 初始化任务信息
-        self.task_struct.init(name, priority, thread_stack_ptr, pcb_page_addr);
+        self.task_struct.init(pid, name, priority, thread_stack_ptr, pcb_page_addr);
     }
 
     /**
@@ -143,6 +152,18 @@ impl PcbPage {
      */
     pub fn init_thread_stack(&mut self, function: ThreadFunc, arg: ThreadArg) {
         self.thread_stack.init(function, arg);
+    }
+
+    /**
+     * 初始化程序退出的线程栈
+     */
+    pub fn init_exit_thread_stack(&mut self) {
+        // 设置线程栈的内容。指向程序结束的地方
+        self.thread_stack.init_exit_stack();
+        // 线程栈的地址
+        let thread_stack_addr = &mut self.thread_stack as *mut ThreadStack as u32;
+        // 这里该任务的栈地址，就是线程栈的起始地址
+        self.task_struct.kernel_stack = thread_stack_addr;
     }
 
     pub fn init_intr_stack(&mut self, fun_addr: u32, user_stack_addr: u32) {
@@ -191,11 +212,11 @@ pub struct TaskStruct {
     /**
      * pid
      */
-    pub pid: pid_allocator::Pid,
+    pub pid: Pid,
     /**
      * 父任务的pid
      */
-    pub parent_pid: pid_allocator::Pid,
+    pub parent_pid: Pid,
     /**
      * PCB内核栈地址
      */
@@ -280,8 +301,8 @@ impl Display for TaskStruct {
 
 impl TaskStruct {
     #[inline(never)]
-    fn init(&mut self, name: &str, priority: u8, kernel_stack: u32, pcb_page_addr: u32) {
-        self.pid = pid_allocator::allocate();
+    fn init(&mut self, pid: Pid, name: &str, priority: u8, kernel_stack: u32, pcb_page_addr: u32) {
+        self.pid = pid;
         self.kernel_stack = kernel_stack;
         cstr_write!(&mut self.name, "{}", name);
         self.task_status = TaskStatus::TaskReady;
@@ -298,9 +319,7 @@ impl TaskStruct {
 
     #[inline(never)]
     pub fn get_name(&self) -> &str {
-        if self.stack_magic != constants::TASK_STRUCT_STACK_MAGIC {
-            MY_PANIC!("error to get task name");
-        }
+        self.check_stack_magic("error to get task name");
         let task_name = cstring_utils::read_from_bytes(&self.name);
         ASSERT!(task_name.is_some());
         task_name.unwrap()
@@ -393,6 +412,9 @@ pub enum TaskStatus {
  * 线程栈
  * ebp、ebx、edi、esi是ABI约定需要保存的
  * 
+ * **注意，只有任务首次执行，才是这样的结构。
+ * ** 因为对于栈，其实没有固定结构的。
+ * 
  */
 #[repr(C, packed)]
 #[derive(Clone, Copy)]
@@ -433,7 +455,7 @@ impl ThreadStack {
             // ebx: 0,
             // edi: 0,
             // esi: 0,
-            eip: kernel_thread,
+            eip: kernel_thread_wrapper,
             ret_addr: ptr::null(), // 占位用，没啥用
             function,
             func_arg: arg,
@@ -441,12 +463,18 @@ impl ThreadStack {
     }
     
     #[inline(never)]
+    fn init_exit_stack(&mut self) {
+        self.eip = kernel_exit_wrapper;
+    }
+
+
+    #[inline(never)]
     fn init(&mut self, function: ThreadFunc, arg: ThreadArg) {
         // self.ebp = 0;
         // self.ebx = 0;
         // self.edi = 0;
         // self.esi = 0;
-        self.eip = kernel_thread;
+        self.eip = kernel_thread_wrapper;
         self.ret_addr = ptr::null();
         self.function = function;
         self.func_arg = arg;
