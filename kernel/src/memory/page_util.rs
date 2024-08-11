@@ -1,9 +1,11 @@
 use core::{mem::size_of, ptr};
 
 
-use os_in_rust_common::{instruction, paging::{PageTable, PageTableEntry}, printk, printkln, ASSERT};
+use os_in_rust_common::{instruction, paging::{PageTable, PageTableEntry}, printk, printkln, ASSERT, MY_PANIC};
 
 use crate::memory;
+
+use super::memory_poll;
 
 
 /**
@@ -42,9 +44,13 @@ pub fn do_add_page_connection(pde: &mut PageTableEntry, pte: &mut PageTableEntry
     }
 
     // 如果PDE没有赋值，从内核内存池中申请1页
-    let kernel_page_table_addr =  memory::memory_poll::get_kernel_mem_pool().apply_one().unwrap();
+    let apply_kernel_mem =  memory_poll::get_kernel_mem_pool().apply_one();
+    if apply_kernel_mem.is_err() {
+        MY_PANIC!("failed to apply kernel mem, error:{:?}", apply_kernel_mem.err());
+        return;
+    }
     // 把页表的地址，赋值给这个页目录项
-    *pde = PageTableEntry::new_default(kernel_page_table_addr);
+    *pde = PageTableEntry::new_default(apply_kernel_mem.unwrap());
 
     // 然后把我们的物理地址，赋值给这个新页表的这一项
     *pte = PageTableEntry::new_default(physical_addr);
@@ -94,9 +100,9 @@ pub fn addr_to_pte(virtual_addr: usize) -> &'static mut PageTableEntry {
 /**
  * 一个可以访问到当前页目录表自身的地址
  */
-pub fn addr_to_dir_table() -> *mut PageTable {
+pub fn addr_to_dir_table() -> &'static PageTable {
     // 当一个地址，高10位是1，中间10位是1，那么会回环两次，就会访问到页目录表自身
-    0xfffff000 as *mut PageTable
+    unsafe { &*(0xfffff000 as *mut PageTable) }
 }
 
 /**

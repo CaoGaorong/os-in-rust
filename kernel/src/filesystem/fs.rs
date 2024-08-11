@@ -2,9 +2,9 @@ use core::slice;
 
 use os_in_rust_common::{bitmap::BitMap, constants, domain::{InodeNo, LbaAddr}, linked_list::{LinkedList, LinkedNodeIterator}, printkln, racy_cell::RacyCell, utils, ASSERT, MY_PANIC};
 
-use crate::device::ata::{Disk, Partition};
+use crate::device::{Disk, Partition};
 
-use super::{inode::{Inode, OpenedInode}, superblock::SuperBlock, DirEntry};
+use super::{inode::{Inode, OpenedInode}, superblock::SuperBlock};
 
 /**
  * 文件系统。中任何操作都是基于分区的
@@ -15,6 +15,7 @@ use super::{inode::{Inode, OpenedInode}, superblock::SuperBlock, DirEntry};
  */
 static CUR_FILE_SYSTEM: RacyCell<Option<FileSystem>> = RacyCell::new(Option::None);
 
+#[inline(never)]
 pub fn set_filesystem(cur_part: FileSystem) {
     *unsafe { CUR_FILE_SYSTEM.get_mut() } = Option::Some(cur_part);
 }

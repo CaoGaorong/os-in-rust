@@ -1,8 +1,9 @@
 use core::ptr;
+use core::mem::size_of;
 
 use os_in_rust_common::{constants, cstring_utils, domain::LbaAddr, elem2entry, linked_list::LinkedNode, printk, printkln, ASSERT, MY_PANIC};
 
-use crate::sync::{Lock, Semaphore};
+use crate::{memory, sync::{Lock, Semaphore}};
 
 use super::pio::{self, CommandBlockRegister, CommandRegister, DeviceRegister, PIOCommand, StatusRegister};
 
@@ -167,10 +168,14 @@ impl Disk {
         }
     }
 
+    #[inline(never)]
     pub fn get_name(&self) -> &str {
         let name = cstring_utils::read_from_bytes(&self.name);
-        ASSERT!(name.is_some());
-        name.expect("invalid name")
+        if name.is_some() {
+            return name.unwrap();
+        }
+        MY_PANIC!("failed to get name");
+        return "fuck";
     }
 
     pub fn identify(&mut self) {
@@ -189,11 +194,11 @@ impl Disk {
         }
 
         // 读取出数据
-        let buf = [0; constants::DISK_SECTOR_SIZE];
-        self.read_bytes(&buf, constants::DISK_SECTOR_SIZE.try_into().unwrap());
+        let buf: &mut[u8; constants::DISK_SECTOR_SIZE] = memory::malloc(constants::DISK_SECTOR_SIZE);
+        self.read_bytes(buf, constants::DISK_SECTOR_SIZE.try_into().unwrap());
 
         // 把读取到的结果，转成固定格式
-        let identify_res =  unsafe { &*(&buf as *const _ as *const DiskIdentifyContent) };
+        let identify_res =  unsafe { &*(buf as *const _ as *const DiskIdentifyContent) };
 
         let disk_name = self.get_name();
         let sn_name = core::str::from_utf8(&identify_res.sn).expect("Invalid name");
@@ -201,9 +206,15 @@ impl Disk {
         // printkln!("disk info: {},  sn: {}", disk_name, sn_name);
         // printkln!("module: {}", module_name);
         // printkln!("disk sector count: {}", identify_res.sec_cnt as u32);
+        memory::sys_free(buf.as_ptr() as usize);
     }
     
 
+    #[inline(never)]
+    pub fn read<T>(&mut self, lba_start: LbaAddr, sec_cnt: usize, data: &mut T) {
+        let buf = unsafe { core::slice::from_raw_parts_mut(data as *mut _ as *mut u8, sec_cnt * size_of::<T>()) };
+        self.read_sectors(lba_start, sec_cnt, buf);
+    }
     /**
      * 从lba_start为起始地址的扇区中，读取连续sec_cnt扇区的数据，到buf缓冲区中
      */
@@ -211,8 +222,8 @@ impl Disk {
     pub fn read_sectors(&mut self, lba_start: LbaAddr, sec_cnt: usize, buf: &mut [u8]) {
         let lba_start = lba_start.get_lba() as usize;
         let lba_end = lba_start + sec_cnt;
-        if lba_end > (constants::DISK_MAX_SIZE / constants::DISK_SECTOR_SIZE as u64) as usize {
-            printkln!("error to read sector. exceed maximum sector. lba:{}, sec_cnt:{}", lba_start, sec_cnt);
+        if lba_end > (constants::DISK_MAX_SIZE / constants::DISK_SECTOR_SIZE) {
+            printkln!("error to read sector. exceed maximum sector. lba_start:{}, sec_cnt:{}, lba_end:{}, max_lba:{}", lba_start, sec_cnt, lba_end, (constants::DISK_MAX_SIZE / constants::DISK_SECTOR_SIZE));
             MY_PANIC!("");
         }
         if buf.len() < sec_cnt * constants::DISK_SECTOR_SIZE {
@@ -265,7 +276,7 @@ impl Disk {
     pub fn write_sector(&mut self, buf: &[u8], lba_start: LbaAddr, sec_cnt: usize) {
         let lba_start = lba_start.get_lba() as usize;
         let lba_end = lba_start + sec_cnt;
-        if lba_end > (constants::DISK_MAX_SIZE / constants::DISK_SECTOR_SIZE as u64) as usize {
+        if lba_end > (constants::DISK_MAX_SIZE / constants::DISK_SECTOR_SIZE) {
             printkln!("error to write sector. exceed maximum sector. lba:{}, sec_cnt:{}", lba_start, sec_cnt);
             MY_PANIC!("");
         }
@@ -322,6 +333,7 @@ impl Disk {
      *  - lba：扇区开始地址
      *  - sector_cnt: 要操作的扇区数量
      */
+    #[inline(never)]
     fn set_op_sector(&self, lba: u32, sector_cnt: u16) {
         // 得到ATA bus通道
         let ata_channel = unsafe { &*self.from_channel };
@@ -384,6 +396,7 @@ impl Disk {
     /**
      * 从该通道的数据寄存器中，读取bytes个字节的数据到buf缓冲区中
      */
+    #[inline(never)]
     fn read_bytes(&self, buf: &[u8], bytes: u32) {
         // 得到ATA bus通道
         let ata_channel = unsafe { &*self.from_channel };
@@ -508,6 +521,7 @@ impl Partition {
     /**
      * 根据该分区的相对LBA地址，得到绝对LBA地址
      */
+    #[inline(never)]
     pub fn abs_lba_start(&self, rel_lba_start: u32) -> LbaAddr {
         self.lba_start.add(rel_lba_start)
     }

@@ -16,8 +16,8 @@ pub struct BootContext {
 impl BootContext {
     pub const fn empty() -> Self {
         Self {
-            memory_map_addr: 0x1,
-            memory_map_len: 0x1,
+            memory_map_addr: 0x0,
+            memory_map_len: 0x0,
         }
     }
 }

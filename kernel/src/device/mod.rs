@@ -1,10 +1,18 @@
-pub mod constant;
-pub mod ata;
-pub mod init;
-pub mod pio;
-pub mod drive;
+mod constant;
+mod ata;
+mod init;
+mod pio;
+mod drive;
 
 pub use init::get_all_partition;
 pub use init::ata_init;
 pub use init::get_ata_channel;
-pub use init::install_filesystem_for_all_part;
+
+
+pub use ata::Partition;
+pub use ata::ChannelIrqNoEnum;
+pub use ata::ChannelPortBaseEnum;
+pub use ata::Disk;
+
+
+pub use pio::StatusRegister;

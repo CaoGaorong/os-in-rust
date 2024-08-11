@@ -4,7 +4,7 @@ use core::ptr;
 
 use os_in_rust_common::{constants, pool::MemPool, ASSERT, MY_PANIC};
 
-use crate::page_util;
+use crate::memory::page_util;
 
 use super::mem_block::MemBlock;
 

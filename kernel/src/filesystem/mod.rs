@@ -1,13 +1,13 @@
-pub mod constant;
-pub mod superblock;
-pub mod inode;
-pub mod dir;
+mod constant;
+mod superblock;
+mod inode;
+mod dir;
 mod init;
 mod file;
-pub mod dir_entry;
+mod dir_entry;
 mod file_descriptor;
 mod global_file_table;
-pub mod fs;
+mod fs;
 mod file_api;
 mod dir_api;
 mod file_util;
@@ -20,7 +20,7 @@ pub use file_descriptor::FileDescriptor;
 
 
 pub use init::init;
-pub use init::install_filesystem;
+pub use init::install_filesystem_for_all_part;
 pub use init::mount_part;
 pub use dir::init_root_dir;
 pub use dir::change_dir;

@@ -93,6 +93,7 @@ impl SuperBlock {
      * 我们的文件系统数据占据的扇区的结构这样的：
      * | 引导块(1扇区) | 超级块(1扇区) | inode位图(x扇区) | inode数组(y扇区)| 空闲数据块位图(z扇区) | 根目录(1扇区) | 数据块
      */
+    #[inline(never)]
     pub fn new(part_lba: LbaAddr, part_secs: u32) -> Self {
 
         // inode位图所在扇区的起始LBA= 开始LBA + 引导块 + 超级块

@@ -16,6 +16,7 @@ pub static SYSTEM_CALL_TABLE: RacyCell<[Option<HandlerType>; constants::SYSTEM_C
 /**
  * 注册系统调用函数
  */
+#[inline(never)]
 pub fn register_handler(sys_call_no: SystemCallNo, handler: HandlerType) {
     let system_call_table = unsafe { SYSTEM_CALL_TABLE.get_mut() };
     system_call_table[sys_call_no as usize] = Option::Some(handler);

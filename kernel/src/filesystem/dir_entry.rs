@@ -2,7 +2,7 @@ use core::{mem::size_of, slice};
 
 use os_in_rust_common::{constants, cstr_write, cstring_utils, domain::{InodeNo, LbaAddr}, printkln, utils, ASSERT, MY_PANIC};
 
-use crate::{device::ata::Disk, memory};
+use crate::{device::Disk, memory};
 
 use super::{constant, fs::{self, FileSystem}, inode::{self, Inode, OpenedInode}};
 

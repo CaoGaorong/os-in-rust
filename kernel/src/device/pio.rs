@@ -72,6 +72,7 @@ pub fn write_to_register(port_base: u16, register: CommandBlockRegister) {
 /**
  * 从某个以port_base为起始端口的寄存器中读取数据
  */
+#[inline(never)]
 pub fn read_from_register(port_base: u16, register: CommandBlockRegister) {
     match register {
         CommandBlockRegister::Data(buf, bytes) => {

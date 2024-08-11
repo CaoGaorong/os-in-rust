@@ -1,15 +1,14 @@
-use core::{borrow::{Borrow, BorrowMut}, ffi::CStr, mem::size_of, sync::atomic::AtomicU32};
+use core::mem::size_of;
 
-use lazy_static::lazy_static;
-use os_in_rust_common::{constants, cstr_write, cstring_utils, domain::LbaAddr, linked_list::LinkedList, printkln, racy_cell::RacyCell, utils, ASSERT};
+use os_in_rust_common::{constants, cstr_write, cstring_utils, domain::LbaAddr, linked_list::LinkedList, racy_cell::RacyCell, utils, ASSERT};
 use os_in_rust_common::array_deque::ArrayDeque;
 
-use crate::{filesystem, init, memory, println};
-use crate::device::ata::Partition;
+use crate::device::Partition;
+use crate::memory;
 
 use super::{
     ata::{ATAChannel, ChannelIrqNoEnum, ChannelPortBaseEnum, Disk},
-    drive::{BootSector, PartitionType},
+    drive::BootSector,
 };
 
 /**
@@ -114,12 +113,9 @@ pub fn main_part_init(disk: &mut Disk) {
     let disk_ptr = disk as *mut _;
 
     // 申请内存。为了防止栈溢出，因此不使用局部变量
-    let boot_sec_addr = memory::sys_malloc(size_of::<BootSector>());
-    let buf = unsafe { core::slice::from_raw_parts_mut(boot_sec_addr as *mut u8, size_of::<BootSector>()) };
-
+    let boot_sector: &mut BootSector  = memory::malloc(size_of::<BootSector>());
     // 读取该分区的第一个扇区，启动记录
-    disk.read_sectors(LbaAddr::new(0), 1, buf);
-    let boot_sector = unsafe { &*(boot_sec_addr as *const BootSector) };
+    disk.read(LbaAddr::new(0), 1, boot_sector);
 
     // 得到分区表
     let part_table = &boot_sector.part_table;
@@ -157,6 +153,7 @@ pub fn main_part_init(disk: &mut Disk) {
     }
 
     memory::sys_free(buf.as_ptr() as usize);
+    memory::sys_free(boot_sector as *const _ as usize);
 }
 
 /**
@@ -172,20 +169,24 @@ pub fn extended_part_init(disk: &mut Disk, main_ext_lba: LbaAddr) {
     let mut stack = ArrayDeque::new(&mut array);
     stack.append((main_ext_lba, 4));
 
+    // 申请内存。为了防止栈溢出，因此不使用局部变量
+    let boot_sector: &mut BootSector = memory::malloc(size_of::<BootSector>());
+    let part_name_buf: &mut [u8; 100] = memory::malloc(100);
+
     loop {
         let ele = stack.pop();
         if ele.is_none() {
             break;
         }
+
+        // 清零一下
+        unsafe { part_name_buf.as_mut_ptr().write_bytes(0, part_name_buf.len()) };
         let (extend_part_lba, mut part_no) = ele.unwrap();
 
         let disk_ptr = disk as *mut _;
-        // 申请内存。为了防止栈溢出，因此不使用局部变量
-        let boot_sec_addr = memory::sys_malloc(size_of::<BootSector>());
-        let buf = unsafe { core::slice::from_raw_parts_mut(boot_sec_addr as *mut u8, size_of::<BootSector>()) };
+        
         // 读取该分区的第一个扇区，启动记录
-        disk.read_sectors(extend_part_lba, 1, buf);
-        let boot_sector = unsafe { &*(boot_sec_addr as *const BootSector) };
+        disk.read(extend_part_lba, 1, boot_sector);
 
         // 得到分区表
         let part_table = &boot_sector.part_table;
@@ -193,17 +194,19 @@ pub fn extended_part_init(disk: &mut Disk, main_ext_lba: LbaAddr) {
             if part_entry.is_empty() {
                 continue;
             }
+            // 清零一下
+            unsafe { part_name_buf.as_mut_ptr().write_bytes(0, part_name_buf.len()) };
+
             // 不是扩展分区，那么是真正有数据的逻辑分区
             if !part_entry.is_extended() {
-                let mut buf = [0u8; 100];
                 // 该分区名称 = 磁盘名称 + i
-                cstr_write!(&mut buf, "{}{}", disk.get_name(), part_no);
+                cstr_write!(part_name_buf, "{}{}", disk.get_name(), part_no);
 
                 // 填充分区信息
                 let mut logical_part = &mut disk.logical_parts[part_no];
                 part_no += 1;
 
-                *logical_part = Option::Some(Partition::new(&buf, extend_part_lba + part_entry.start_lba, part_entry.sec_cnt, disk_ptr));
+                *logical_part = Option::Some(Partition::new(part_name_buf, extend_part_lba + part_entry.start_lba, part_entry.sec_cnt, disk_ptr));
 
                 let part = logical_part.as_mut().unwrap();
                 // 把该逻辑分区加入队列
@@ -218,20 +221,8 @@ pub fn extended_part_init(disk: &mut Disk, main_ext_lba: LbaAddr) {
             stack.append((part_entry.start_lba + *main_extend_lba_base, part_no));
         }
     }
+
+    memory::sys_free(boot_sector as *const _ as usize);
+    memory::sys_free(part_name_buf.as_ptr() as usize);
 }
 
-
-/**
- * 为所有的分区安装文件系统
- */
-#[inline(never)]
-pub fn install_filesystem_for_all_part() {
-    // 取出所有分区
-    let all_partition = get_all_partition();
-
-    // 遍历每个分区，安装文件系统
-    all_partition.iter().for_each(|part_tag| {
-        let part = Partition::parse_by_tag(part_tag);
-        filesystem::install_filesystem(part);
-    });
-}

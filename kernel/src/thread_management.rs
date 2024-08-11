@@ -1,4 +1,4 @@
-use core::{mem::size_of, ptr, task};
+use core::mem::size_of;
 
 use os_in_rust_common::{
     bitmap::BitMap, constants, instruction, pool::MemPool, utils, ASSERT
@@ -7,26 +7,20 @@ use os_in_rust_common::{
 use crate::{memory, pid_allocator, scheduler, thread::{self, PcbPage, TaskStatus, ThreadArg, ThreadFunc}};
 
 
-/**
- * 记得一定要初始化。为什么在new的时候不初始化呢？
- * 因为new设置为const函数，没法获取可变引用
- * 并且，会出现悬空指针
- */
 #[inline(never)]
 pub fn thread_init() {
-    // unsafe { ALL_THREAD_LIST.get_mut().init() };
-    // unsafe { READY_THREAD_LIST.get_mut().init() };
     // 主线程
-    make_thread_main();
+    self::make_thread_main();
 
     // 设置idle线程
-    make_idle_thread();
+    self::make_idle_thread();
 }
 
 /**
  * 把当前正在执行的执行流，封装成main线程
  */
-pub fn make_thread_main() {
+#[inline(never)]
+fn make_thread_main() {
     // 根据当前运行的线程，找到PCB
     let pcb_page = thread::current_thread();
     // 初始化PCB数据
@@ -40,7 +34,8 @@ pub fn make_thread_main() {
     thread::append_all_thread(main_task);
 }
 
-pub fn make_idle_thread() {
+#[inline(never)]
+fn make_idle_thread() {
     // 创建idle线程
     let idle_thread = thread_start(constants::IDLE_THREAD_NAME, constants::TASK_DEFAULT_PRIORITY, idle_thread, 0);
     let idle_task = &mut idle_thread.task_struct;
@@ -52,6 +47,7 @@ pub fn make_idle_thread() {
 /**
  * idle线程，只会执行hlt指令
  */
+#[inline(never)]
 extern "C" fn idle_thread(unused: ThreadArg) {
     loop {
         // 阻塞当前线程
@@ -79,6 +75,7 @@ extern "C" fn idle_thread(unused: ThreadArg) {
 /**
  * 启动一个内核线程
  */
+#[inline(never)]
 pub fn thread_start(
     thread_name: &'static str,
     priority: u8,
@@ -155,7 +152,7 @@ pub fn apply_user_addr_pool() -> MemPool {
     
     /**** 3. 把申请到的堆空间，构建一个虚拟地址池 */
     // 把这一块空间，转成一个数组的引用
-    let bitmap_array = unsafe { &*core::slice::from_raw_parts(bitmap_addr as *const u8, bitmap_byte_len) };
+    let bitmap_array = unsafe { core::slice::from_raw_parts_mut(bitmap_addr as *mut u8, bitmap_byte_len) };
     // 进程的虚拟地址池
     MemPool::new(constants::USER_PROCESS_ADDR_START, BitMap::new(bitmap_array))
 }

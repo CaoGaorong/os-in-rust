@@ -2,7 +2,7 @@ use core::{arch::asm, fmt::Display, mem::size_of, ptr};
 
 use os_in_rust_common::{constants, cstr_write, cstring_utils, domain::InodeNo, elem2entry, instruction::{self, enable_interrupt}, linked_list::{LinkedList, LinkedNode}, paging::{self, PageTable}, pool::MemPool, printkln, racy_cell::RacyCell, reg_cr3::{self, CR3}, reg_eflags::{self, EFlags, FlagEnum}, selector::SegmentSelector, utils, ASSERT, MY_PANIC};
 
-use crate::{console_println, filesystem::FileDescriptorTable, interrupt, memory::mem_block::MemBlockAllocator, page_util, pid_allocator, pid_allocator::Pid, tss};
+use crate::{console_println, filesystem::FileDescriptorTable, interrupt, memory::{page_util, MemBlockAllocator}, pid_allocator::Pid, tss};
 
 
 /**

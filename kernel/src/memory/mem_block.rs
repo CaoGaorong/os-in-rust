@@ -34,6 +34,8 @@ pub struct MemBlockAllocator {
 }
 
 impl MemBlockAllocator {
+    
+    #[inline(never)]
     pub fn new() -> MemBlockAllocator {
         // 构建一个数组
         const EMPTY_VALUE: MemBlockContainer = MemBlockContainer::empty();
@@ -237,6 +239,7 @@ pub struct Arena {
     left_block_cnt: usize,
 }
 impl Arena {
+    #[inline(never)]
     pub fn init(&mut self, supply_for: *mut MemBlockContainer, occupy_page_cnt: usize, block_size: usize) {
         // 把内存块数据清零
         unsafe { (self as *mut Self as *mut u8).write_bytes(0, occupy_page_cnt * constants::PAGE_SIZE as usize) };

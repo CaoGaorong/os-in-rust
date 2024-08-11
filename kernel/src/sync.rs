@@ -1,7 +1,7 @@
 use core::ptr;
 
 
-use os_in_rust_common::{instruction, linked_list::LinkedList, printkln, ASSERT};
+use os_in_rust_common::{instruction, linked_list::LinkedList, printkln, ASSERT, MY_PANIC};
 
 use crate::{scheduler::{self}, thread::{self, TaskStruct}};
 
@@ -163,7 +163,10 @@ impl Lock {
         current_task.check_stack_magic("failed to unlock");
         // println!("cur:{}, holder:{}", current_task.name, unsafe {&*self.holder}.name);
         // println!("holder:{}", self.holder as u32);
-        ASSERT!(current_task as *const _ as u32 == self.holder as u32);
+        if current_task as *const _ as u32 != self.holder as u32 {
+            let holder = unsafe { &*self.holder };
+            MY_PANIC!("failed to unlock, cur_task_name:{}, holder name:{}", current_task.get_name(), holder.get_name());
+        }
         if self.repeat > 1 {
             self.repeat -= 1;
             return;

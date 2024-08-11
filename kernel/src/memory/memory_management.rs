@@ -3,7 +3,7 @@ use core::ptr;
 
 use os_in_rust_common::{constants, paging::{PageTable, PageTableEntry}, racy_cell::RacyCell, ASSERT};
 
-use crate::{page_util, sync::Lock, thread};
+use crate::{memory::page_util, sync::Lock, thread};
 
 use super::{mem_block, memory_allocation, memory_deallocation, memory_poll};
 
@@ -95,6 +95,7 @@ pub fn sys_malloc(bytes: usize) -> usize {
 /**
  * 申请page_cnt个内核页。得到虚拟地址
  */
+#[inline(never)]
 pub fn malloc_kernel_page(page_cnt: usize) -> usize { 
     thread::check_task_stack("failed to malloc kernel memory");
     unsafe { KERNEL_ADDR_POOL_LOCK.get_mut().lock() };
@@ -121,6 +122,7 @@ pub fn free_kernel_page(vaddr: usize, page_cnt: usize, phy_free: bool) {
 /**
  * 已知栈顶，分配一个物理页
  */
+#[inline(never)]
 pub fn malloc_user_page_by_vaddr(vaddr: usize) {
     thread::check_task_stack("failed to malloc user stack memory");
     unsafe { USER_MEM_POOL_LOCK.get_mut().lock() };

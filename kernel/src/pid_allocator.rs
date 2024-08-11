@@ -1,6 +1,6 @@
 use os_in_rust_common::{bitmap::{self, BitMap}, pool::MemPool, ASSERT};
 
-use crate::mutex::Mutex;
+use crate::{mutex::Mutex, println};
 
 #[derive(Clone, Copy)]
 #[derive(PartialEq)]
@@ -33,16 +33,16 @@ struct PidPool {
 }
 
 impl PidPool {
-    pub const fn empty() -> Self {
+    pub const fn new(bitmap: &mut [u8]) -> Self {
         Self {
-            bitmap:BitMap::new(&PID_BITS),
+            bitmap: BitMap::new(bitmap),
             start_pid: 10
         }
     }
 }
-const PID_BITS: [u8; 128] = [0; 128];
+static mut PID_BITS: [u8; 128] = [0; 128];
 
-static mut GLOBAL_PID_POOL: Mutex<PidPool> = Mutex::new(PidPool::empty());
+static mut GLOBAL_PID_POOL: Mutex<PidPool> = Mutex::new(PidPool::new(unsafe { &mut PID_BITS }));
 
 
 /**

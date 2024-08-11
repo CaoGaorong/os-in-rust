@@ -1,6 +1,6 @@
-use os_in_rust_common::{bios_mem::{ARDSType, AddressRangeDescriptorStructure}, context::BootContext, ASSERT};
+use os_in_rust_common::{bios_mem::{ARDSType, AddressRangeDescriptorStructure}, context::BootContext, printkln, ASSERT};
 
-use crate::{device, filesystem::{self}, interrupt, memory, sys_call, thread, thread_management, tss};
+use crate::{device, filesystem, interrupt, memory, sys_call, thread, thread_management, tss};
 
 #[inline(never)]
 #[no_mangle]
@@ -11,7 +11,7 @@ pub fn init_all(boot_info: &BootContext) {
     // 得到memory_map
     let memory_map:&mut [AddressRangeDescriptorStructure]  = unsafe {
         core::slice::from_raw_parts_mut(
-            boot_info.memory_map_addr as *mut _,
+            boot_info.memory_map_addr as *mut AddressRangeDescriptorStructure,
             boot_info.memory_map_len.try_into().unwrap(),
         )
     };
@@ -29,9 +29,10 @@ pub fn init_all(boot_info: &BootContext) {
     .max()
     .unwrap();
     
-    memory::memory_poll::mem_pool_init(os_memory_size);
+    memory::mem_pool_init(os_memory_size);
 
     thread_management::thread_init();
+    thread::check_task_stack("failed to init thread");
 
     // 加载TSS
     tss::tss_init();
@@ -48,7 +49,7 @@ pub fn init_all(boot_info: &BootContext) {
     thread::check_task_stack("overflow after ata init");
 
     // 给每个分区，安装文件系统
-    device::install_filesystem_for_all_part();
+    filesystem::install_filesystem_for_all_part();
     thread::check_task_stack("overflow after fs init");
 
     // 初始化文件系统

@@ -3,7 +3,7 @@ use core::{mem::size_of, ptr};
 
 use os_in_rust_common::{constants, pool::MemPool, utils, ASSERT, MY_PANIC};
 
-use crate::page_util;
+use crate::memory::page_util;
 
 use super::mem_block::{Arena, MemBlockAllocator};
 
@@ -85,6 +85,7 @@ pub fn malloc_bytes(vaddr_pool: &mut MemPool, phy_mem_pool: &mut MemPool, alloca
 /**
  * 从addr_pool地址池中申请连续的page_cnt页虚拟地址，从mem_pool中申请不连续的page_cnt物理页，并且构建虚拟地址和物理地址的页表联系。返回虚拟起始地址
  */
+#[inline(never)]
 pub fn malloc_page(addr_pool: &mut MemPool, mem_pool: &mut MemPool, page_cnt: usize) -> usize {
     // 从虚拟地址池中申请连续的虚拟地址
     let addr_apply_res = addr_pool.apply(page_cnt);
@@ -108,6 +109,7 @@ pub fn malloc_page(addr_pool: &mut MemPool, mem_pool: &mut MemPool, page_cnt: us
 /**
  * 已知虚拟地址virtual_addr，然后前往mem_pool物理空间池申请1页空间，并且返回物理空间池的物理地址
  */
+#[inline(never)]
 pub fn malloc_phy_by_vaddr(virtual_addr: usize, mem_pool: &mut MemPool) -> usize{
     let mem_apply_res = mem_pool.apply_one();
     ASSERT!(mem_apply_res.is_ok());

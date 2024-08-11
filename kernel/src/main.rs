@@ -7,18 +7,17 @@
 #![feature(panic_info_message)]
 
 
-use core::{arch::asm, mem::size_of, panic::PanicInfo};
-use device::ata::{Disk, Partition};
-use filesystem::{fs, File, FileType, OpenOptions};
-use kernel::{console_println, device, filesystem, init, memory, page_util, println, sys_call, thread};
-use memory::mem_block::{Arena, MemBlock};
+use core::{arch::asm, panic::PanicInfo};
+use core::mem::size_of;
+use device::{Disk, Partition};
+use filesystem::{File, FileType, OpenOptions};
+use kernel::sys_call::sys_call_proxy;
+use kernel::{console_println, device, filesystem, init, println, process, sys_call, thread};
 use os_in_rust_common::{cstring_utils, instruction, vga};
-use os_in_rust_common::{ASSERT, constants, context::BootContext, elem2entry, printk, printkln};
-use os_in_rust_common::linked_list::{LinkedList, LinkedNode};
-use thread::ThreadArg;
+use os_in_rust_common::{ASSERT, context::BootContext, printk, printkln};
 
 
-static PROCESS_NAME: &str = "user process";
+static PROCESS_NAME: &str = "init";
 // static text: &'static str = "012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789";
 
 #[inline(never)]
@@ -113,48 +112,62 @@ fn test_create_dir() {
 }
 
 #[inline(never)]
+extern "C" fn init_process() {
+    let fork_res = sys_call_proxy::fork();
+    match fork_res {
+        sys_call_proxy::ForkResult::Parent(child_pid) => {
+            println!("i'm father, my pid is {}, my child pid is {}", sys_call_proxy::get_pid().get_data(), child_pid.get_data());
+        },
+        sys_call_proxy::ForkResult::Child => {
+            println!("im child, my pid is {}", sys_call_proxy::get_pid().get_data());
+        },
+    }
+
+    loop {}
+}
+
+
+#[inline(never)]
 #[no_mangle]
 #[link_section = ".start"]
 pub extern "C" fn _start(boot_info: &BootContext) {
 
     init::init_all(boot_info);
-    self::test_create_dir();
-    self::test_read_dir_entry();
-    self::test_create_file();
+    // self::test_create_dir();
+    // self::test_read_dir_entry();
+    // self::test_create_file();
 
-    let fs = fs::get_filesystem();
-    fs.iter_open_nodes(|inode| {
-        let entry = filesystem::current_inode_entry(inode);
-        if entry.is_empty() {
-            return;
-        }
-        // console_println!("inode_no{}, open_cnt:{}", inode.i_no, inode.open_cnts);
-        printkln!("inode: {}, name:{}, open_cnt:{}", inode.i_no, entry.get_name(), inode.open_cnts);
-    });
+    // let fs = fs::get_filesystem();
+    // fs.iter_open_nodes(|inode| {
+    //     let entry = filesystem::current_inode_entry(inode);
+    //     if entry.is_empty() {
+    //         return;
+    //     }
+    //     // console_println!("inode_no{}, open_cnt:{}", inode.i_no, inode.open_cnts);
+    //     printkln!("inode: {}, name:{}, open_cnt:{}", inode.i_no, entry.get_name(), inode.open_cnts);
+    // });
 
-    let cur_task = &mut thread::current_thread().task_struct;
+    // let cur_task = &mut thread::current_thread().task_struct;
 
-    // 更改工作目录
-    filesystem::change_dir(cur_task, "/dev/proc/");
-    let mut buf: [u8; 10] = [0; 10];
-    filesystem::get_cwd(cur_task, &mut buf);
-    let cwd = cstring_utils::read_from_bytes(&buf);
-    printkln!("cwd:{:?}", cwd.unwrap());
+    // // 更改工作目录
+    // filesystem::change_dir(cur_task, "/dev/proc/");
+    // let mut buf: [u8; 10] = [0; 10];
+    // filesystem::get_cwd(cur_task, &mut buf);
+    // let cwd = cstring_utils::read_from_bytes(&buf);
+    // printkln!("cwd:{:?}", cwd.unwrap());
     
     // 打印线程信息
     // thread_management::print_thread();
 
     printkln!("-----system started-----");
     // let cur_task = &thread::current_thread().task_struct;
-    // process::process_execute(PROCESS_NAME, u_prog_a);
+    process::process_execute(PROCESS_NAME, init_process);
     // thread_management::thread_start("thread_a", 5, kernel_thread, 0);
 
-    // instruction::enable_interrupt();
-
-    loop {}
+    // loop {}
     // 主通道。挂在2个硬盘
     let channel_idx = 0;
-    let primary = device::init::get_ata_channel(&channel_idx);
+    let primary = device::get_ata_channel(&channel_idx);
     ASSERT!(primary.is_some());
     let primary = primary.as_mut().unwrap();
     // 次通道。没硬盘
@@ -166,6 +179,7 @@ pub extern "C" fn _start(boot_info: &BootContext) {
     let disk =  &mut primary.disks[1];
     print_disk(disk.as_ref().unwrap());
 
+    instruction::enable_interrupt();
     
     // // 测试一样空间的分配和释放
     // test_malloc_free();
@@ -212,145 +226,6 @@ fn print_partition(part: &Partition) {
 }
 
 
-fn hello() {
-    let hello = b"Hello, World";
-    let vga_buffer = 0xC00b8000 as *mut u8;
-
-    for (i, &e) in hello.iter().enumerate() {
-        unsafe {
-            *vga_buffer.offset(i as isize * 2) = e;
-            *vga_buffer.offset(i as isize * 2 + 1) = 0xb;
-        }
-    }
-    loop {}
-}
-
-#[derive(Debug)]
-struct StructDTO {
-    id: u32,
-    tag: LinkedNode,
-}
-
-fn test_linked_list() {
-    let mut linked_list = LinkedList::new();
-    let mut s1 = StructDTO {id: 1, tag: LinkedNode::new()};
-    linked_list.push(&mut s1.tag);
-
-    printkln!("list size:{}", linked_list.size());
-
-    let mut s2 = StructDTO {id: 2, tag: LinkedNode::new()};
-    linked_list.append(&mut s2.tag);
-
-    let mut s3 = StructDTO {id: 3, tag: LinkedNode::new()};
-    linked_list.append(&mut s3.tag);
-
-    let s11 = linked_list.pop();
-
-    let mut s4 = StructDTO {id: 4, tag: LinkedNode::new()};
-    linked_list.append(&mut s4.tag);
-
-
-    linked_list.iter().for_each(|node| {
-        let dto = unsafe{ &*elem2entry!(StructDTO, tag, node as usize)};
-        printkln!("cur addr:0x{:x}, {:?}", node as usize, *dto);
-    })
-
-}
-
-/**
- * 内核线程
- */
-extern "C" fn kernel_thread(arg: ThreadArg) {
-    let pid = sys_call::get_pid();
-    printkln!("kernel thread pid:{}", pid);
-
-    printkln!("size of: 0x{:x}", size_of::<Arena>());
-    
-    let page_size: usize = 4 * 1024;
-    let addr1 = memory::malloc_kernel_page(1);
-    printkln!("page addr: 0x{:x}", addr1);
-
-    // 分配1块，新页
-    let addr2 = memory::sys_malloc(33);
-    printkln!("addr: 0x{:x}, {}", addr2, addr2 == addr1 + size_of::<Arena>() + page_size);
-
-    // 分配1块，新页
-    let addr3 = memory::sys_malloc(12);
-    printkln!("addr: 0x{:x}, {}", addr3, addr3 == addr2 + page_size);
-    
-    // 分配2页。新页
-    let addr4 = memory::sys_malloc(4096);
-    printkln!("addr: 0x{:x}, {}", addr4, addr4 == addr3 +  page_size);
-    
-    // 分配1块，新页
-    let addr5 = memory::sys_malloc(129);
-    printkln!("addr: 0x{:x}, {}", addr5,  addr5 == addr4 + 2 * page_size);
-
-    // 分配1块，旧页
-    let addr6 = memory::sys_malloc(33);
-    printkln!("addr: 0x{:x}, {}", addr6, addr6 == addr2 + 64);
-
-    printk!("size: ");
-    memory::mem_block::get_kernel_mem_block_allocator().print_container_size();
-
-
-    memory::sys_free(addr2);
-    printk!("size: ");
-    memory::mem_block::get_kernel_mem_block_allocator().print_container_size();
-
-    memory::sys_free(addr6);
-    
-    printk!("size: ");
-    memory::mem_block::get_kernel_mem_block_allocator().print_container_size();
-
-    // memory::mem_block::get_kernel_mem_block_allocator().print_container();
-
-    loop {
-        // console_print!("k");
-        // dummy_sleep(10000);
-    }
-}
-
-pub fn test_malloc_free() {
-
-    // 申请10个字节的空间
-    let addr1 = memory::sys_malloc(10);
-    let container = memory::mem_block::get_kernel_mem_block_allocator().match_container(10);
-    let total_size = constants::PAGE_SIZE as usize / container.block_size() - 1;
-    assert_true(container.size() ==  total_size - 1, "malloc error");
-    
-    // 再申请一个10字节
-    let addr2 = memory::sys_malloc(10);
-    assert_true(container.size() ==  total_size- 2, "malloc error");
-
-    // 释放addr1
-    memory::sys_free(addr1);
-    assert_true(container.size() ==  total_size - 1, "free error");
-    
-    // 释放addr2
-    memory::sys_free(addr2);
-    // 这一页都释放了
-    assert_true(container.size() ==  0, "free error");
-
-    // 两个都释放了，那么按理说PTE的P位应该已经清除了
-    let arena = unsafe { & *(addr2 as *const MemBlock) }.arena_addr();
-    let pde = page_util::addr_to_pde(arena as *const _ as usize);
-    let pte = page_util::addr_to_pte(arena as *const _ as usize);
-
-    // 确保PDE存在
-    assert_true(pde.present(), "SYSTEM ERROR, PDE ERROR");
-    // 确保PTE不存在
-    assert_true(!pte.present(), "ERROR: PTE should be expelled");
-
-}
-
-fn assert_true(condition: bool, msg: &str) {
-    if condition {
-        return;
-    }
-    printkln!("{}", msg);
-}
-
 #[derive(Debug)]
 struct MyStruct {
     id: u32,
@@ -359,9 +234,10 @@ struct MyStruct {
 /**
  * 用户进程
  */
+#[inline(never)]
 extern "C" fn u_prog_a() {
     let pid = sys_call::get_pid();
-    println!("user process pid: {}", pid);
+    println!("user process pid: {}", pid.get_data());
     
     // 发起系统调用，申请内存空间
     let my_struct_ptr: *mut MyStruct = sys_call::malloc(size_of::<MyStruct>());

@@ -35,7 +35,6 @@ pub fn enable_interrupt() -> InterruptStatus {
     todo!()
 }
 
-#[inline]
 #[cfg(all(not(test), target_arch = "x86"))]
 pub fn enable_interrupt() -> InterruptStatus {
     if is_intr_on() {

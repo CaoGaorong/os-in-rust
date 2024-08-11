@@ -99,6 +99,7 @@ impl MemPool {
     /**
      * 申请1个。得到申请到的起始虚拟地址
      */
+    #[inline(never)]
     pub fn apply_one(&mut self) -> Result<usize, MemoryError> {
         self.apply(1)
     }

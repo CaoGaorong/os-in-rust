@@ -33,9 +33,9 @@ impl BitMap {
     /**
      * 构建一个位图。把一个数组，转换成一个位图
      */
-    pub const fn new(bitmap: &[u8]) -> Self {
+    pub const fn new(bitmap: &mut [u8]) -> Self {
         Self {
-            map_ptr: bitmap as *const [u8] as *mut u8,
+            map_ptr: bitmap.as_mut_ptr(),
             size: bitmap.len(),
             init: true
         }
@@ -64,6 +64,7 @@ impl BitMap {
     /**
      * 在位图中申请cnt个连续的bit。返回申请到的bit在该位图的下标
      */
+    #[inline(never)]
     pub fn apply_bits(&self, cnt: usize) -> Result<usize, MemoryError>{
         ASSERT!(self.init);
         let mut successive_cnt = 0;

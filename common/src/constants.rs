@@ -176,7 +176,7 @@ pub const DISK_LOCATION_IN_MEMORY: usize = 0x475;
 /**
  * 硬盘的最大容量（单位字节）80MB
  */
-pub const DISK_MAX_SIZE: u64 = 80 * 1024 * 1024;
+pub const DISK_MAX_SIZE: usize = 80 * 1024 * 1024;
 
 /**
  * 硬盘中一个扇区的大小。512字节

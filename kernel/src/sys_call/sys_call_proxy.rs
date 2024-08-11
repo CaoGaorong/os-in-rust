@@ -32,8 +32,8 @@ macro_rules! println {
 /**
  * 获取当前任务的pid
  */
-pub fn get_pid() -> u8 {
-    do_sys_call(SystemCallNo::GetPid, Option::None, Option::None, Option::None) as u8
+pub fn get_pid() -> Pid {
+    Pid::new(do_sys_call(SystemCallNo::GetPid, Option::None, Option::None, Option::None).try_into().unwrap())
 }
 
 
@@ -76,6 +76,7 @@ pub enum ForkResult {
     Child
 }
 
+#[inline(never)]
 pub fn fork() -> ForkResult {
     // 调用系统调用的fork
     let fork_res = self::do_sys_call(SystemCallNo::Fork, Option::None, Option::None, Option::None);

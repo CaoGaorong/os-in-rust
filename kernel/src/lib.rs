@@ -23,7 +23,6 @@ pub mod process;
 pub mod thread;
 pub mod sys_call;
 pub mod pid_allocator;
-pub mod page_util;
 pub mod device;
 pub mod filesystem;
 pub mod fork;

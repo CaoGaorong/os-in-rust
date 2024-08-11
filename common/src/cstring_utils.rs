@@ -1,6 +1,6 @@
 use core::{ffi::CStr, fmt::{self, Write}};
 
-use crate::{ASSERT, MY_PANIC};
+use crate::MY_PANIC;
 
 
 /**
@@ -26,7 +26,9 @@ pub fn sprintf_fn<'a>(buf: &'a mut [u8], args: fmt::Arguments) {
     let res = buffer.write_fmt(args);
     // 在buf结尾添加\0
     buffer.buffer[buffer.cur_idx] = b'\0';
-    ASSERT!(res.is_ok());
+    if res.is_err() {
+        MY_PANIC!("{:?}", res.err().unwrap());
+    }
 }
 
 /**

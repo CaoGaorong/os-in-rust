@@ -3,7 +3,7 @@
 
 use core::{arch::asm, panic::PanicInfo};
 mod protect_mode;
-use os_in_rust_common::{bios_mem, constants, context::{self, BootContext}, dap, disk, instruction, printkln, racy_cell::RacyCell, selector::SegmentSelector};
+use os_in_rust_common::{bios_mem, constants, context::BootContext, disk, racy_cell::RacyCell};
 
 
 static BOOT_CONTEXT: RacyCell<BootContext> = RacyCell::new(BootContext::empty());
@@ -12,8 +12,6 @@ static BOOT_CONTEXT: RacyCell<BootContext> = RacyCell::new(BootContext::empty())
 #[link_section = ".start"]
 pub extern "C" fn _start() {
 
-    // instruction::disable_interrupt();
-    
     // 调用BIOS，得到内存图
     let result = bios_mem::get_memeory_map();
     let context = unsafe { BOOT_CONTEXT.get_mut() };

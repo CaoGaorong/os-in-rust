@@ -2,10 +2,26 @@ use core::{mem::{size_of, size_of_val}, slice};
 
 use os_in_rust_common::{constants, domain::InodeNo, utils, ASSERT};
 
-use crate::{device::{self, ata::Partition}, filesystem::{dir_entry::{self, FileType}, fs}};
+use crate::device::{self, Partition};
 use crate::memory;
 
-use super::{dir_entry::DirEntry, fs::FileSystem, inode::Inode, superblock::SuperBlock};
+use super::{dir_entry::{self, DirEntry}, fs::{self, FileSystem}, inode::Inode, superblock::SuperBlock};
+
+
+/**
+ * 为所有的分区安装文件系统
+ */
+#[inline(never)]
+pub fn install_filesystem_for_all_part() {
+    // 取出所有分区
+    let all_partition = device::get_all_partition();
+
+    // 遍历每个分区，安装文件系统
+    for part_tag in all_partition.iter() {
+        let part = Partition::parse_by_tag(part_tag);
+        self::install_filesystem(part);
+    }
+}
 
 #[inline(never)]
 pub fn mount_part(part_name: &str) {
@@ -81,15 +97,14 @@ pub fn init() {
  * 注意：这里根目录也属于数据块
  */
 #[inline(never)]
-#[no_mangle]
-pub fn install_filesystem(part: &mut Partition) {
+fn install_filesystem(part: &mut Partition) {
 
     // 申请空间，给超级块
     let super_block: &mut SuperBlock =  memory::malloc(size_of::<SuperBlock>());
     *super_block = SuperBlock::new(part.abs_lba_start(0), part.sec_cnt);
 
     // 安装superBlock
-    install_super_block(part, &super_block);
+    self::install_super_block(part, &super_block);
 
     // 先创建一个缓冲区，取三者的最大者
     let buff_max_secs = super_block.block_bitmap_secs
@@ -118,6 +133,7 @@ pub fn install_filesystem(part: &mut Partition) {
 /**
  * 在part分区中安装超级块super_block
  */
+#[inline(never)]
 fn install_super_block(part: &mut Partition, super_block: &SuperBlock) {
     let disk = unsafe { &mut *part.from_disk };
     // 把超级块 写入到 该分区的
@@ -222,13 +238,13 @@ fn install_root_dir(part: &mut Partition, super_block: &SuperBlock, buff: &mut [
     {
         // . 目录项项
         let cur_dir = &mut dir_table[0];
-        *cur_dir = DirEntry::new(InodeNo::from(0u32), ".", FileType::Directory);
+        *cur_dir = DirEntry::new(InodeNo::from(0u32), ".", dir_entry::FileType::Directory);
     }
 
     {
         // .. 目录项
         let last_dir = &mut dir_table[1];
-        *last_dir = DirEntry::new(InodeNo::from(0u32), "..", FileType::Directory);
+        *last_dir = DirEntry::new(InodeNo::from(0u32), "..", dir_entry::FileType::Directory);
     }
     // 把根目录的两个项：.和..，写入到数据扇区
     let disk = unsafe { &mut *part.from_disk };
