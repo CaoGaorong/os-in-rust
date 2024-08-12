@@ -108,6 +108,7 @@ pub fn addr_to_dir_table() -> &'static PageTable {
 /**
  * 经过页表索引，得到virtual_addr虚拟地址指向的物理地址
  */
+#[inline(never)]
 pub fn get_phy_from_virtual_addr(virtual_addr: usize) -> usize {
     // 得到这个虚拟地址，会映射到的页表项，得到该页表项的虚拟地址
     let pte = addr_to_pte(virtual_addr);

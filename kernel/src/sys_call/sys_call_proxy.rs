@@ -32,6 +32,7 @@ macro_rules! println {
 /**
  * 获取当前任务的pid
  */
+#[inline(never)]
 pub fn get_pid() -> Pid {
     Pid::new(do_sys_call(SystemCallNo::GetPid, Option::None, Option::None, Option::None).try_into().unwrap())
 }

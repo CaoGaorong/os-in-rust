@@ -111,6 +111,7 @@ impl BitMap {
     /**
      * 某一bit的下标，该位是否被set为1
      */
+    #[inline(never)]
     pub fn is_set(&self, bit_idx: usize) -> bool {
         ASSERT!(self.init);
         ASSERT!(bit_idx <= self.size * 8);
@@ -121,11 +122,21 @@ impl BitMap {
         let byte_idx = bit_idx / 8;
         // 定位到那一个字节
         let byte = bitmap[byte_idx];
+        if byte == 0 {
+            return false;
+        }
         
         // 该位所在字节内的偏移
         let bit_offset = bit_idx % 8;
 
         return byte & (1 << bit_offset) == (1 << bit_offset);
+    }
+
+    /**
+     * 得到bitmap信息
+     */
+    pub fn get_bitmap(&self) -> &[u8] {
+        unsafe { core::slice::from_raw_parts(self.map_ptr, self.size) }
     }
 
     /**

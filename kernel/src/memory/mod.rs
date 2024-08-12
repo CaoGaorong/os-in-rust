@@ -16,7 +16,7 @@ pub use memory_management::malloc_user_page_by_vaddr;
 // 释放内存
 pub use memory_management::sys_free;
 
-pub use memory_management::copy_single_page;
+pub use memory_management::copy_single_user_page;
 
 
 pub use mem_block::MemBlockAllocator;

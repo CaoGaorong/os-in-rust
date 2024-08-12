@@ -12,4 +12,9 @@ pub mod test {
         println!("pde idx: 0x{:x}", addr >> 22);
         println!("pte idx: 0x{:x}", page_util::locate_pte(addr.try_into().unwrap()));
     }
+
+    #[test]
+    pub fn bit_test() {
+        println!("{:b}", 0b11 & !0x0)
+    }
 }

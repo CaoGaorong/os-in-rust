@@ -37,7 +37,8 @@ pub fn init() {
  * 获取当前任务的pid
  */
 fn get_pid() -> u32 {
-    thread::current_thread().task_struct.pid.get_data().try_into().unwrap()
+    let cur_task = &thread::current_thread().task_struct;
+    cur_task.pid.get_data().try_into().unwrap()
 }
 
 /**

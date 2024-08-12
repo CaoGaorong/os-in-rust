@@ -2,6 +2,24 @@ use core::mem::size_of;
 
 use crate::{constants, utils};
 
+pub struct PageTableEntryIterator<'a> {
+    pgdir: &'a PageTable,
+    idx: usize,
+}
+impl <'a> Iterator for PageTableEntryIterator<'a> {
+    type Item = &'a PageTableEntry;
+
+    #[inline(never)]
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.idx >= self.pgdir.size() {
+            return Option::None;
+        }
+        let target = self.pgdir.get_entry(self.idx);
+        self.idx += 1;
+        return Option::Some(&target);
+    }
+}
+
  /**
   * 页表
   * 一个页表包含1024个页表项
@@ -61,6 +79,13 @@ use crate::{constants, utils};
  
      pub fn size(&self) -> usize {
          self.data.len()
+     }
+
+     pub fn iter(&self) -> PageTableEntryIterator {
+        PageTableEntryIterator { 
+            pgdir: self, 
+            idx: 0 
+        }
      }
  }
  

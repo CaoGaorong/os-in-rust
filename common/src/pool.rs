@@ -3,27 +3,49 @@ use core::fmt::Display;
 use crate::{bitmap::{BitMap, MemoryError}, constants, printkln};
 
 
-pub struct MemPoolIterator<'a> {
+pub struct MemPoolValidBitsIterator<'a> {
+    /**
+     * 要遍历的内存池
+     */
     mem_pool: &'a MemPool,
-    bit_idx: usize,
+    /**
+     * 当前遍历到了位图的位
+     */
+    pub bit_idx: usize,
 }
 
-impl <'a> Iterator for MemPoolIterator<'a> {
+impl <'a> Iterator for MemPoolValidBitsIterator<'a> {
     type Item = (usize, bool);
 
     fn next(&mut self) -> Option<Self::Item> {
-        // 如果遍历超过了位图长度，那么就结束了
-        if self.bit_idx >= self.mem_pool.bitmap.bits_len() {
+        let bitmap = &self.mem_pool.bitmap;
+        let bits = bitmap.get_bitmap();
+        
+        loop {
+            // 如果遍历超过了位图长度，那么就结束了
+            if self.bit_idx >= bitmap.bits_len() {
+                break;
+            }
+            // 取出该位所在的字节
+            let byte = bits[self.bit_idx / 8];
+            // 这一个字节都是0，那么直接跳过
+            if byte == 0 {
+                self.bit_idx += 8;
+                continue;
+            }
+            break;
+        }
+        if self.bit_idx >= bitmap.bits_len() {
             return Option::None;
         }
-
         // 地址 = 起始地址 + 下标 * 粒度
         let cur_addr = self.mem_pool.addr_start + self.bit_idx * self.mem_pool.granularity;
+        // 返回遍历到的地址，以及是否被使用
+        let target = Option::Some((cur_addr, bitmap.is_set(self.bit_idx)));
         // 下一位
         self.bit_idx += 1;
-
-        // 返回遍历到的地址，以及是否被使用
-        Option::Some((cur_addr, self.mem_pool.bitmap.is_set(self.bit_idx)))
+        
+        target
     }
 }
 
@@ -135,8 +157,9 @@ impl MemPool {
         return true;
     }
 
-    pub fn iter(&self) -> MemPoolIterator {
-        MemPoolIterator {
+    #[inline(never)]
+    pub fn iter_valid(&self) -> MemPoolValidBitsIterator {
+        MemPoolValidBitsIterator {
             mem_pool: self,
             bit_idx: 0,
         }

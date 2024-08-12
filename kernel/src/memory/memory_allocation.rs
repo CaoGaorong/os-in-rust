@@ -16,6 +16,7 @@ use super::mem_block::{Arena, MemBlockAllocator};
 /**
  * 在某个Task中，从堆内存中分配bytes个字节
  */
+#[inline(never)]
 pub fn malloc_bytes(vaddr_pool: &mut MemPool, phy_mem_pool: &mut MemPool, allocator: &'static mut MemBlockAllocator, bytes: usize) -> usize {
     // 如果申请很大量的字节空间，直接分配整页
     if bytes > constants::MINIMAL_BLOCK_SIZE * 2usize.pow(constants::MEM_BLOCK_CONTAINER_CNT as u32 - 1) {

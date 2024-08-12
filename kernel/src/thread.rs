@@ -157,7 +157,8 @@ impl PcbPage {
     /**
      * 初始化程序退出的线程栈
      */
-    pub fn init_exit_thread_stack(&mut self) {
+    #[inline(never)]
+    pub fn  init_exit_thread_stack(&mut self) {
         // 设置线程栈的内容。指向程序结束的地方
         self.thread_stack.init_exit_stack();
         // 线程栈的地址

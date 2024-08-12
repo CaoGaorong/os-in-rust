@@ -113,7 +113,17 @@ fn test_create_dir() {
 
 #[inline(never)]
 extern "C" fn init_process() {
+
+    // 发起系统调用，申请内存空间
+    let my_struct_ptr: *mut MyStruct = sys_call::malloc(size_of::<MyStruct>());
+    let my_struct:&mut MyStruct =  unsafe { &mut *my_struct_ptr };
+    my_struct.id = 10;
+    my_struct.age = 18;
+
+    println!("{:?}", my_struct); // 正常打印
+    
     let fork_res = sys_call_proxy::fork();
+    
     match fork_res {
         sys_call_proxy::ForkResult::Parent(child_pid) => {
             println!("i'm father, my pid is {}, my child pid is {}", sys_call_proxy::get_pid().get_data(), child_pid.get_data());
@@ -123,6 +133,9 @@ extern "C" fn init_process() {
         },
     }
 
+
+    // 释放内存空间
+    sys_call::free(my_struct_ptr);
     loop {}
 }
 
