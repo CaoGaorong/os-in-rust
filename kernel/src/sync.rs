@@ -62,7 +62,6 @@ impl Semaphore {
      */
     pub fn up(&mut self) {
         let cur_task = &thread::current_thread().task_struct;
-        cur_task.check_stack_magic("failed to up semaphore");
         
         // if (cur_task.pgdir != ptr::null_mut()) {
         //     printkln!("in disk up:{}", cur_task.name);
@@ -160,7 +159,6 @@ impl Lock {
     #[inline(never)]
     pub fn unlock(&mut self) {
         let current_task = &thread::current_thread().task_struct;
-        current_task.check_stack_magic("failed to unlock");
         // println!("cur:{}, holder:{}", current_task.name, unsafe {&*self.holder}.name);
         // println!("holder:{}", self.holder as u32);
         if current_task as *const _ as u32 != self.holder as u32 {

@@ -18,29 +18,44 @@ static READY_THREAD_LIST: RacyCell<LinkedList> = RacyCell::new(LinkedList::new()
 static IDLE_THREAD: RacyCell<Option<&mut TaskStruct>> = RacyCell::new(Option::None);
 
 
+#[inline(never)]
+pub fn print_all_thread() {
+    printkln!("print all thread");
+    for tag in self::get_all_thread().iter() {
+        let task = unsafe { &*TaskStruct::parse_by_all_tag(unsafe { &*tag }) };
+        printkln!("{}", task.get_name());
+    }
+}
 
+
+#[inline(never)]
 pub fn get_all_thread() -> &'static mut LinkedList{
     unsafe { ALL_THREAD_LIST.get_mut() }
 }
 
+#[inline(never)]
 pub fn append_all_thread(thread: &mut TaskStruct) {
     get_all_thread().append(&mut thread.all_tag);
 }
 
 
+#[inline(never)]
 pub fn get_ready_thread() -> &'static mut LinkedList{
     unsafe { READY_THREAD_LIST.get_mut() }
 }
 
+#[inline(never)]
 pub fn append_read_thread(thread: &mut TaskStruct) {
     get_ready_thread().append(&mut thread.general_tag);
 }
 
+#[inline(never)]
 pub fn set_idle_thread(thread: &'static mut TaskStruct) {
     let idle_thread = unsafe { IDLE_THREAD.get_mut() };
     *idle_thread = Option::Some(thread);
 }
 
+#[inline(never)]
 pub fn get_idle_thread() -> &'static mut TaskStruct {
     let idle_thread = unsafe { IDLE_THREAD.get_mut() };
     if idle_thread.is_none() {
@@ -72,7 +87,7 @@ extern "C" fn kernel_thread_wrapper(function: ThreadFunc, arg: ThreadArg) {
 
 
 #[inline(never)]
-extern "C" fn kernel_exit_wrapper(function: ThreadFunc, arg: ThreadArg) {
+extern "C" fn kernel_exit_wrapper() {
     interrupt::intr_exit();
 }
 
@@ -162,9 +177,10 @@ impl PcbPage {
         // 设置线程栈的内容。指向程序结束的地方
         self.thread_stack.init_exit_stack();
         // 线程栈的地址
-        let thread_stack_addr = &mut self.thread_stack as *mut ThreadStack as u32;
+        let thread_stack_addr = &mut self.interrupt_stack as *mut _ as u32;
+        
         // 这里该任务的栈地址，就是线程栈的起始地址
-        self.task_struct.kernel_stack = thread_stack_addr;
+        self.task_struct.kernel_stack = thread_stack_addr - size_of::<usize>() as u32;
     }
 
     pub fn init_intr_stack(&mut self, fun_addr: u32, user_stack_addr: u32) {
@@ -320,10 +336,13 @@ impl TaskStruct {
 
     #[inline(never)]
     pub fn get_name(&self) -> &str {
-        self.check_stack_magic("error to get task name");
         let task_name = cstring_utils::read_from_bytes(&self.name);
         ASSERT!(task_name.is_some());
         task_name.unwrap()
+    }
+
+    pub fn get_name_mut(&mut self) -> &mut [u8] {
+        &mut self.name
     }
 
     pub fn set_status(&mut self , status: TaskStatus) {
@@ -389,8 +408,8 @@ impl TaskStruct {
     #[inline(never)]
     pub fn check_stack_magic(&self, msg: &str) {
         // 这里cur_task.pid != 0 是为了防止PCB还未初始化
-        if self.pid != Pid::new(0) && self.stack_magic != constants::TASK_STRUCT_STACK_MAGIC {
-            MY_PANIC!("thread {} stack overflow, {}", self.get_name(), msg);
+        if self.stack_magic != constants::TASK_STRUCT_STACK_MAGIC {
+            MY_PANIC!("stack overflow, {}", msg);
         }
     }
 
@@ -465,7 +484,7 @@ impl ThreadStack {
     
     #[inline(never)]
     fn init_exit_stack(&mut self) {
-        self.eip = kernel_exit_wrapper;
+        self.func_arg = kernel_exit_wrapper as u32;
     }
 
 

@@ -1,7 +1,7 @@
 
 use core::ptr;
 
-use os_in_rust_common::{constants, paging::{PageTable, PageTableEntry}, racy_cell::RacyCell, ASSERT};
+use os_in_rust_common::{constants, paging::{PageTable, PageTableEntry}, pool::MemPool, printkln, racy_cell::RacyCell, ASSERT, MY_PANIC};
 
 use crate::{memory::page_util, sync::Lock, thread::{self, TaskStruct}};
 
@@ -126,6 +126,7 @@ pub fn free_user_page(task: &mut TaskStruct, vaddr: usize, page_cnt: usize, phy_
 /**
  * 指定虚拟地址，释放内核空间（需要指定是否释放物理空间）
  */
+#[inline(never)]
 pub fn free_kernel_page(vaddr: usize, page_cnt: usize, phy_free: bool) {
     unsafe { KERNEL_ADDR_POOL_LOCK.get_mut().lock() };
     unsafe { KERNEL_MEM_POOL_LOCK.get_mut().lock() };
@@ -139,7 +140,11 @@ pub fn free_kernel_page(vaddr: usize, page_cnt: usize, phy_free: bool) {
  * 已知栈顶，分配一个物理页
  */
 #[inline(never)]
-pub fn malloc_user_page_by_vaddr(vaddr: usize) {
+pub fn malloc_user_page_by_vaddr(vaddr_pool: &mut MemPool, vaddr: usize) {
+    let vaddr_pool_set = vaddr_pool.addr_set(vaddr);
+    if !vaddr_pool_set {
+        MY_PANIC!("vaddr invalid to pool, could not to set vaddr");
+    }
     thread::check_task_stack("failed to malloc user stack memory");
     unsafe { USER_MEM_POOL_LOCK.get_mut().lock() };
     memory_allocation::malloc_phy_by_vaddr(vaddr, memory_poll::get_user_mem_pool());
@@ -158,49 +163,55 @@ pub fn malloc_user_page_by_vaddr(vaddr: usize) {
 #[inline(never)]
 pub fn copy_single_user_page<'a>(page_data: &[u8], to_dir_table: &mut PageTable, to_page_table: Option<&'a mut PageTable>) -> &'a mut PageTable {
     
-    if to_page_table.is_some() {
-        return to_page_table.unwrap();
-    }
-    return unsafe { &mut *(self::malloc_kernel_page(1) as *mut PageTable) };
+    // // 为什么这样就可以？
+    // let page_table = if to_page_table.is_some() {
+    //     to_page_table.unwrap()
+    // } else {
+    //     unsafe { &mut *(self::malloc_kernel_page(1) as *mut PageTable) }
+    // };
+    // return page_table;
 
-    // ASSERT!(page_data.len() == constants::PAGE_SIZE as usize);
-    // let cur_task = &mut thread::current_thread().task_struct;
+    ASSERT!(page_data.len() == constants::PAGE_SIZE as usize);
+    let cur_task = &mut thread::current_thread().task_struct;
 
-    // /*** 1. 把这一页的数据，先复制一份出来  */
-    // // 申请一块用户空间，用于存放我们要复制的数据
-    // let new_page_data_addr = self::malloc_user_page(cur_task, 1);
-    // let new_page_data = unsafe { core::slice::from_raw_parts_mut(new_page_data_addr as *mut u8, constants::PAGE_SIZE as usize) };
-    // // 那一页的数据，复制到新的空间中
-    // new_page_data.copy_from_slice(page_data);
+    /*** 1. 把这一页的数据，先复制一份出来  */
+    // 申请一块用户空间，用于存放我们要复制的数据
+    let new_page_data_addr = self::malloc_user_page(cur_task, 1);
+    let new_page_data = unsafe { core::slice::from_raw_parts_mut(new_page_data_addr as *mut u8, constants::PAGE_SIZE as usize) };
+    // 那一页的数据，复制到新的空间中
+    new_page_data.copy_from_slice(page_data);
 
 
     // /**** 2. 填充页表，页表指向数据页的物理地址  */
-    // let pde_idx = page_util::locate_pde(page_data.as_ptr() as usize);
-    // let pte_idx = page_util::locate_pte(page_data.as_ptr() as usize);
+    let pde_idx = page_util::locate_pde(page_data.as_ptr() as usize);
+    let pte_idx = page_util::locate_pte(page_data.as_ptr() as usize);
 
-    // // 页目录项，指向的是页表。看看页目录项有没有值
-    // // 如果页目录项有值，那么我们是不知道页表的虚拟地址的（只有知道虚拟地址才可以操作），因此需要使用入参的页表地址
-    // let pde = to_dir_table.get_entry(pde_idx);
-    // let page_table = if pde.present() {
-    //     ASSERT!(to_page_table.is_some());
-    //     to_page_table.unwrap()
-    // } else {
-    //     // 如果页目录项没有指向页表，那么需要创建空间给页表
-    //     unsafe { &mut *(self::malloc_kernel_page(1) as *mut PageTable) }
-    // };
+    // 页目录项，指向的是页表。看看页目录项有没有值
+    // 如果页目录项有值，那么我们是不知道页表的虚拟地址的（只有知道虚拟地址才可以操作），因此需要使用入参的页表地址
+    let pde = to_dir_table.get_entry(pde_idx);
+    let page_table = if pde.present() {
+        ASSERT!(to_page_table.is_some());
+        to_page_table.unwrap()
+    } else {
+        if to_page_table.is_some() {
+            self::free_kernel_page(to_page_table.unwrap() as *const _ as usize, 1, false);
+        }
+        // 如果页目录项没有指向页表，那么需要创建空间给页表
+        unsafe { &mut *(self::malloc_kernel_page(1) as *mut PageTable) }
+    };
 
-    // // 填充页表。页表项指向物理页的物理地址
-    // page_table.set_entry(pte_idx, PageTableEntry::new_default(page_util::get_phy_from_virtual_addr(new_page_data_addr)));
+    // 填充页表。页表项指向物理页的物理地址
+    page_table.set_entry(pte_idx, PageTableEntry::new_default(page_util::get_phy_from_virtual_addr(new_page_data_addr)));
 
 
-    // /**** 3. 填充页目录表，页目录表该项指向页表的物理地址 *****/
-    // if !pde.present() {
-    //     // 填充页目录表，页目录项指向 页表
-    //     to_dir_table.set_entry(pde_idx, PageTableEntry::new_default(page_util::get_phy_from_virtual_addr(page_table as *const _ as usize)));
-    // }
+    /**** 3. 填充页目录表，页目录表该项指向页表的物理地址 *****/
+    if !pde.present() {
+        // 填充页目录表，页目录项指向 页表
+        to_dir_table.set_entry(pde_idx, PageTableEntry::new_default(page_util::get_phy_from_virtual_addr(page_table as *const _ as usize)));
+    }
 
-    // /**** 4. 释放申请的内存（不要释放物理地址，只是释放该内存空间跟当前任务的链接关系） */
-    // self::free_user_page(cur_task, new_page_data_addr, 1, false);
+    /**** 4. 释放申请的内存（不要释放物理地址，只是释放该内存空间跟当前任务的链接关系） */
+    self::free_user_page(cur_task, new_page_data_addr, 1, false);
 
-    // page_table
+    page_table
 }

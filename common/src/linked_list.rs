@@ -111,6 +111,7 @@ impl LinkedList {
      * |     |
      * head tail
      */
+    #[inline(never)]
     pub fn append(&mut self, node: &mut LinkedNode) {
         // 不可以重复插入
         if self.contains(node) {
@@ -213,6 +214,7 @@ impl LinkedList {
     /**
      * 是否包含
      */
+    #[inline(never)]
     pub fn contains(&mut self, node: &LinkedNode) -> bool {
         self.iter().any(|e| {
             (e as u32) == (node as *const _ as u32)

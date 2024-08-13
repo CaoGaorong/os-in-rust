@@ -49,6 +49,7 @@ impl <'a> Iterator for PageTableEntryIterator<'a> {
      /**
       * 给该页表的的下标为index的页表项赋值
       */
+    #[inline(never)]
      pub fn set_entry(&mut self, index: usize, entry: PageTableEntry) {
          self.data[index] = entry;
      }
@@ -56,10 +57,12 @@ impl <'a> Iterator for PageTableEntryIterator<'a> {
      /**
       * 得到某一目录项
       */
+    #[inline(never)]
      pub fn get_entry(&self, index: usize) -> &PageTableEntry {
         &self.data[index]
      }
 
+     #[inline(never)]
      pub fn get_entry_mut(&mut self, index: usize) -> &mut PageTableEntry {
         &mut self.data[index]
      }
@@ -153,6 +156,8 @@ impl <'a> Iterator for PageTableEntryIterator<'a> {
                  (0 << 11)
          }
      }
+     
+     #[inline(never)]
      pub fn present(&self) -> bool {
          self.data & 0x00000001 == 0x1
      }

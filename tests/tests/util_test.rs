@@ -1,5 +1,6 @@
 pub mod test {
-    use kernel::page_util;
+    use kernel::memory::page_util;
+    use os_in_rust_common::constants;
 
     #[test]
     fn test_split_util() {
@@ -16,5 +17,14 @@ pub mod test {
     #[test]
     pub fn bit_test() {
         println!("{:b}", 0b11 & !0x0)
+    }
+
+    #[test]
+    pub fn user_stack_test() {
+        let end_idx = page_util::locate_pde(constants::USER_STACK_BASE_ADDR);
+        let start_idx = page_util::locate_pde(constants::USER_PROCESS_ADDR_START);
+        println!("[{}, {})", start_idx, end_idx);
+
+        println!("{}", page_util::locate_pte(constants::USER_PROCESS_ADDR_START))
     }
 }

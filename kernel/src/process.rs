@@ -13,7 +13,7 @@ pub extern "C" fn start_process(func_addr: ThreadArg) {
 
     // console_println!("user process:{}", pcb_page.task_struct.name);
     // 申请一个用户页，作为栈空间
-    memory::malloc_user_page_by_vaddr(constants::USER_STACK_TOP_ADDR);
+    memory::malloc_user_page_by_vaddr(&mut pcb_page.task_struct.vaddr_pool, constants::USER_STACK_TOP_ADDR);
 
     pcb_page.init_intr_stack(func_addr, constants::USER_STACK_BASE_ADDR as u32);
 

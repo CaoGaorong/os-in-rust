@@ -11,6 +11,7 @@ pub use memory_management::malloc;
 pub use memory_management::malloc_system;
 pub use memory_management::sys_malloc;
 pub use memory_management::malloc_kernel_page;
+pub use memory_management::free_kernel_page;
 pub use memory_management::malloc_user_page_by_vaddr;
 
 // 释放内存

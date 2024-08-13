@@ -17,6 +17,7 @@ pub struct MemPoolValidBitsIterator<'a> {
 impl <'a> Iterator for MemPoolValidBitsIterator<'a> {
     type Item = (usize, bool);
 
+    #[inline(never)]
     fn next(&mut self) -> Option<Self::Item> {
         let bitmap = &self.mem_pool.bitmap;
         let bits = bitmap.get_bitmap();
@@ -124,6 +125,19 @@ impl MemPool {
     #[inline(never)]
     pub fn apply_one(&mut self) -> Result<usize, MemoryError> {
         self.apply(1)
+    }
+
+
+    #[inline(never)]
+    pub fn addr_set(&mut self, addr: usize) -> bool {
+        if !self.in_pool(addr) {
+            return false;
+        }
+        // 找到这个地址所在位图的位下标
+        let bit_idx = (addr - self.addr_start) / self.granularity;
+        // 设置为true
+        self.bitmap.set_bit(bit_idx, true);
+        return true;
     }
 
     /**

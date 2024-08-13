@@ -275,6 +275,7 @@ impl Arena {
         self.occupy_page_cnt
     }
 
+    #[inline(never)]
     pub fn supply_for(&self) ->  *mut MemBlockContainer {
         self.supply_for
     }
@@ -282,6 +283,7 @@ impl Arena {
     /**
      * 这个Arena是否在使用中
      */
+    #[inline(never)]
     pub fn in_use(&self) -> bool {
         if self.block_size == 0 {
             MY_PANIC!("block size is zero");

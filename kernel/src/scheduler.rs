@@ -2,7 +2,7 @@ use core::arch::asm;
 
 use os_in_rust_common::{instruction, printkln, ASSERT};
 
-use crate::thread::{self, TaskStatus, TaskStruct};
+use crate::{console_println, thread::{self, TaskStatus, TaskStruct}};
 
 
 /**
@@ -98,7 +98,7 @@ pub fn schedule() {
     // 激活这个进程
     task_to_run.activate_process();
 
-    // if cur_task.get_name().eq("init")  || task_to_run.get_name().eq("init") {
+    // if cur_task.get_name().starts_with("init")  || task_to_run.get_name().starts_with("init") {
     //     printkln!("switch from:{}, to:{}", cur_task.get_name(), task_to_run.get_name());
     // }
 

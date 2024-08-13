@@ -5,13 +5,15 @@ use std::{
     mem::size_of,
 };
 
-use kernel::filesystem::{constant, DirEntry, inode::{Inode, OpenedInode}, superblock::SuperBlock};
+use kernel::filesystem::{DirEntry, inode::{Inode, OpenedInode}, superblock::SuperBlock};
 use os_in_rust_common::{constants, domain::LbaAddr};
 pub const DISK_FILE_PATH: &str = "/Users/jackson/MyProjects/rust/os-in-rust/build/hd80M.img";
 use lazy_static::lazy_static;
 
+const MAX_FILE_PER_FS: u32 = 4096;
+
 lazy_static!{
-    pub static ref INODE_TABLE: [u8; size_of::<Inode>() * constant::MAX_FILE_PER_FS as usize] = read_inode_table();
+    pub static ref INODE_TABLE: [u8; size_of::<Inode>() * MAX_FILE_PER_FS as usize] = read_inode_table();
 }
 /**
  * 读取硬盘中的超级块
@@ -31,7 +33,7 @@ pub fn read_super_block() -> Box<[u8; size_of::<SuperBlock>()]> {
 /**
  * 读取inode列表
  */
-pub fn read_inode_table() -> [u8; size_of::<Inode>() * constant::MAX_FILE_PER_FS as usize] {
+pub fn read_inode_table() -> [u8; size_of::<Inode>() * MAX_FILE_PER_FS as usize] {
     let super_block = read_super_block();
     let super_block = super_block.as_ref();
     let super_block = unsafe { &*(super_block.as_ptr() as *const SuperBlock) };
@@ -43,7 +45,7 @@ pub fn read_inode_table() -> [u8; size_of::<Inode>() * constant::MAX_FILE_PER_FS
     ))
     .expect("failed to seek file");
     let mut reader = BufReader::new(&mut file);
-    let mut arr = [0x00u8; size_of::<Inode>() * constant::MAX_FILE_PER_FS as usize];
+    let mut arr = [0x00u8; size_of::<Inode>() * MAX_FILE_PER_FS as usize];
     // 读取文件
     reader.read_exact(&mut arr).expect("failed to read data");
 

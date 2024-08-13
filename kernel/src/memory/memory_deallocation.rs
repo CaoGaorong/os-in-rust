@@ -31,7 +31,7 @@ pub fn free_bytes(addr_pool: &mut MemPool, mem_pool: &mut MemPool, vaddr_to_free
     // 然后找到该内存块归属的arena
     let arena = mem_block.arena_addr();
     // 对于大页，没有经过容器，所以直接释放掉
-    if !arena.in_use() && arena.supply_for() == ptr::null_mut() {
+    if !arena.in_use() && arena.supply_for().is_null() {
         // 释放整页。把该arena占用的内存页直接释放
         free_page(addr_pool, mem_pool, arena as *const _ as usize, arena.occupy_pages(), true);
         return;

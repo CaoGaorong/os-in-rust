@@ -88,6 +88,10 @@ pub fn fork() -> ForkResult {
     }
 }
 
+pub fn fork1() -> u32 {
+    self::do_sys_call(SystemCallNo::Fork, Option::None, Option::None, Option::None)
+}
+
 /**
  * 发起系统调用
  * eax: 系统调用号

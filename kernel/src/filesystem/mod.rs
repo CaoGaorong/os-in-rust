@@ -1,6 +1,6 @@
 mod constant;
-mod superblock;
-mod inode;
+pub mod superblock;
+pub mod inode;
 mod dir;
 mod init;
 mod file;

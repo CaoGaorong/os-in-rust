@@ -123,7 +123,6 @@ extern "C" fn init_process() {
     println!("{:?}", my_struct); // 正常打印
     
     let fork_res = sys_call_proxy::fork();
-    
     match fork_res {
         sys_call_proxy::ForkResult::Parent(child_pid) => {
             println!("i'm father, my pid is {}, my child pid is {}", sys_call_proxy::get_pid().get_data(), child_pid.get_data());
@@ -132,6 +131,7 @@ extern "C" fn init_process() {
             println!("im child, my pid is {}", sys_call_proxy::get_pid().get_data());
         },
     }
+    println!("finish fork");
 
 
     // 释放内存空间
