@@ -36,6 +36,7 @@ pub fn block_thread(task: &mut TaskStruct, task_status: TaskStatus) {
 /**
  * 检查任务的调度
  */
+#[inline(never)]
 pub fn check_task_schedule() {
     let task_struct = &mut thread::current_thread().task_struct;
 

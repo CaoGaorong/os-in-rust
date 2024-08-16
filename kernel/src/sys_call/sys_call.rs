@@ -63,6 +63,16 @@ pub enum SystemCallNo {
      * fork进程
      */
     Fork = 0x05,
+
+    /**
+     * 挂起当前任务
+     */
+    Yield = 0x06,
+
+    /**
+     * 清除屏幕
+     */
+    ClearScreen = 0x07,
 }
 
 /**

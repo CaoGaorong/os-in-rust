@@ -97,7 +97,7 @@ pub fn sys_malloc(bytes: usize) -> usize {
  */
 #[inline(never)]
 pub fn malloc_kernel_page(page_cnt: usize) -> usize { 
-    thread::check_task_stack("failed to malloc kernel page memory");
+    // thread::check_task_stack("failed to malloc kernel page memory");
     unsafe { KERNEL_ADDR_POOL_LOCK.get_mut().lock() };
     unsafe { KERNEL_MEM_POOL_LOCK.get_mut().lock() };
     let bytes = memory_allocation::malloc_page(memory_poll::get_kernel_addr_pool(), memory_poll::get_kernel_mem_pool(), page_cnt);

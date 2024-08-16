@@ -15,6 +15,7 @@ use super::constant;
 /**
  * 从某一个把数据写入以port_base为端口起始的某个命令寄存器
  */
+#[inline(never)]
 pub fn write_to_register(port_base: u16, register: CommandBlockRegister) {
     
     match register {

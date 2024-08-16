@@ -23,6 +23,9 @@ pub fn set_filesystem(cur_part: FileSystem) {
 #[inline(never)]
 pub fn get_filesystem() -> &'static mut FileSystem {
     let fs = unsafe { CUR_FILE_SYSTEM.get_mut() }.as_mut();
+    if fs.is_none() {
+        MY_PANIC!("fs system not exist");
+    }
     ASSERT!(fs.is_some());
     fs.unwrap()
 }

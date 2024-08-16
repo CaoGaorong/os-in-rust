@@ -1,8 +1,8 @@
 use core::{fmt, slice, str};
 
-use os_in_rust_common::{printkln, ASSERT};
+use os_in_rust_common::{printkln, vga, ASSERT};
 
-use crate::{console, fork, memory, thread};
+use crate::{console, fork, memory, thread, thread_management};
 use super::sys_call::{self, HandlerType, SystemCallNo};
 
 /**
@@ -31,6 +31,13 @@ pub fn init() {
     
     // fork
     sys_call::register_handler(SystemCallNo::Fork, HandlerType::NoneParam(fork));
+    
+    // yield
+    sys_call::register_handler(SystemCallNo::Yield, HandlerType::NoneParam(thread_yield));
+    
+    // 清除屏幕
+    sys_call::register_handler(SystemCallNo::ClearScreen, HandlerType::NoneParam(clear_screen));
+
 }
 
 /**
@@ -86,4 +93,17 @@ fn free(addr_to_free: u32) -> u32 {
  */
 fn fork() -> u32 {
     fork::fork().get_data().try_into().unwrap()
+}
+
+fn thread_yield() -> u32 {
+    thread_management::thread_yield();
+    0
+}
+
+/**
+ * 清除屏幕
+ */
+fn clear_screen() -> u32 {
+    vga::clear_all();
+    0
 }

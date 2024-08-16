@@ -111,34 +111,6 @@ fn test_create_dir() {
     printkln!("remove folder1 res:{:?}", filesystem::remove_dir("/dev/proc/folder1"));
 }
 
-#[inline(never)]
-extern "C" fn init_process() {
-
-    // 发起系统调用，申请内存空间
-    let my_struct_ptr: *mut MyStruct = sys_call::malloc(size_of::<MyStruct>());
-    let my_struct:&mut MyStruct =  unsafe { &mut *my_struct_ptr };
-    my_struct.id = 10;
-    my_struct.age = 18;
-
-    println!("{:?}", my_struct); // 正常打印
-    
-    let fork_res = sys_call_proxy::fork();
-    match fork_res {
-        sys_call_proxy::ForkResult::Parent(child_pid) => {
-            println!("i'm father, my pid is {}, my child pid is {}", sys_call_proxy::get_pid().get_data(), child_pid.get_data());
-        },
-        sys_call_proxy::ForkResult::Child => {
-            println!("im child, my pid is {}", sys_call_proxy::get_pid().get_data());
-        },
-    }
-    println!("finish fork");
-
-
-    // 释放内存空间
-    sys_call::free(my_struct_ptr);
-    loop {}
-}
-
 
 #[inline(never)]
 #[no_mangle]
@@ -174,7 +146,6 @@ pub extern "C" fn _start(boot_info: &BootContext) {
 
     printkln!("-----system started-----");
     // let cur_task = &thread::current_thread().task_struct;
-    process::process_execute(PROCESS_NAME, init_process);
     // thread_management::thread_start("thread_a", 5, kernel_thread, 0);
 
     // loop {}
@@ -253,15 +224,14 @@ extern "C" fn u_prog_a() {
     println!("user process pid: {}", pid.get_data());
     
     // 发起系统调用，申请内存空间
-    let my_struct_ptr: *mut MyStruct = sys_call::malloc(size_of::<MyStruct>());
-    let my_struct:&mut MyStruct =  unsafe { &mut *my_struct_ptr };
+    let my_struct: &mut MyStruct = sys_call::malloc(size_of::<MyStruct>());
     my_struct.id = 10;
     my_struct.age = 18;
 
     println!("{:?}", my_struct); // 正常打印
 
     // 释放内存空间
-    sys_call::free(my_struct_ptr);
+    sys_call::free(my_struct);
 
     loop {
         // print!("u");

@@ -1,6 +1,5 @@
 use core::arch::asm;
 use core::fmt;
-use os_in_rust_common::vga::WRITER;
 
 use crate::pid_allocator::Pid;
 
@@ -59,9 +58,9 @@ pub fn write(string: &str) {
 /**
  * 发起系统调用，申请bytes大小的内存空间
  */
-pub fn malloc<T>(bytes: usize) -> *mut T {
+pub fn malloc<T>(bytes: usize) -> &'static mut T {
     let addr = do_sys_call(SystemCallNo::Malloc, Option::Some(bytes as u32), Option::None, Option::None);
-    addr as *mut T
+    unsafe { &mut *(addr as *mut T) }
 }
 
 /**
@@ -88,8 +87,19 @@ pub fn fork() -> ForkResult {
     }
 }
 
-pub fn fork1() -> u32 {
-    self::do_sys_call(SystemCallNo::Fork, Option::None, Option::None, Option::None)
+
+/**
+ * 线程挂起
+ */
+pub fn thread_yield() {
+    self::do_sys_call(SystemCallNo::Yield, Option::None, Option::None, Option::None);
+}
+
+/**
+ * 清除屏幕
+ */
+pub fn clear_screen() {
+    self::do_sys_call(SystemCallNo::ClearScreen, Option::None, Option::None, Option::None);
 }
 
 /**

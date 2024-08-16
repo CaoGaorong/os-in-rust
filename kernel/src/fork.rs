@@ -38,6 +38,8 @@ pub fn fork() -> Pid {
     self::heap_memory_copy(to_task_dir_table);
     thread::check_task_stack("failed to fork, copy heap memory error");
     
+    printkln!();
+
     // 重新构建子任务的栈（栈内决定了该程序被调度时的执行）
     self::rebuild_stack(sub_pcb);
     

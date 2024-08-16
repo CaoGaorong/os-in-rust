@@ -59,6 +59,7 @@ extern "C" fn idle_thread(unused: ThreadArg) {
 }
 
 
+
 // pub fn print_thread() {
 //     printkln!("all thread:");
 //     unsafe {

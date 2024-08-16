@@ -1,6 +1,6 @@
 pub mod test {
     use kernel::memory::page_util;
-    use os_in_rust_common::constants;
+    use os_in_rust_common::{constants, cstring_utils};
 
     #[test]
     fn test_split_util() {
@@ -26,5 +26,12 @@ pub mod test {
         println!("[{}, {})", start_idx, end_idx);
 
         println!("{}", page_util::locate_pte(constants::USER_PROCESS_ADDR_START))
+    }
+
+    #[test]
+    pub fn read_task_name() {
+        println!("{:?}", cstring_utils::read_from_bytes(&[109, 97, 105, 110, 0]));
+        println!("{:?}", cstring_utils::read_from_bytes(&[105, 110, 105, 116, 0]));
+        println!("{:?}", cstring_utils::read_from_bytes(&[105, 100, 108, 101, 0]));
     }
 }

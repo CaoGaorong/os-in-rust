@@ -3,7 +3,7 @@ use core::{arch::asm, ptr::{self, addr_of}};
 
 use os_in_rust_common::{idt::{self, InterruptStackFrame, InterruptTypeEnum}, pic, pit, port::Port, sd::SegmentDPL, ASSERT, MY_PANIC};
 
-use crate::{device::{self, ChannelIrqNoEnum, StatusRegister}, keyboard::{self, ScanCodeCombinator}, scheduler, sys_call::sys_call::{self, HandlerType}, thread};
+use crate::{device::{self, ChannelIrqNoEnum, StatusRegister}, keyboard::{self, ScanCodeCombinator}, pid_allocator::Pid, scheduler, sys_call::sys_call::{self, HandlerType}, thread};
 
 /**
  * exceptions and codes: <https://wiki.osdev.org/Exceptions>
@@ -152,7 +152,7 @@ pub extern "x86-interrupt" fn primary_channel_handler(frame: InterruptStackFrame
     // 确保只有内核线程才能收到硬盘中断
     // 否则，当内核线程发起硬盘操作，然后切换到了用户进程，然后收到硬盘中断
     let cur_task = &thread::current_thread().task_struct;
-    ASSERT!(cur_task.pgdir == ptr::null_mut());
+    ASSERT!(cur_task.pid != Pid::new(0));
 
     let channel_idx = 0;
     let primary_channel = device::get_ata_channel(&channel_idx);

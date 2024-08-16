@@ -1,8 +1,8 @@
-use core::{arch::{asm, global_asm}, mem::{self, size_of}, ptr::slice_from_raw_parts, slice};
+use core::arch::asm;
 
-use os_in_rust_common::{bitmap::BitMap, constants, instruction, paging::{self, PageTable, PageTableEntry}, pool::MemPool, printkln, utils};
+use os_in_rust_common::{constants, instruction, paging::{PageTable, PageTableEntry}};
 
-use crate::{console_println, interrupt, memory::{self, page_util}, mutex::Mutex, pid_allocator, thread::{self, TaskStruct, ThreadArg}, thread_management};
+use crate::{interrupt, println, memory::{self, page_util}, pid_allocator, sys_call::sys_call_proxy, thread::{self, ThreadArg}, thread_management};
 
 /**
  * 用户进程的实现
@@ -93,4 +93,43 @@ pub fn process_execute(process_name: &'static str, func: extern "C" fn()) {
     // println!("pcb_page:{}", pcb_page);
     instruction::set_interrupt(old_status);
 
+}
+
+/**
+ * init程序。pid为1，首个任务
+ */
+extern "C" fn init_process() {
+
+    // 发起系统调用，fork
+    let fork_res = sys_call_proxy::fork();
+    match fork_res {
+        sys_call_proxy::ForkResult::Parent(child_pid) => {
+            println!("i'm father, my pid is {}, my child pid is {}", sys_call_proxy::get_pid().get_data(), child_pid.get_data());
+        },
+        sys_call_proxy::ForkResult::Child => {
+            println!("im child, my pid is {}", sys_call_proxy::get_pid().get_data());
+        },
+    }
+    println!("finish fork");
+
+    // 把时间片让出去，不要空转
+    loop {
+        sys_call_proxy::thread_yield();
+    }
+}
+
+/**
+ * 做一个假的sleep
+ */
+fn dummy_sleep(instruction_cnt: u32) {
+    for _ in 0 .. instruction_cnt {
+        unsafe {asm!("nop");}
+    }
+}
+
+#[inline(never)]
+pub fn init() {
+    instruction::disable_interrupt();
+    // 执行init进程
+    self::process_execute("init", init_process);
 }

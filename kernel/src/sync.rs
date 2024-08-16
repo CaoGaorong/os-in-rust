@@ -61,7 +61,7 @@ impl Semaphore {
      * 是信号量增加。会唤醒等待的线程（并不会立马执行唤醒的线程，而是只是加到就绪队列）
      */
     pub fn up(&mut self) {
-        let cur_task = &thread::current_thread().task_struct;
+        // let cur_task = &thread::current_thread().task_struct;
         
         // if (cur_task.pgdir != ptr::null_mut()) {
         //     printkln!("in disk up:{}", cur_task.name);
@@ -79,9 +79,9 @@ impl Semaphore {
         // 从等待队列中，找出一个等待者
         let waiting_task_tag = self.waiters.pop();
         let waiting_task = unsafe { &mut *TaskStruct::parse_by_general_tag(waiting_task_tag) };
-        if (cur_task.pgdir != ptr::null_mut()) {
-            printkln!("waiting task:{:?}", waiting_task.get_name());
-        }
+        // if (cur_task.pgdir != ptr::null_mut()) {
+        //     printkln!("waiting task:{:?}", waiting_task.get_name());
+        // }
         // 唤醒这个等待者
         thread::wake_thread(waiting_task);
         // 增加信号量

@@ -36,7 +36,7 @@ impl PidPool {
     pub const fn new(bitmap: &mut [u8]) -> Self {
         Self {
             bitmap: BitMap::new(bitmap),
-            start_pid: 10
+            start_pid: 1
         }
     }
 }

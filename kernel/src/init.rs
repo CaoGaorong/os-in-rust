@@ -1,6 +1,6 @@
-use os_in_rust_common::{bios_mem::{ARDSType, AddressRangeDescriptorStructure}, context::BootContext, printkln, ASSERT};
+use os_in_rust_common::{bios_mem::{ARDSType, AddressRangeDescriptorStructure}, context::BootContext, instruction, printkln, ASSERT};
 
-use crate::{device, filesystem, interrupt, memory, sys_call, thread, thread_management, tss};
+use crate::{device, filesystem, interrupt, memory, process, sys_call, thread, thread_management, tss};
 
 #[inline(never)]
 #[no_mangle]
@@ -31,6 +31,10 @@ pub fn init_all(boot_info: &BootContext) {
     
     memory::mem_pool_init(os_memory_size);
 
+    // init进程初始化
+    process::init();
+
+    // 线程初始化（main和idle初始化）
     thread_management::thread_init();
     thread::check_task_stack("failed to init thread");
 
