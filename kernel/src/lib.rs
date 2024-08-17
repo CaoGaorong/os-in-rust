@@ -26,3 +26,4 @@ pub mod pid_allocator;
 pub mod device;
 pub mod filesystem;
 pub mod fork;
+pub mod shell;

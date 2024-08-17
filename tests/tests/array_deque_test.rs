@@ -4,8 +4,7 @@ mod tests {
 
     #[test]
     pub fn test_append() {
-        let mut array = [0;  10];
-        let mut deque = ArrayDeque::new(&mut array);
+        let mut deque = ArrayDeque::new([0; 10]);
         deque.append(1);
         deque.append(2);
         deque.append(3);
@@ -16,8 +15,7 @@ mod tests {
     }
     #[test]
     pub fn test_push() {
-        let mut array = [0;  10];
-        let mut deque = ArrayDeque::new(&mut array);
+        let mut deque = ArrayDeque::new([0;  10]);
         deque.push(1);
         deque.push(2);
         deque.push(3);
@@ -29,8 +27,7 @@ mod tests {
 
     #[test]
     pub fn test_mix() {
-        let mut array = [0;  10];
-        let mut deque = ArrayDeque::new(&mut array);
+        let mut deque = ArrayDeque::new([0;  10]);
         deque.append(1);
         println!("pop {:?}", deque.pop());
         deque.append(2);
@@ -42,14 +39,25 @@ mod tests {
 
     #[test]
     pub fn pop_all() {
-        let mut array = [0;  10];
-        let mut deque = ArrayDeque::new(&mut array);
+        let mut deque = ArrayDeque::new([0;  10]);
         deque.append(1);
         deque.append(2);
+        deque.append(3);
+        println!("pop {:?}", deque.pop_last());
         println!("pop {:?}", deque.pop());
         println!("pop {:?}", deque.pop());
         println!("pop {:?}", deque.pop());
-        println!("pop {:?}", deque.pop());
+    }
+
+    #[test]
+    pub fn test_util() {
+        let mut arr = [0; 5];
+        let bytes = 'c'.encode_utf8(&mut arr).as_bytes();
+        for byte in bytes {
+            println!("{}", byte);
+        }
+
+
     }
 
 }

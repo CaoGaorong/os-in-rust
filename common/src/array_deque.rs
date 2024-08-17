@@ -1,82 +1,112 @@
 use crate::ASSERT;
 
 #[derive(Copy, Clone)]
-pub struct ArrayDeque<T:Copy> {
-    ptr: *mut T,
+pub struct ArrayDeque<T: Copy, const N: usize> {
+    data: [T; N],
     len: usize,
-    cap: usize
 }
 
-impl <T:Copy>ArrayDeque<T> {
-    pub fn new(array: &mut [T]) -> Self {
+impl<T: Copy, const N: usize> ArrayDeque<T, N> {
+    pub const fn new(array: [T; N]) -> Self {
         Self {
-            ptr: array.as_mut_ptr(),
+            data: array,
             len: 0,
-            cap: array.len(),
         }
     }
 
+    #[inline(never)]
     pub fn get_array(&self) -> &[T] {
-        unsafe { core::slice::from_raw_parts_mut(self.ptr, self.cap)}
+        &self.data[..self.len]
     }
 
-    pub fn get_mut_array(&mut self) -> &mut [T] {
-        unsafe { core::slice::from_raw_parts_mut(self.ptr, self.cap)}
-    }
-
+    #[inline(never)]
     pub fn append(&mut self, data: T) {
         let len = self.len;
-        ASSERT!(len < self.cap);
-        let arr = self.get_mut_array();
+        ASSERT!(len < self.cap());
+        let arr = &mut self.data;
         arr[len] = data;
         self.len += 1;
     }
 
+    #[inline(never)]
     pub fn push(&mut self, data: T) {
         let len = self.len;
-        ASSERT!(len < self.cap);
-        let arr = self.get_mut_array();
+        ASSERT!(len < self.cap());
+        let arr = &mut self.data;
         arr.copy_within(0..len, 1);
         arr[0] = data;
         self.len += 1;
     }
 
+    #[inline(never)]
     pub fn pop(&mut self) -> Option<T> {
         if self.len <= 0 {
             return Option::None;
         }
-        let arr = self.get_mut_array();
+        let arr = &mut self.data;
         let target = arr[0];
         arr.copy_within(1.., 0);
         self.len -= 1;
         return Option::Some(target);
     }
 
-    pub fn iter(&self) -> ArrayDequeIterator<T> {
+    #[inline(never)]
+    pub fn pop_last(&mut self) -> Option<T> {
+        let len = self.len;
+        if len <= 0 {
+            return Option::None;
+        }
+        let arr = &mut self.data;
+        let target = arr[len - 1];
+        self.len -= 1;
+        return Option::Some(target);
+    }
+
+
+    #[inline(never)]
+    pub fn size(&self) -> usize {
+        self.len
+    }
+
+
+    #[inline(never)]
+    pub fn cap(&self) -> usize {
+        self.data.len()
+    }
+
+
+    /**
+     * 清除这个队列
+     */
+    #[inline(never)]
+    pub fn clear(&mut self) {
+        self.len = 0;
+    }
+
+    #[inline(never)]
+    pub fn iter(&self) -> ArrayDequeIterator<T, N> {
         ArrayDequeIterator {
             deque: self,
             idx: 0,
         }
     }
-
 }
 
-pub struct ArrayDequeIterator<T:Copy> {
-    deque: *const ArrayDeque<T>,
+pub struct ArrayDequeIterator<'a, T: Copy, const N: usize> {
+    deque: &'a ArrayDeque<T, N>,
     idx: usize,
 }
 
-impl <T:Copy> Iterator for ArrayDequeIterator<T> {
+impl<'a, T: Copy, const N: usize> Iterator for ArrayDequeIterator<'a, T, N> {
     type Item = T;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let deque = &unsafe { *self.deque };
-        if self.idx >= deque.len {
+        let deque = self.deque;
+        if self.idx >= deque.size() {
             return Option::None;
         }
-        let target = deque.get_array()[self.idx];
+        let target = deque.data[self.idx];
         self.idx += 1;
         Option::Some(target)
     }
 }
-

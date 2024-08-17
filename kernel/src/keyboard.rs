@@ -1,6 +1,6 @@
 use os_in_rust_common::{printkln, racy_cell::RacyCell};
 
-use crate::{blocking_queue::{ArrayBlockingQueue, BlockingQueue}, printer, scancode::{self, KeyCode, ScanCodeType}};
+use crate::{blocking_queue::{ArrayBlockingQueue, BlockingQueue}, scancode::KeyCode};
 
 /**
  * 扫描码合并器。
@@ -61,6 +61,7 @@ static KEYCODE_BLOCKING_QUEUE: RacyCell<ArrayBlockingQueue<Option<KeyCode>>> = R
 /**
  * 得到键码阻塞队列
  */
+#[inline(never)]
 pub fn get_keycode_queue() -> &'static mut ArrayBlockingQueue<'static, Option<KeyCode>> {
     unsafe { KEYCODE_BLOCKING_QUEUE.get_mut() }
 }

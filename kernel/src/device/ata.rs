@@ -371,6 +371,7 @@ impl Disk {
     /**
      * 检查status寄存器，查看硬盘是否就绪
      */
+    #[inline(never)]
     fn ready_for_read(&self) -> bool {
         // 得到ATA bus通道
         let ata_channel = unsafe { &*self.from_channel };
@@ -388,7 +389,7 @@ impl Disk {
                 }
                 return false;
             }
-            printk!("status:0b{:b}, not ready", status_register.data);
+            // printk!("status:0b{:b}, not ready", status_register.data);
         }
         return true;
     }

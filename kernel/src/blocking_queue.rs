@@ -1,6 +1,6 @@
-use os_in_rust_common::{printkln, queue::{ArrayQueue, Queue, QueueError}};
+use os_in_rust_common::queue::{ArrayQueue, Queue, QueueError};
 
-use crate::{mutex::Mutex, sync::{Lock, Semaphore}, thread_management, thread};
+use crate::sync::Semaphore;
 
 
 /**
@@ -87,6 +87,7 @@ impl <'a, T: Copy + Sized> BlockingQueue<T> for ArrayBlockingQueue<'a, T> {
      * 从阻塞队列里面取出元素。
      * 队列为空会阻塞
      */
+    #[inline(never)]
     fn take(&mut self) -> T {
         // 一定要先阻塞 消费者
         self.consumer.down();
