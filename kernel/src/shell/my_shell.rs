@@ -1,18 +1,18 @@
 
-use os_in_rust_common::{printkln, racy_cell::RacyCell, vga::print};
+use os_in_rust_common::{racy_cell::RacyCell, vga::print};
 
 use crate::{blocking_queue::BlockingQueue, keyboard, print, println, scancode::{Key, ScanCodeType}, sys_call::sys_call_proxy};
 
-use super::shell::Shell;
+use super::{cmd::Cmd, cmd_cd, cmd_ls, shell::Shell, shell_util};
 
 
 const PATH_LEN: usize = 20;
-const CMD_LEN: usize = 100;
+const INPUT_LEN: usize = 100;
 
 /**
  * shell的工作目录
  */
-static SHELL: RacyCell<Shell<PATH_LEN, CMD_LEN>> = RacyCell::new(Shell::new([0; PATH_LEN], [0; CMD_LEN]));
+static SHELL: RacyCell<Shell<PATH_LEN, INPUT_LEN>> = RacyCell::new(Shell::new([0; PATH_LEN], [0; INPUT_LEN]));
 
 /**
  * 按住的上一个键
@@ -38,8 +38,8 @@ fn print_prompt()
  * 读取line
  */
 #[inline(never)]
-fn read_line(shell: &mut Shell<PATH_LEN, CMD_LEN>) {
-    shell.clear_cmd();
+fn read_line(shell: &mut Shell<PATH_LEN, INPUT_LEN>) -> &str {
+    shell.clear_input();
     let keycode_queue = keyboard::get_keycode_queue();
     while let Option::Some(keycode) = keycode_queue.take() {
 
@@ -51,22 +51,22 @@ fn read_line(shell: &mut Shell<PATH_LEN, CMD_LEN>) {
 
         // 如果是回车键，直接本次命令输入结束
         if keycode.key == Key::Enter {
-            return;
+            break;
         }
 
         // ctrl + l，清屏
         if self::get_last_key() == Key::LeftCtrl && keycode.key == Key::L {
             sys_call_proxy::clear_screen();
-            return;
+            break;
         }
 
         // ctrl + u，清除当前行
         if self::get_last_key() == Key::LeftCtrl && keycode.key == Key::U {
             // 清空缓冲区
-            let cmd = shell.get_cmd();
+            let cmd = shell.get_input();
             for _ in  0..cmd.len() {
                 print!("{}", 0x8 as char);
-                shell.pop_last_cmd();
+                shell.pop_last_input();
             }
             continue;
         }
@@ -76,7 +76,7 @@ fn read_line(shell: &mut Shell<PATH_LEN, CMD_LEN>) {
 
         // 如果是退格键，需要删除缓冲区里一个元素
         if keycode.key == Key::Backspace {
-            shell.pop_last_cmd();
+            shell.pop_last_input();
             print!("{}", keycode.char);
             continue;
         }
@@ -87,12 +87,46 @@ fn read_line(shell: &mut Shell<PATH_LEN, CMD_LEN>) {
         }
 
         // 其他的键，放入命令队列中
-        shell.append_cmd(keycode.char);
+        shell.append_input(keycode.char);
         // 并且打印出来
         print!("{}", keycode.char);
     }
+    shell.get_input()
 }
 
+#[inline(never)]
+fn exec_cmd(shell: &mut Shell<PATH_LEN, INPUT_LEN>) {
+    let cmd = shell.get_cmd();
+    if cmd.is_none() {
+        return;
+    }
+    let (cmd, param) = cmd.unwrap();
+    match cmd { 
+        Cmd::Pwd => print!("{}", shell.get_cwd()),
+        Cmd::Ps => todo!(),
+        Cmd::Ls => {
+            let dir_path = shell.get_cwd();
+            cmd_ls::ls(dir_path, param);
+        },
+        Cmd::Cd => {
+            let mut abs_path = [0u8; 40];
+            let abs_path = if param.is_none() {
+                "/"
+            } else {
+                let abs_path = shell_util::get_abs_path(shell.get_cwd(), param.unwrap(), &mut abs_path).unwrap();
+                abs_path
+            };
+            let res = cmd_cd::cd(abs_path);
+            if res.is_err() {
+                print!("cd {} error: {:?}", param.expect("/"), res.unwrap_err());
+            } else {
+                shell.set_cwd(abs_path);
+            }
+
+        },
+    }
+
+}
 
 
 #[inline(never)]
@@ -104,6 +138,9 @@ pub fn shell_start() {
         // 打印提示
         self::print_prompt();
         self::read_line(shell);
+        println!();
+        self::exec_cmd(shell);
+        println!();
         println!();
     }
 }

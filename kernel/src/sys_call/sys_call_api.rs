@@ -2,7 +2,7 @@ use core::{fmt, slice, str};
 
 use os_in_rust_common::{printkln, vga, ASSERT};
 
-use crate::{console, fork, memory, thread, thread_management};
+use crate::{console, filesystem, fork, memory, thread, thread_management};
 use super::sys_call::{self, HandlerType, SystemCallNo};
 
 /**
@@ -63,6 +63,7 @@ fn write(addr: u32, len: u32) -> u32 {
 /**
  * 打印系统调用
  */
+#[inline(never)]
 fn print_format(argument_addr: u32) -> u32 {
     // 把参数地址，转成对象
     let arg = unsafe { *(argument_addr as *const fmt::Arguments) };

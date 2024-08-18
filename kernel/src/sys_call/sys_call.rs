@@ -73,6 +73,11 @@ pub enum SystemCallNo {
      * 清除屏幕
      */
     ClearScreen = 0x07,
+    
+    /**
+     * 读取目录
+     */
+    ReadDir = 0x08,
 }
 
 /**

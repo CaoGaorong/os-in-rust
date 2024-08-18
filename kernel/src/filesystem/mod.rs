@@ -34,6 +34,7 @@ pub use dir_api::create_dir;
 pub use dir_api::create_dir_all;
 pub use dir_api::read_dir;
 pub use dir_api::remove_dir;
+pub use dir_api::DirError;
 
 
 pub use file_api::File;

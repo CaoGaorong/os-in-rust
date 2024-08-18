@@ -99,7 +99,7 @@ impl <'a> Drop for ReadDirIterator<'a> {
 
 
 impl <'a>Iterator for ReadDirIterator<'a> {
-    type Item = DirEntry;
+    type Item = &'a DirEntry;
 
     #[inline(never)]
     fn next(&mut self) -> Option<Self::Item> {
@@ -116,7 +116,7 @@ impl <'a>Iterator for ReadDirIterator<'a> {
         }
         let dir_entry_list = unsafe { core::slice::from_raw_parts(self.dir_entry_buf as *const _ as *const DirEntry, self.dir_entry_buf.len() / size_of::<DirEntry>()) };
         // 我们找到了目录项
-        let target_dir_entry = dir_entry_list[self.dir_entry_idx];
+        let target_dir_entry = &dir_entry_list[self.dir_entry_idx];
         // 如果目标目录项是空的，说明已经遍历结束了
         if target_dir_entry.is_empty() {
             return Option::None;

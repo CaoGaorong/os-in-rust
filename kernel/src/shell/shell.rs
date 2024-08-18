@@ -1,7 +1,6 @@
 use os_in_rust_common::{array_deque::ArrayDeque, cstr_write, cstring_utils, ASSERT, MY_PANIC};
 
-use crate::{keyboard, scancode};
-
+use super::{cmd, shell_util};
 
 /**
  * 构造一个shell对象
@@ -10,18 +9,18 @@ pub struct Shell<const PATH_LEN: usize, const CMD_LEN: usize> {
     /**
      * shell的工作目录
      */
-    path: [u8; PATH_LEN],
+    cwd: [u8; PATH_LEN],
     /**
      * shell存放命令的命令行
      */
-    cmd: ArrayDeque<u8, CMD_LEN>,
+    input: ArrayDeque<u8, CMD_LEN>,
 }
 
 impl <const PATH_LEN: usize, const CMD_LEN: usize> Shell<PATH_LEN, CMD_LEN> {
-    pub const fn new(path: [u8; PATH_LEN], cmd: [u8; CMD_LEN]) -> Self {
+    pub const fn new(cwd: [u8; PATH_LEN], input: [u8; CMD_LEN]) -> Self {
         Self {
-            path,
-            cmd: ArrayDeque::new(cmd),
+            cwd,
+            input: ArrayDeque::new(input),
         }
     }
     /**
@@ -29,7 +28,7 @@ impl <const PATH_LEN: usize, const CMD_LEN: usize> Shell<PATH_LEN, CMD_LEN> {
      */
     #[inline(never)]
     pub fn set_cwd(&mut self, cwd: &str) {
-        cstr_write!(&mut self.path, "{}", cwd);
+        cstr_write!(&mut self.cwd, "{}", cwd);
     }
 
     /**
@@ -37,7 +36,7 @@ impl <const PATH_LEN: usize, const CMD_LEN: usize> Shell<PATH_LEN, CMD_LEN> {
      */
     #[inline(never)]
     pub fn get_cwd(&self) -> &str {
-        let cwd = cstring_utils::read_from_bytes(&self.path);
+        let cwd = cstring_utils::read_from_bytes(&self.cwd);
         ASSERT!(cwd.is_some());
         return cwd.unwrap();
     }
@@ -46,11 +45,11 @@ impl <const PATH_LEN: usize, const CMD_LEN: usize> Shell<PATH_LEN, CMD_LEN> {
      * 在当前命令里追加一个字符
      */
     #[inline(never)]
-    pub fn append_cmd(&mut self, char: char) {
+    pub fn append_input(&mut self, char: char) {
         let mut arr = [0; 5];
         let bytes = char.encode_utf8(&mut arr).as_bytes();
         for byte in bytes {
-            self.cmd.append(*byte);
+            self.input.append(*byte);
         }
     }
 
@@ -58,16 +57,16 @@ impl <const PATH_LEN: usize, const CMD_LEN: usize> Shell<PATH_LEN, CMD_LEN> {
      * 踢出命令的最后一个字符
      */
     
-    pub fn pop_last_cmd(&mut self) {
-        self.cmd.pop_last();
+    pub fn pop_last_input(&mut self) {
+        self.input.pop_last();
     }
 
     /**
      * 获取当前的命令
      */
     #[inline(never)]
-    pub fn get_cmd(&self) -> &str {
-        let cmd = core::str::from_utf8(&self.cmd.get_array());
+    pub fn get_input(&self) -> &str {
+        let cmd = core::str::from_utf8(&self.input.get_array());
         if cmd.is_err() {
             MY_PANIC!("[sys error] failed to get cmd. cmd:{}", cmd.err().unwrap());
         }
@@ -75,7 +74,34 @@ impl <const PATH_LEN: usize, const CMD_LEN: usize> Shell<PATH_LEN, CMD_LEN> {
     }
 
     #[inline(never)]
-    pub fn clear_cmd(&mut self) {
-        self.cmd.clear();
+    pub fn clear_input(&mut self) {
+        self.input.clear();
+    }
+
+    /**
+     * 从shell的输入中，解析出命令以及该命令需要的参数
+     * 例如，输入是 ls -alh -s
+     * 解析出来的是 Option::Some(Cmd::Ls, "-alh -s")
+     */
+    pub fn get_cmd(&self) -> Option<(cmd::Cmd, Option<&str>)> {
+        let input = self.get_input();
+        let input_split = input.split_once(" ");
+        if input_split.is_none() {
+            let cmd = cmd::Cmd::get_by_name(input)?;
+            return Option::Some((cmd, Option::None));
+        }
+        let (cmd, argv) = input_split.unwrap();
+        let cmd = cmd::Cmd::get_by_name(cmd)?;
+        Option::Some((cmd, Option::Some(argv)))
+    }
+
+    pub fn cd(&mut self, path: Option<&str>) {
+        if path.is_none() {
+            self.set_cwd("/");
+        } else {
+            let mut abs_path = [0u8; 40];
+            let abs_path = shell_util::get_abs_path(self.get_cwd(), path.unwrap(), &mut abs_path).unwrap();
+            self.set_cwd(abs_path);
+        }
     }
 }

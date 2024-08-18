@@ -108,7 +108,7 @@ fn test_create_dir() {
     printkln!("folder20 res:{:?}", filesystem::create_dir("/dev/proc/folder20"));
 
     // 删除一个文件夹   
-    printkln!("remove folder1 res:{:?}", filesystem::remove_dir("/dev/proc/folder1"));
+    // printkln!("remove folder1 res:{:?}", filesystem::remove_dir("/dev/proc/folder1"));
 }
 
 
@@ -118,8 +118,8 @@ fn test_create_dir() {
 pub extern "C" fn _start(boot_info: &BootContext) {
 
     init::init_all(boot_info);
-    // self::test_create_dir();
-    // self::test_read_dir_entry();
+    self::test_create_dir();
+    self::test_read_dir_entry();
     // self::test_create_file();
 
     // let fs = fs::get_filesystem();
@@ -150,20 +150,20 @@ pub extern "C" fn _start(boot_info: &BootContext) {
 
     // loop {}
     // 主通道。挂在2个硬盘
-    // let channel_idx = 0;
-    // let primary = device::get_ata_channel(&channel_idx);
-    // ASSERT!(primary.is_some());
-    // let primary = primary.as_mut().unwrap();
-    // // 次通道。没硬盘
-    // // let secondary = device::init::get_ata_channel(1);
-    // printkln!("primary channel: ");
-    // let channel_name = cstring_utils::read_from_bytes(&primary.name);
-    // printk!("name:{}, port_base:0x{:x}, irq_no: 0x{:x} ", channel_name.unwrap(), primary.port_base, primary.irq_no);
-    // printkln!("disk[0] ignored. disk[1]:");
-    // let disk =  &mut primary.disks[1];
-    // print_disk(disk.as_ref().unwrap());
+    let channel_idx = 0;
+    let primary = device::get_ata_channel(&channel_idx);
+    ASSERT!(primary.is_some());
+    let primary = primary.as_mut().unwrap();
+    // 次通道。没硬盘
+    // let secondary = device::init::get_ata_channel(1);
+    printkln!("primary channel: ");
+    let channel_name = cstring_utils::read_from_bytes(&primary.name);
+    printk!("name:{}, port_base:0x{:x}, irq_no: 0x{:x} ", channel_name.unwrap(), primary.port_base, primary.irq_no);
+    printkln!("disk[0] ignored. disk[1]:");
+    let disk =  &mut primary.disks[1];
+    print_disk(disk.as_ref().unwrap());
 
-    // instruction::enable_interrupt();
+    instruction::enable_interrupt();
     
     // // 测试一样空间的分配和释放
     // test_malloc_free();

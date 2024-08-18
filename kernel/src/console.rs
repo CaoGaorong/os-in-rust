@@ -21,6 +21,7 @@ macro_rules! console_println {
     ($($arg:tt)*) => ($crate::console_print!("{}\n", format_args!($($arg)*)));
 }
 
+#[inline(never)]
 pub fn console_print(args: fmt::Arguments) {
     unsafe { DEFAULT_CONSOLE.get_mut().lock() }.print(args);
 }
@@ -43,6 +44,7 @@ impl Console {
     pub const fn new() -> Self {
         Self {  }
     }
+    #[inline(never)]
     pub fn print(&self, args: fmt::Arguments) {
         vga::print(args);
     }
