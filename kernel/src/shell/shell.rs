@@ -83,25 +83,17 @@ impl <const PATH_LEN: usize, const CMD_LEN: usize> Shell<PATH_LEN, CMD_LEN> {
      * 例如，输入是 ls -alh -s
      * 解析出来的是 Option::Some(Cmd::Ls, "-alh -s")
      */
+    #[inline(never)]
     pub fn get_cmd(&self) -> Option<(cmd::Cmd, Option<&str>)> {
-        let input = self.get_input();
+        let input = self.get_input().trim();
         let input_split = input.split_once(" ");
         if input_split.is_none() {
             let cmd = cmd::Cmd::get_by_name(input)?;
             return Option::Some((cmd, Option::None));
         }
         let (cmd, argv) = input_split.unwrap();
-        let cmd = cmd::Cmd::get_by_name(cmd)?;
-        Option::Some((cmd, Option::Some(argv)))
-    }
-
-    pub fn cd(&mut self, path: Option<&str>) {
-        if path.is_none() {
-            self.set_cwd("/");
-        } else {
-            let mut abs_path = [0u8; 40];
-            let abs_path = shell_util::get_abs_path(self.get_cwd(), path.unwrap(), &mut abs_path).unwrap();
-            self.set_cwd(abs_path);
-        }
+        let cmd = cmd::Cmd::get_by_name(cmd.trim())?;
+        let param = if argv.trim().is_empty() {Option::None} else {Option::Some(argv.trim())};
+        Option::Some((cmd, param))
     }
 }

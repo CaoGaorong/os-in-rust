@@ -224,6 +224,12 @@ impl File {
         ASSERT!(res.is_some());
         res.unwrap()
     }
+
+    pub fn get_size(&self) -> Result<usize, FileError> {
+        let opened_file =  self.get_opened_file()?;
+        let opened_inode = opened_file.get_inode();
+        Result::Ok(opened_inode.i_size.try_into().unwrap())
+    }
 }
 
 impl Drop for File {

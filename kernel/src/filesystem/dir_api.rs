@@ -1,6 +1,6 @@
 use core::mem::size_of;
 
-use os_in_rust_common::{constants, cstr_write, cstring_utils};
+use os_in_rust_common::{constants, cstr_write, cstring_utils, MY_PANIC};
 
 use crate::memory;
 
@@ -31,6 +31,12 @@ pub struct ReadDir<'a> {
 
 }
 
+// impl <'a> Drop for ReadDir<'a> {
+//     fn drop(&mut self) {
+//         inode::inode_close(fs::get_filesystem(), self.inode);
+//     }
+// }
+
 impl <'a> ReadDir<'a> {
     
     #[inline(never)]
@@ -51,7 +57,7 @@ impl <'a> ReadDir<'a> {
     #[inline(never)]
     pub fn iter(&'a mut self) -> ReadDirIterator<'a> {
         let buf: &mut [u8; constants::DISK_SECTOR_SIZE] = memory::malloc(constants::DISK_SECTOR_SIZE);
-        ReadDirIterator::<'a>::new(self.inode, buf)
+        ReadDirIterator::new(self.inode, buf)
     }
 
     pub fn is_empty(&self) -> bool {
@@ -65,6 +71,10 @@ impl <'a> ReadDir<'a> {
     pub fn close(&mut self) {
         let fs = fs::get_filesystem();
         inode::inode_close(fs, self.inode);
+    }
+
+    pub fn get_file_size(&self) -> usize {
+        self.inode.i_size.try_into().unwrap()
     }
 }
 
@@ -104,36 +114,38 @@ impl <'a>Iterator for ReadDirIterator<'a> {
     #[inline(never)]
     fn next(&mut self) -> Option<Self::Item> {
         let data_blocks = self.inode.get_data_blocks_ref();
-        // 如果遍历到这一块，没有数据了，那么就是遍历完了
-        if self.block_idx >= data_blocks.len() || data_blocks[self.block_idx].is_empty() {
-            return Option::None;
-        }
+        // 遍历所有的数据块
+        while self.block_idx < data_blocks.len() && !data_blocks[self.block_idx].is_empty() {
+            // 如果是数据扇区内的，第一个目录项，那么加载一下
+            if self.dir_entry_idx == 0 {
+                let disk = unsafe { &mut *fs::get_filesystem().base_part.from_disk };
+                disk.read_sectors(data_blocks[self.block_idx], 1, self.dir_entry_buf);
+            }
+            let dir_entry_list = unsafe { core::slice::from_raw_parts(self.dir_entry_buf as *const _ as *const DirEntry, self.dir_entry_buf.len() / size_of::<DirEntry>()) };
+            
+            if self.dir_entry_idx >= dir_entry_list.len() {
+                MY_PANIC!("idx:{}, len:{}", self.dir_entry_idx, dir_entry_list.len());
+            }
 
-        // 如果是数据扇区内的，第一个目录项，那么加载一下
-        if self.dir_entry_idx == 0 {
-            let disk = unsafe { &mut *fs::get_filesystem().base_part.from_disk };
-            disk.read_sectors(data_blocks[self.block_idx], 1, self.dir_entry_buf);
-        }
-        let dir_entry_list = unsafe { core::slice::from_raw_parts(self.dir_entry_buf as *const _ as *const DirEntry, self.dir_entry_buf.len() / size_of::<DirEntry>()) };
-        // 我们找到了目录项
-        let target_dir_entry = &dir_entry_list[self.dir_entry_idx];
-        // 如果目标目录项是空的，说明已经遍历结束了
-        if target_dir_entry.is_empty() {
-            return Option::None;
-        }
+            // 我们找到了目录项
+            let target_dir_entry = &dir_entry_list[self.dir_entry_idx];
 
-        // 目录项所在的目录项列表下标，往后走
-        self.dir_entry_idx += 1;
+            // 目录项所在的目录项列表下标，往后走
+            self.dir_entry_idx += 1;
 
-        // 如果走完了当前扇区的所有目录项
-        if self.dir_entry_idx >= dir_entry_list.len() {
-            // 往后走
-            self.block_idx += 1;
-            // 目录项下标清零
-            self.dir_entry_idx = 0;
-        }
+            // 如果走完了当前扇区的所有目录项
+            if self.dir_entry_idx >= dir_entry_list.len() {
+                // 往后走
+                self.block_idx += 1;
+                // 目录项下标清零
+                self.dir_entry_idx = 0;
+            }
 
-        return Option::Some(target_dir_entry);
+            if !target_dir_entry.is_empty() {
+                return Option::Some(target_dir_entry);
+            }
+        };
+        return Option::None;
     }
 }
 

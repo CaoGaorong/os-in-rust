@@ -11,6 +11,7 @@ pub enum PathError {
 /**
  * 已知当前工作目录cwd和输入的路径input_path，得到绝对路径 abs_path
  */
+#[inline(never)]
 pub fn get_abs_path<'a>(cwd: &str, input_path: &str, buff: &'a mut [u8]) -> Result<&'a str, PathError> {
     if !cwd.starts_with("/") {
         return Result::Err(PathError::CwdNotStartWithRoot);

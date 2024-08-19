@@ -1,12 +1,12 @@
 
 use os_in_rust_common::{racy_cell::RacyCell, vga::print};
 
-use crate::{blocking_queue::BlockingQueue, keyboard, print, println, scancode::{Key, ScanCodeType}, sys_call::sys_call_proxy};
+use crate::{blocking_queue::BlockingQueue, keyboard, memory, print, println, scancode::{Key, ScanCodeType}, sys_call::sys_call_proxy};
 
-use super::{cmd::Cmd, cmd_cd, cmd_ls, shell::Shell, shell_util};
+use super::{cmd::Cmd, cmd_cd, cmd_ls, cmd_dir, cmd_ps, shell::Shell, shell_util};
 
 
-const PATH_LEN: usize = 20;
+const PATH_LEN: usize = 100;
 const INPUT_LEN: usize = 100;
 
 /**
@@ -98,22 +98,23 @@ fn read_line(shell: &mut Shell<PATH_LEN, INPUT_LEN>) -> &str {
 fn exec_cmd(shell: &mut Shell<PATH_LEN, INPUT_LEN>) {
     let cmd = shell.get_cmd();
     if cmd.is_none() {
+        println!("command {} not found", shell.get_input());
         return;
     }
+    let buf: &mut [u8; 100] = memory::malloc(100);
     let (cmd, param) = cmd.unwrap();
     match cmd { 
         Cmd::Pwd => print!("{}", shell.get_cwd()),
-        Cmd::Ps => todo!(),
+        Cmd::Ps => cmd_ps::ps(),
         Cmd::Ls => {
             let dir_path = shell.get_cwd();
             cmd_ls::ls(dir_path, param);
         },
         Cmd::Cd => {
-            let mut abs_path = [0u8; 40];
             let abs_path = if param.is_none() {
                 "/"
             } else {
-                let abs_path = shell_util::get_abs_path(shell.get_cwd(), param.unwrap(), &mut abs_path).unwrap();
+                let abs_path = shell_util::get_abs_path(shell.get_cwd(), param.unwrap(), buf).unwrap();
                 abs_path
             };
             let res = cmd_cd::cd(abs_path);
@@ -124,7 +125,15 @@ fn exec_cmd(shell: &mut Shell<PATH_LEN, INPUT_LEN>) {
             }
 
         },
+        // 清屏
+        Cmd::Clear => sys_call_proxy::clear_screen(),
+        // 创建目录
+        Cmd::Mkdir => cmd_dir::mkdir(shell.get_cwd(), param, buf),
+        // 删除目录
+        Cmd::Rmdir => cmd_dir::rmdir(shell.get_cwd(), param, buf),
     }
+
+    memory::sys_free(buf.as_ptr() as usize);
 
 }
 
@@ -140,7 +149,6 @@ pub fn shell_start() {
         self::read_line(shell);
         println!();
         self::exec_cmd(shell);
-        println!();
         println!();
     }
 }

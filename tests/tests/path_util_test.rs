@@ -27,5 +27,11 @@ mod tests {
         let s = "ls -alh -s".split_once(" ");
         println!("s: {:?}", s);
     }
+    #[test]
+    fn test_split() {
+        let mut s = "/home/jackson".split("-");
+        let s: Vec<&str> = s.collect();
+        println!("{:?}", s);
+    }
 }
 

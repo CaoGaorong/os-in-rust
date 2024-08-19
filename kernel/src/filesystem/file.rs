@@ -50,6 +50,11 @@ impl OpenedFile {
     pub fn close_file(&mut self, fs: &mut FileSystem) {
         inode::inode_close(fs, self.inode);
     }
+
+    pub fn get_inode(&self) -> &OpenedInode {
+        self.inode
+    }
+
 }
 
 
@@ -100,12 +105,12 @@ pub fn open_file(file_path: &str, append: bool) -> Result<FileDescriptor, FileEr
     if searched_file.is_none() {
         return Result::Err(FileError::NotFound);
     }
-    let (searched_file, file_inode) = searched_file.unwrap();
+    let (_, file_inode) = searched_file.unwrap();
 
-    // 如果打开的是一个文件夹，不允许打开
-    if searched_file.file_type as FileType == FileType::Directory {
-        return Result::Err(FileError::IsADirectory);
-    }
+    // // 如果打开的是一个文件夹，不允许打开
+    // if searched_file.file_type as FileType == FileType::Directory {
+    //     return Result::Err(FileError::IsADirectory);
+    // }
     
     // 得到一个打开文件
     let opened_file = OpenedFile::new(file_inode, append);

@@ -5,6 +5,9 @@ pub enum Cmd {
     Cd,
     Ps, 
     Ls,
+    Clear,
+    Mkdir,
+    Rmdir,
 }
 impl Cmd {
     // pub fn get_name(&self) -> &str {
@@ -21,6 +24,9 @@ impl Cmd {
             "cd" => Option::Some(Self::Cd),
             "ps" => Option::Some(Self::Ps),
             "ls" => Option::Some(Self::Ls),
+            "clear" => Option::Some(Self::Clear),
+            "mkdir" => Option::Some(Self::Mkdir),
+            "rmdir" => Option::Some(Self::Rmdir),
             _ => Option::None,
         }
     }

@@ -64,7 +64,7 @@ pub fn write_to_register(port_base: u16, register: CommandBlockRegister) {
             Port::<u8>::new(port).write(command.data);
         },
         _ => {
-            printkln!("{:?} register could not to write", register);
+            // printkln!("{:?} register could not to write", register);
             MY_PANIC!("io command register error");
         }
     }

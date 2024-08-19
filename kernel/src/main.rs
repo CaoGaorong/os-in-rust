@@ -108,7 +108,7 @@ fn test_create_dir() {
     printkln!("folder20 res:{:?}", filesystem::create_dir("/dev/proc/folder20"));
 
     // 删除一个文件夹   
-    // printkln!("remove folder1 res:{:?}", filesystem::remove_dir("/dev/proc/folder1"));
+    printkln!("remove folder1 res:{:?}", filesystem::remove_dir("/dev/proc/folder1"));
 }
 
 
@@ -118,8 +118,8 @@ fn test_create_dir() {
 pub extern "C" fn _start(boot_info: &BootContext) {
 
     init::init_all(boot_info);
-    self::test_create_dir();
-    self::test_read_dir_entry();
+    // self::test_create_dir();
+    // self::test_read_dir_entry();
     // self::test_create_file();
 
     // let fs = fs::get_filesystem();
