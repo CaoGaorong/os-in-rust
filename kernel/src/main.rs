@@ -11,8 +11,7 @@ use core::{arch::asm, panic::PanicInfo};
 use core::mem::size_of;
 use device::{Disk, Partition};
 use filesystem::{File, FileType, OpenOptions};
-use kernel::sys_call::sys_call_proxy;
-use kernel::{console_println, device, filesystem, init, println, process, shell, sys_call, thread};
+use kernel::{console_println, device, filesystem, init, println, process, shell, sys_call, thread, thread_management};
 use os_in_rust_common::{cstring_utils, instruction, vga};
 use os_in_rust_common::{ASSERT, context::BootContext, printk, printkln};
 
@@ -118,7 +117,7 @@ fn test_create_dir() {
 pub extern "C" fn _start(boot_info: &BootContext) {
 
     init::init_all(boot_info);
-    // self::test_create_dir();
+    self::test_create_dir();
     // self::test_read_dir_entry();
     // self::test_create_file();
 
@@ -150,20 +149,20 @@ pub extern "C" fn _start(boot_info: &BootContext) {
 
     // loop {}
     // 主通道。挂在2个硬盘
-    let channel_idx = 0;
-    let primary = device::get_ata_channel(&channel_idx);
-    ASSERT!(primary.is_some());
-    let primary = primary.as_mut().unwrap();
-    // 次通道。没硬盘
-    // let secondary = device::init::get_ata_channel(1);
-    printkln!("primary channel: ");
-    let channel_name = cstring_utils::read_from_bytes(&primary.name);
-    printk!("name:{}, port_base:0x{:x}, irq_no: 0x{:x} ", channel_name.unwrap(), primary.port_base, primary.irq_no);
-    printkln!("disk[0] ignored. disk[1]:");
-    let disk =  &mut primary.disks[1];
-    print_disk(disk.as_ref().unwrap());
+    // let channel_idx = 0;
+    // let primary = device::get_ata_channel(&channel_idx);
+    // ASSERT!(primary.is_some());
+    // let primary = primary.as_mut().unwrap();
+    // // 次通道。没硬盘
+    // // let secondary = device::init::get_ata_channel(1);
+    // printkln!("primary channel: ");
+    // let channel_name = cstring_utils::read_from_bytes(&primary.name);
+    // printk!("name:{}, port_base:0x{:x}, irq_no: 0x{:x} ", channel_name.unwrap(), primary.port_base, primary.irq_no);
+    // printkln!("disk[0] ignored. disk[1]:");
+    // let disk =  &mut primary.disks[1];
+    // print_disk(disk.as_ref().unwrap());
 
-    instruction::enable_interrupt();
+    // instruction::enable_interrupt();
     
     // // 测试一样空间的分配和释放
     // test_malloc_free();
@@ -171,11 +170,13 @@ pub extern "C" fn _start(boot_info: &BootContext) {
     // 测试链表
     // test_linked_list();
 
-    shell::shell_start();
+    // shell::shell_start();
 
 
     
-    loop {}
+    loop {
+        thread_management::thread_yield();
+    }
 }
 
 fn print_disk(disk: &Disk) {
@@ -255,7 +256,7 @@ fn dummy_sleep(instruction_cnt: u32) {
 
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
-    instruction::disable_interrupt();
+    // instruction::disable_interrupt();
     printkln!("panic, {}", info);
     let msg = info.message();
     if msg.is_none() {

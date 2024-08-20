@@ -44,8 +44,7 @@ pub fn init_all(boot_info: &BootContext) {
     thread::check_task_stack("overflow after tss init");
 
     // 注册系统调用函数
-    sys_call::sys_call_api::init();
-
+    sys_call::init();
     thread::check_task_stack("overflow after syscall init");
 
     // 初始化硬盘ATA通道

@@ -2,7 +2,7 @@ use core::arch::asm;
 
 use os_in_rust_common::{constants, instruction, paging::{PageTable, PageTableEntry}};
 
-use crate::{interrupt, println, memory::{self, page_util}, pid_allocator, sys_call::sys_call_proxy, thread::{self, ThreadArg}, thread_management};
+use crate::{interrupt, memory::{self, page_util}, pid_allocator, println, shell, sys_call::{self}, thread::{self, ThreadArg}, thread_management};
 
 /**
  * 用户进程的实现
@@ -98,23 +98,22 @@ pub fn process_execute(process_name: &'static str, func: extern "C" fn()) {
 /**
  * init程序。pid为1，首个任务
  */
+#[inline(never)]
 extern "C" fn init_process() {
 
     // 发起系统调用，fork
-    let fork_res = sys_call_proxy::fork();
+    let fork_res = sys_call::fork();
     match fork_res {
-        sys_call_proxy::ForkResult::Parent(child_pid) => {
-            println!("i'm father, my pid is {}, my child pid is {}", sys_call_proxy::get_pid().get_data(), child_pid.get_data());
+        sys_call::ForkResult::Parent(child_pid) => {
+            println!("i'm father, my pid is {}, my child pid is {}", sys_call::get_pid().get_data(), child_pid.get_data());
+            loop {
+                sys_call::thread_yield();
+            }
         },
-        sys_call_proxy::ForkResult::Child => {
-            println!("im child, my pid is {}", sys_call_proxy::get_pid().get_data());
+        sys_call::ForkResult::Child => {
+            println!("im child, my pid is {}", sys_call::get_pid().get_data());
+            shell::shell_start();
         },
-    }
-    println!("finish fork");
-
-    // 把时间片让出去，不要空转
-    loop {
-        sys_call_proxy::thread_yield();
     }
 }
 

@@ -1,5 +1,6 @@
 
 use os_in_rust_common::{array_deque::ArrayDeque, cstring_utils};
+use crate::println;
 
 #[derive(Debug)]
 pub enum PathError {
@@ -13,6 +14,11 @@ pub enum PathError {
  */
 #[inline(never)]
 pub fn get_abs_path<'a>(cwd: &str, input_path: &str, buff: &'a mut [u8]) -> Result<&'a str, PathError> {
+    unsafe { buff.as_mut_ptr().write_bytes(0, buff.len()) };
+
+    let cwd = cwd.trim();
+    let input_path = input_path.trim();
+
     if !cwd.starts_with("/") {
         return Result::Err(PathError::CwdNotStartWithRoot);
     }

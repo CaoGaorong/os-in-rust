@@ -86,6 +86,9 @@ impl <const PATH_LEN: usize, const CMD_LEN: usize> Shell<PATH_LEN, CMD_LEN> {
     #[inline(never)]
     pub fn get_cmd(&self) -> Option<(cmd::Cmd, Option<&str>)> {
         let input = self.get_input().trim();
+        if input.is_empty() {
+            return Option::None;
+        }
         let input_split = input.split_once(" ");
         if input_split.is_none() {
             let cmd = cmd::Cmd::get_by_name(input)?;

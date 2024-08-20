@@ -12,10 +12,15 @@ mod file_api;
 mod dir_api;
 mod file_util;
 
+pub use fs::get_filesystem;
 
 pub use file_descriptor::FileDescriptorTable;
 pub use file_descriptor::FileDescriptor;
+pub use file_descriptor::StdFileDescriptor;
 
+pub use file::FileError;
+pub use file::read_file;
+pub use file::write_file;
 
 
 
@@ -35,6 +40,8 @@ pub use dir_api::create_dir_all;
 pub use dir_api::read_dir;
 pub use dir_api::remove_dir;
 pub use dir_api::DirError;
+pub use dir_api::ReadDir;
+pub use dir_api::ReadDirIterator;
 
 
 pub use file_api::File;
@@ -44,3 +51,4 @@ pub use file_api::remove_file;
 
 
 pub use global_file_table::get_opened_file;
+pub use global_file_table::get_file_by_fd;

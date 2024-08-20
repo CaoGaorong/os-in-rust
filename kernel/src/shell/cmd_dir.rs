@@ -1,6 +1,5 @@
-use os_in_rust_common::{cstr_write, cstring_utils};
 
-use crate::{filesystem, println, shell::shell_util};
+use crate::{filesystem, println, shell::shell_util, sys_call};
 
 #[inline(never)]
 pub fn mkdir(cwd: &str, param: Option<&str>, buf: &mut [u8]) {
@@ -20,7 +19,7 @@ pub fn mkdir(cwd: &str, param: Option<&str>, buf: &mut [u8]) {
     // 只有一个参数，那么就是mkdir directory
     if param_split.is_none() {
         let dir_path: &str = shell_util::get_abs_path(cwd, param, buf).unwrap();
-        let create_res = filesystem::create_dir(dir_path);
+        let create_res = sys_call::create_dir(dir_path);
         if create_res.is_err() {
             println!("{:?}", create_res.unwrap_err());
         }
@@ -34,7 +33,7 @@ pub fn mkdir(cwd: &str, param: Option<&str>, buf: &mut [u8]) {
     }
 
     let dir_path = shell_util::get_abs_path(cwd, dir_name, buf).unwrap();
-    let create_res = filesystem::create_dir_all(dir_path);
+    let create_res = sys_call::create_dir_all(dir_path);
     if create_res.is_err() {
         println!("{:?}", create_res.unwrap_err());
     }
@@ -56,7 +55,7 @@ pub fn rmdir(cwd: &str, param: Option<&str>, buf: &mut [u8]) {
 
     let dir_path = shell_util::get_abs_path(cwd, param, buf).unwrap();
 
-    let remove_res = filesystem::remove_dir(dir_path);
+    let remove_res = sys_call::remove_dir(dir_path);
     match remove_res {
         Ok(()) => {
             return;

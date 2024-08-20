@@ -123,7 +123,8 @@ pub fn open_file(file_path: &str, append: bool) -> Result<FileDescriptor, FileEr
 
     // 然后安装到当前任务的「文件结构数组」中
     let file_table_idx = global_file_idx.unwrap();
-    let fd = thread::current_thread().task_struct.fd_table.install_fd(file_table_idx);
+    let cur_task = &mut thread::current_thread().task_struct;
+    let fd = cur_task.fd_table.install_fd(file_table_idx);
     // 当前任务没有空位了
     if fd.is_none() {
         return Result::Err(FileError::FileExceedTask);
@@ -207,7 +208,7 @@ pub fn create_file(file_path: &str) -> Result<FileDescriptor, FileError> {
            要写入硬盘的起始数据
 */
 #[inline(never)]
-pub fn write_file(fs: &mut FileSystem, file: &mut OpenedFile, buff: &[u8]) -> Result<usize, FileError>{
+pub fn write_file(fs: &mut FileSystem, file: &mut OpenedFile, buff: &[u8]) -> usize {
 
     let disk = unsafe { &mut *fs.base_part.from_disk };
 
@@ -300,7 +301,7 @@ pub fn write_file(fs: &mut FileSystem, file: &mut OpenedFile, buff: &[u8]) -> Re
     // 把inode元数据同步到硬盘（inode数组）
     inode::sync_inode(fs, file.inode);
 
-    return Result::Ok(succeed_bytes);
+    return succeed_bytes;
 }
 
 /**
@@ -323,7 +324,7 @@ pub fn write_file(fs: &mut FileSystem, file: &mut OpenedFile, buff: &[u8]) -> Re
            要写入硬盘的起始数据
 */
 #[inline(never)]
-pub fn read_file(fs: &mut FileSystem, file: &mut OpenedFile, buff: &mut [u8]) -> Result<usize, FileError>{
+pub fn read_file(fs: &mut FileSystem, file: &mut OpenedFile, buff: &mut [u8]) -> usize {
 
     // // 最多读取到文件的末尾
     // let end_byte_off_file = (file.file_off as usize + buff.len()).min(file.inode.i_size as usize);
@@ -406,7 +407,7 @@ pub fn read_file(fs: &mut FileSystem, file: &mut OpenedFile, buff: &mut [u8]) ->
         left_bytes -= bytes_read as i32;
         file.file_off += bytes_read as u32;
     }
-    return Result::Ok(succeed_bytes);
+    succeed_bytes
 }
 
 

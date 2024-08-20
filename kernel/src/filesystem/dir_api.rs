@@ -60,6 +60,13 @@ impl <'a> ReadDir<'a> {
         ReadDirIterator::new(self.inode, buf)
     }
 
+    #[inline(never)]
+    pub fn iter_ignore_drop(&'a mut self) -> ReadDirIterator<'a> {
+        let mut iter = self.iter();
+        iter.ignore_drop = true;
+        return iter;
+    }
+
     pub fn is_empty(&self) -> bool {
         // 如果inode的数据区，只有两个目录，那么说明空了
         self.inode.i_size <= (size_of::<DirEntry>() * 2).try_into().unwrap()
@@ -68,7 +75,8 @@ impl <'a> ReadDir<'a> {
     /**
      * 关掉这个inode
      */
-    pub fn close(&mut self) {
+    #[inline(never)]
+    fn close(&mut self) {
         let fs = fs::get_filesystem();
         inode::inode_close(fs, self.inode);
     }
@@ -84,6 +92,7 @@ pub struct ReadDirIterator<'a> {
     block_idx: usize,
     dir_entry_buf: &'a mut [u8; constants::DISK_SECTOR_SIZE],
     dir_entry_idx: usize,
+    ignore_drop: bool,
 }
 
 impl <'a> ReadDirIterator<'a> {
@@ -94,7 +103,14 @@ impl <'a> ReadDirIterator<'a> {
             block_idx: 0,
             dir_entry_buf: dir_entry_buf,
             dir_entry_idx: 0,
+            ignore_drop: false,
         }
+    }
+
+    #[inline(never)]
+    pub fn drop(&mut self) {
+        inode::inode_close(fs::get_filesystem(), self.inode);
+        memory::sys_free(self.dir_entry_buf.as_ptr() as usize);
     }
 }
 
@@ -102,8 +118,11 @@ impl <'a> Drop for ReadDirIterator<'a> {
     
     #[inline(never)]
     fn drop(&mut self) {
-        inode::inode_close(fs::get_filesystem(), self.inode);
-        memory::sys_free(self.dir_entry_buf.as_ptr() as usize);
+        // 不要drop
+        if self.ignore_drop {
+            return;
+        }
+        self.drop();
     }
 }
 

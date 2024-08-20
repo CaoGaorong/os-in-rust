@@ -1,4 +1,4 @@
-use core::fmt::{Debug, Display};
+use core::fmt::{Debug};
 
 use os_in_rust_common::{cstr_write, cstring_utils, printkln, ASSERT};
 
@@ -79,6 +79,11 @@ pub struct File {
      */
     write: bool,
     read: bool,
+
+    /**
+     * 是否忽略关闭
+     */
+    ignore_drop: bool,
 }
 // impl Debug for File {
 //     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
@@ -99,6 +104,7 @@ impl File {
             path: [0; constant::MAX_FILE_PATH_LEN],
             write: write,
             read: read,
+            ignore_drop: false,
         };
         // 保存文件路径
         cstr_write!(&mut file.path, "{}", path);
@@ -115,11 +121,18 @@ impl File {
         return Result::Ok(file);
     }
 
+    #[inline(never)]
+    pub fn open_ignore_drop(path: &str) -> Result<Self, FileError> {
+        let mut file = Self::open(path)?;
+        file.ignore_drop = true;
+        Result::Ok(file)
+    }
+
     /**
      * 关闭一个文件
      */
     #[inline(never)]
-    fn close(&self)  -> Result<(), FileError> {
+    pub fn close(&self)  -> Result<(), FileError> {
         // 1. 释放当前进程的文件描述符
         let fd_table = &mut thread::current_thread().task_struct.fd_table;
         let global_idx = fd_table.release_fd(self.fd);
@@ -150,13 +163,19 @@ impl File {
         Result::Ok(file)
     }
 
+    #[inline(never)]
+    pub fn create_ignore_drop(path: &str) -> Result<Self, FileError> {
+        let mut file = Self::create(path)?;
+        file.ignore_drop = true;
+        Result::Ok(file)
+    }
 
     /**
      * 设置该文件操作的偏移量
      */
     #[inline(never)]
     pub fn seek(&mut self, from: SeekFrom) -> Result<(), FileError>{
-        let opened_file = self.get_opened_file()?;
+        let opened_file = global_file_table::get_file_by_fd(self.fd)?;
         
         let off = match from {
             SeekFrom::Start(start) => start,
@@ -175,9 +194,9 @@ impl File {
         if !self.read {
             return Result::Err(FileError::PermissionDenied);
         }
-        let opened_file = self.get_opened_file()?;
+        let opened_file = global_file_table::get_file_by_fd(self.fd)?;
         let fs = fs::get_filesystem();
-        file::read_file(fs, opened_file, buff)
+        Result::Ok(file::read_file(fs, opened_file, buff))
     }
 
     /**
@@ -190,33 +209,12 @@ impl File {
             return Result::Err(FileError::PermissionDenied);
         }
         // 根据文件描述符，找到那个文件
-        let opened_file = self.get_opened_file()?;
+        let opened_file = global_file_table::get_file_by_fd(self.fd)?;
         
         let fs = fs::get_filesystem();
 
         // 写入文件
-        file::write_file(fs, opened_file, buff)
-    }
-
-    /**
-     * 根据当前任务的文件描述符，得到对应打开的文件
-     */
-    #[inline(never)]
-    fn get_opened_file(&self) -> Result<&'static mut OpenedFile, FileError> {
-        // 先根据文件描述符找
-        let fd_table = &thread::current_thread().task_struct.fd_table;
-        let global_idx = fd_table.get_global_idx(self.fd);
-        if global_idx.is_none() {
-            return Result::Err(FileError::FileDescriptorNotFound);
-        }
-
-        // 在全局文件结构表里面查找
-        let global_idx = global_idx.unwrap();
-        let opened_file = global_file_table::get_opened_file(global_idx);
-        if opened_file.is_none() {
-            return Result::Err(FileError::GlobalFileStructureNotFound);
-        }
-        return Result::Ok(opened_file.unwrap());
+        Result::Ok(file::write_file(fs, opened_file, buff))
     }
 
     pub fn get_path(&self) -> &str {
@@ -225,15 +223,25 @@ impl File {
         res.unwrap()
     }
 
+    #[inline(never)]
     pub fn get_size(&self) -> Result<usize, FileError> {
-        let opened_file =  self.get_opened_file()?;
+        let opened_file =  global_file_table::get_file_by_fd(self.fd)?;
         let opened_inode = opened_file.get_inode();
         Result::Ok(opened_inode.i_size.try_into().unwrap())
+    }
+
+    pub fn get_file_descriptor(&self) -> FileDescriptor {
+        self.fd
     }
 }
 
 impl Drop for File {
+    #[inline(never)]
     fn drop(&mut self) {
+        // 忽略drop
+        if self.ignore_drop {
+            return;
+        }
         // 文件离开作用域，自动关闭文件
         let res = self.close();
         ASSERT!(res.is_ok());

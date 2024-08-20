@@ -41,6 +41,10 @@ impl FileDescriptor {
             value,
         }
     }
+
+    pub fn get_value(&self) -> usize {
+        self.value
+    }
 }
 
 /**
@@ -89,6 +93,7 @@ impl FileDescriptorTable {
     /**
      * 给当前进程的文件描述符表，安装一个全局文件描述符
      */
+    #[inline(never)]
     pub fn install_fd(&mut self, global_file_descriptor: usize) -> Option<FileDescriptor> {
         // 当前的文件描述符表，找到空位
         let slot_idx = self.get_free_slot();
@@ -110,6 +115,7 @@ impl FileDescriptorTable {
     /**
      * 释放某个文件描述符。得到全局的文件结构表下标
      */
+    #[inline(never)]
     pub fn release_fd(&mut self, fd: FileDescriptor) -> Option<usize> {
         let global_idx = self.data[fd.value];
         // 清除

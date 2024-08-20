@@ -42,42 +42,106 @@ pub enum SystemCallNo {
     /**
      * I/O写入数据
      */
-    Write = 0x01,
+    Write,
+
+    /**
+     * 从I/O中读取数据
+     */
+    Read,
 
     /**
      * 打印字符
      */
-    Print = 0x02,
+    Print,
 
     /**
      * 申请内存空间
      */
-    Malloc = 0x03,
+    Malloc,
 
     /**
      * 释放内存空间
      */
-    Free = 0x04,
+    Free,
     
     /**
      * fork进程
      */
-    Fork = 0x05,
+    Fork,
 
     /**
      * 挂起当前任务
      */
-    Yield = 0x06,
+    Yield,
 
     /**
      * 清除屏幕
      */
-    ClearScreen = 0x07,
+    ClearScreen,
     
     /**
      * 读取目录
      */
-    ReadDir = 0x08,
+    ReadDir,
+    /**
+     * 删除目录
+     */
+    RemoveDir,
+
+    /**
+     * 创建目录
+     */
+    CreateDir,
+    /**
+     * 递归创建目录
+     */
+    CreateDirAll,
+
+    /**
+     * 生成目录迭代器
+     */
+    DirIterator,
+
+    /**
+     * 遍历目录的时候用
+     */
+    DirIteratorNext,
+
+    /**
+     * 迭代器drop traits
+     */
+    DirIteratorDrop,
+
+    /**
+     * 打开一个文件
+     */
+    OpenFile,
+
+    /**
+     * 关闭文件
+     */
+    CloseFile,
+
+    /**
+     * 读取文件大小
+     */
+    FileSize,
+
+    /**
+     * 创建一个文件
+     */
+    CreateFile,
+
+    /**
+     * 写入文件
+     */
+    WriteFile,
+
+    /**
+     * 删除文件
+     */
+    RemoveFile,
+
 }
 
 /**

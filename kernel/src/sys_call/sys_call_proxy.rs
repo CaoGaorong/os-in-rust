@@ -1,7 +1,11 @@
 use core::arch::asm;
-use core::fmt;
 
+use core::fmt;
+use core::mem::size_of_val;
+
+use crate::filesystem::{self, FileDescriptor, StdFileDescriptor};
 use crate::pid_allocator::Pid;
+use crate::scancode::KeyCode;
 
 use super::sys_call::SystemCallNo;
 
@@ -16,7 +20,7 @@ use super::sys_call::SystemCallNo;
  */
 #[macro_export]
 macro_rules! print {
-    ($($arg:tt)*) => ($crate::sys_call::sys_call_proxy::sys_print(format_args!($($arg)*)));
+    ($($arg:tt)*) => ($crate::sys_call::sys_print(format_args!($($arg)*)));
 }
 
 /**
@@ -51,8 +55,8 @@ pub fn sys_print(args: fmt::Arguments) {
 /**
  * 写入字符
  */
-pub fn write(string: &str) {
-    do_sys_call(SystemCallNo::Write, Option::Some(string.as_ptr() as usize as u32), Option::Some(string.len() as u32), Option::None);
+pub fn write(fd: FileDescriptor, buff: &[u8]) {
+    do_sys_call(SystemCallNo::Write, Option::Some(fd.get_value().try_into().unwrap()), Option::Some(buff.as_ptr() as u32), Option::Some(buff.len().try_into().unwrap()));
 }
 
 /**
@@ -101,6 +105,106 @@ pub fn thread_yield() {
 pub fn clear_screen() {
     self::do_sys_call(SystemCallNo::ClearScreen, Option::None, Option::None, Option::None);
 }
+
+
+#[inline(never)]
+pub fn read_key() -> KeyCode {
+    let mut key = KeyCode::empty();
+    let buf = unsafe { core::slice::from_raw_parts_mut(&mut key as *mut _ as *mut u8, size_of_val(&key)) };
+    self::read(FileDescriptor::new(StdFileDescriptor::StdInputNo as usize), buf);
+    key
+}
+
+pub fn read(fd: FileDescriptor, buff: &mut[u8]) {
+    self::do_sys_call(SystemCallNo::Read, Option::Some(fd.get_value().try_into().unwrap()), Option::Some(buff.as_mut_ptr() as u32), Option::Some(buff.len() as u32));
+}
+
+
+#[inline(never)]
+pub fn read_dir(path: &str) -> Result<filesystem::ReadDir, filesystem::DirError> {
+    let mut res: Result<filesystem::ReadDir, filesystem::DirError> = Result::Err(filesystem::DirError::AlreadyExists);
+    self::do_sys_call(SystemCallNo::ReadDir, Option::Some(path.as_ptr() as u32), Option::Some(path.len() as u32), Option::Some(&mut res as *mut _ as u32));
+    return res;
+}
+
+#[inline(never)]
+pub fn remove_dir(path: &str) -> Result<(), filesystem::DirError> {
+    let mut res: Result<(), filesystem::DirError> = Result::Ok(());
+    self::do_sys_call(SystemCallNo::RemoveDir, Option::Some(path.as_ptr() as u32), Option::Some(path.len() as u32), Option::Some(&mut res as *mut _ as u32));
+    return res;
+}
+
+#[inline(never)]
+pub fn create_dir_all(path: &str) -> Result<(), filesystem::DirError> {
+    let mut res: Result<(), filesystem::DirError> = Result::Ok(());
+    self::do_sys_call(SystemCallNo::CreateDirAll, Option::Some(path.as_ptr() as u32), Option::Some(path.len() as u32), Option::Some(&mut res as *mut _ as u32));
+    return res;
+}
+
+#[inline(never)]
+pub fn create_dir(path: &str) -> Result<(), filesystem::DirError> {
+    let mut res: Result<(), filesystem::DirError> = Result::Ok(());
+    self::do_sys_call(SystemCallNo::CreateDir, Option::Some(path.as_ptr() as u32), Option::Some(path.len() as u32), Option::Some(&mut res as *mut _ as u32));
+    return res;
+}
+
+#[inline(never)]
+pub fn dir_iter<'a>(dir: &'a mut filesystem::ReadDir) -> Option<filesystem::ReadDirIterator<'a>> {
+    let mut res: Option<filesystem::ReadDirIterator<'a>> = Option::None;
+    self::do_sys_call(SystemCallNo::DirIterator, Option::Some(dir as *mut  filesystem::ReadDir as u32), Option::Some(&mut res as *mut Option<filesystem::ReadDirIterator> as u32), Option::None);
+    res
+}
+
+#[inline(never)]
+pub fn dir_iter_next(iter: &mut  filesystem::ReadDirIterator) -> Option<&'static filesystem::DirEntry> {
+    let mut res: Option<&filesystem::DirEntry> = Option::None;
+    self::do_sys_call(SystemCallNo::DirIteratorNext, Option::Some(iter as *mut _ as u32), Option::Some(&mut res as *mut _ as u32), Option::None);
+    return res;
+}
+
+#[inline(never)]
+pub fn dir_iter_drop(iter: &mut  filesystem::ReadDirIterator) {
+    self::do_sys_call(SystemCallNo::DirIteratorDrop, Option::Some(iter as *mut _ as u32), Option::None, Option::None);
+}
+
+
+#[inline(never)]
+pub fn create_file(path: &str) -> Result<filesystem::File, filesystem::FileError> {
+    let mut res: Result<filesystem::File, filesystem::FileError> = Result::Err(filesystem::FileError::NotFound);
+    self::do_sys_call(SystemCallNo::CreateFile, Option::Some(path.as_ptr() as u32), Option::Some(path.len() as u32), Option::Some(&mut res as *mut _ as u32));
+    res
+}
+
+#[inline(never)]
+pub fn open_file(path: &str) -> Result<filesystem::File, filesystem::FileError> {
+    let mut res: Result<filesystem::File, filesystem::FileError> = Result::Err(filesystem::FileError::NotFound);
+    self::do_sys_call(SystemCallNo::OpenFile, Option::Some(path.as_ptr() as u32), Option::Some(path.len() as u32), Option::Some(&mut res as *mut _ as u32));
+    res
+}
+
+#[inline(never)]
+pub fn close_file(file: &mut filesystem::File) -> Result<(), filesystem::FileError> {
+    let mut res: Result<(), filesystem::FileError> = Result::Err(filesystem::FileError::NotFound);
+    self::do_sys_call(SystemCallNo::CloseFile, Option::Some(file as *mut _ as u32), Option::Some(&mut res as *mut _ as u32), Option::None);
+    res
+}
+
+#[inline(never)]
+pub fn file_size(file: &filesystem::File) -> Result<usize, filesystem::FileError> {
+    let mut res: Result<usize, filesystem::FileError> = Result::Err(filesystem::FileError::NotFound);
+    self::do_sys_call(SystemCallNo::FileSize, Option::Some(file as *const _ as u32), Option::Some(&mut res as *mut _ as u32), Option::None);
+    res
+}
+
+#[inline(never)]
+pub fn remove_file(path: &str) -> Result<(), filesystem::FileError> {
+    let mut res: Result<(), filesystem::FileError> = Result::Err(filesystem::FileError::NotFound);
+    self::do_sys_call(SystemCallNo::RemoveFile, Option::Some(path.as_ptr() as u32), Option::Some(path.len() as u32), Option::Some(&mut res as *mut _ as u32));
+    res
+}
+
+
+
 
 /**
  * 发起系统调用
