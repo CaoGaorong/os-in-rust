@@ -88,7 +88,7 @@ impl File {
      */
     #[inline(never)]
     pub fn seek(&mut self, from: filesystem::SeekFrom) -> Result<(), filesystem::FileError>{
-        self.file.seek(from)
+        sys_call_proxy::seek_file(&mut self.file, from)
     }
 
     /**

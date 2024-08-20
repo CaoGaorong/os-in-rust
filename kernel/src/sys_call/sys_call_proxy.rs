@@ -3,7 +3,7 @@ use core::arch::asm;
 use core::fmt;
 use core::mem::size_of_val;
 
-use crate::filesystem::{self, FileDescriptor, StdFileDescriptor};
+use crate::filesystem::{self, FileDescriptor, SeekFrom, StdFileDescriptor};
 use crate::pid_allocator::Pid;
 use crate::scancode::KeyCode;
 
@@ -179,6 +179,16 @@ pub fn create_file(path: &str) -> Result<filesystem::File, filesystem::FileError
 pub fn open_file(path: &str) -> Result<filesystem::File, filesystem::FileError> {
     let mut res: Result<filesystem::File, filesystem::FileError> = Result::Err(filesystem::FileError::NotFound);
     self::do_sys_call(SystemCallNo::OpenFile, Option::Some(path.as_ptr() as u32), Option::Some(path.len() as u32), Option::Some(&mut res as *mut _ as u32));
+    res
+}
+
+/**
+ * seek
+ */
+#[inline(never)]
+pub fn seek_file(file: &mut filesystem::File, seek: SeekFrom) -> Result<(), filesystem::FileError> {
+    let mut res: Result<(), filesystem::FileError> = Result::Err(filesystem::FileError::NotFound);
+    self::do_sys_call(SystemCallNo::Seek, Option::Some(file as *mut _ as u32), Option::Some(&seek as *const _ as u32), Option::Some(&mut res as *mut _ as u32));
     res
 }
 

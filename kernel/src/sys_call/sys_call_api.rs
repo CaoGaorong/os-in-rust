@@ -286,6 +286,17 @@ fn file_size(file_addr: u32, res_addr: u32) -> u32 {
     0
 }
 
+
+#[inline(never)]
+fn seek_file(file_addr: u32, seek_addr: u32, res_addr: u32) -> u32 {
+    let file = unsafe {&mut *(file_addr as *mut filesystem::File)};
+    let res = unsafe { &mut *(res_addr as *mut Result<(), filesystem::FileError>) };
+    let seek_from = unsafe { & *(seek_addr as *const filesystem::SeekFrom) };
+    *res = file.seek(*seek_from);
+    0
+}
+
+
 #[inline(never)]
 fn close_file(file_addr: u32, res_addr: u32) -> u32 {
     let file = unsafe {&mut *(file_addr as *mut filesystem::File)};

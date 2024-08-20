@@ -117,7 +117,7 @@ fn test_create_dir() {
 pub extern "C" fn _start(boot_info: &BootContext) {
 
     init::init_all(boot_info);
-    self::test_create_dir();
+    // self::test_create_dir();
     // self::test_read_dir_entry();
     // self::test_create_file();
 
@@ -143,7 +143,7 @@ pub extern "C" fn _start(boot_info: &BootContext) {
     // 打印线程信息
     // thread_management::print_thread();
 
-    printkln!("-----system started-----");
+    // printkln!("-----system started-----");
     // let cur_task = &thread::current_thread().task_struct;
     // thread_management::thread_start("thread_a", 5, kernel_thread, 0);
 

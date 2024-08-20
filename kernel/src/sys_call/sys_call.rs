@@ -118,6 +118,11 @@ pub enum SystemCallNo {
     OpenFile,
 
     /**
+     * seek文件
+     */
+    Seek,
+
+    /**
      * 关闭文件
      */
     CloseFile,

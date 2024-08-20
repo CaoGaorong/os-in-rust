@@ -174,7 +174,7 @@ impl File {
      * 设置该文件操作的偏移量
      */
     #[inline(never)]
-    pub fn seek(&mut self, from: SeekFrom) -> Result<(), FileError>{
+    pub fn seek(&mut self, from: SeekFrom) -> Result<(), FileError> {
         let opened_file = global_file_table::get_file_by_fd(self.fd)?;
         
         let off = match from {
