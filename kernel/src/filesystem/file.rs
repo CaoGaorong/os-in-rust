@@ -1,7 +1,7 @@
 
 use core::{fmt::Display, mem::size_of};
 
-use os_in_rust_common::{constants, printkln, ASSERT};
+use os_in_rust_common::{constants, printkln, utils, ASSERT};
 
 
 use crate::{console_println, memory, thread};
@@ -214,7 +214,7 @@ pub fn write_file(fs: &mut FileSystem, file: &mut OpenedFile, buff: &[u8]) -> us
 
     let start_data_block_idx = file.file_off as usize / constants::DISK_SECTOR_SIZE;
     // 要写入到文件的最后一个字节，所在该inode数据扇区的下标
-    let end_data_block_idx = (file.file_off as usize + buff.len()) / constants::DISK_SECTOR_SIZE;
+    let end_data_block_idx = (file.file_off as usize - 1 + buff.len()) / constants::DISK_SECTOR_SIZE;
     // 如果涉及到间接块，需要申请一个间接块
     if end_data_block_idx >= file.inode.get_direct_data_blocks_ref().len() {
         inode::apply_indirect_data_block(fs, file.inode);
@@ -333,7 +333,7 @@ pub fn read_file(fs: &mut FileSystem, file: &mut OpenedFile, buff: &mut [u8]) ->
 
     let start_data_block_idx = file.file_off as usize / constants::DISK_SECTOR_SIZE;
     // 要写入到文件的最后一个字节，所在该inode数据扇区的下标
-    let end_data_block_idx = (file.file_off as usize + buff.len()) / constants::DISK_SECTOR_SIZE;
+    let end_data_block_idx = (file.file_off as usize - 1 + buff.len()) / constants::DISK_SECTOR_SIZE;
     // 如果涉及到间接块，那么需要加载间接块的数据
     if end_data_block_idx >= file.inode.get_direct_data_blocks_ref().len() {
         inode::load_indirect_data_block(fs, file.inode);
@@ -397,10 +397,10 @@ pub fn read_file(fs: &mut FileSystem, file: &mut OpenedFile, buff: &mut [u8]) ->
         // 不是第一个扇区，也不是最后一个扇区，那就是中间连续的扇区，直接复制就好
         } else {
             // 要操作的buff开始的字节偏移
-            let buf_start_byte_idx = start_bytes_away_sector + (relative_block_idx.min(1) - 1) * constants::DISK_SECTOR_SIZE;
+            let buf_start_byte_idx = start_bytes_away_sector as isize + (relative_block_idx as isize - 1)  * constants::DISK_SECTOR_SIZE as isize;
             // 要操作的buf结束的字节偏移
             let buf_end_byte_idx = start_bytes_away_sector + relative_block_idx * constants::DISK_SECTOR_SIZE;
-            buff[buf_start_byte_idx .. buf_end_byte_idx].copy_from_slice(single_sector_buffer);
+            buff[buf_start_byte_idx as usize .. buf_end_byte_idx].copy_from_slice(single_sector_buffer);
             bytes_read = single_sector_buffer.len();
         }
         succeed_bytes += bytes_read;

@@ -1,10 +1,10 @@
 # 在rust里面使用makefile，确实很奇怪，但是makefile写起来很快，比写build.rs快。所以先这么写着吧
 
 hd60M.img:
-	cp emtpy60M.img build/hd60M.img
+	# cp emtpy60M.img build/hd60M.img
 
 hd80M.img:
-	cp empty80M.img build/hd80M.img
+	# cp empty80M.img build/hd80M.img
 
 mbr.bin:
 	cd mbr && \

@@ -27,3 +27,4 @@ pub mod device;
 pub mod filesystem;
 pub mod fork;
 pub mod shell;
+pub mod exec;

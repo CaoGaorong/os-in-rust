@@ -113,6 +113,9 @@ extern "C" fn init_process() {
         sys_call::ForkResult::Child => {
             println!("im child, my pid is {}", sys_call::get_pid().get_data());
             shell::shell_start();
+            loop {
+                sys_call::thread_yield();
+            }
         },
     }
 }

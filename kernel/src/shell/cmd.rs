@@ -1,6 +1,6 @@
 
 #[derive(Clone, Copy)]
-pub enum Cmd {
+pub enum Cmd<'a> {
     Pwd,
     Cd,
     Ps, 
@@ -8,8 +8,9 @@ pub enum Cmd {
     Clear,
     Mkdir,
     Rmdir,
+    Custom(&'a str)
 }
-impl Cmd {
+impl <'a> Cmd<'a> {
     // pub fn get_name(&self) -> &str {
     //     match self {
     //         Cmd::Cwd => "cwd",
@@ -18,16 +19,16 @@ impl Cmd {
     //         Cmd::Cd => "cd",
     //     }
     // }
-    pub fn get_by_name(name: &str) -> Option<Self> {
+    pub fn get_by_name(name: &'a str) -> Self {
         match name {
-            "pwd" => Option::Some(Self::Pwd),
-            "cd" => Option::Some(Self::Cd),
-            "ps" => Option::Some(Self::Ps),
-            "ls" => Option::Some(Self::Ls),
-            "clear" => Option::Some(Self::Clear),
-            "mkdir" => Option::Some(Self::Mkdir),
-            "rmdir" => Option::Some(Self::Rmdir),
-            _ => Option::None,
+            "pwd" => Self::Pwd,
+            "cd" => Self::Cd,
+            "ps" => Self::Ps,
+            "ls" => Self::Ls,
+            "clear" => Self::Clear,
+            "mkdir" => Self::Mkdir,
+            "rmdir" => Self::Rmdir,
+            _ => Cmd::Custom(name),
         }
     }
 }

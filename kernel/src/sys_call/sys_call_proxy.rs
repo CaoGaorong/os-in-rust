@@ -3,6 +3,7 @@ use core::arch::asm;
 use core::fmt;
 use core::mem::size_of_val;
 
+use crate::exec;
 use crate::filesystem::{self, FileDescriptor, SeekFrom, StdFileDescriptor};
 use crate::pid_allocator::Pid;
 use crate::scancode::KeyCode;
@@ -213,6 +214,13 @@ pub fn remove_file(path: &str) -> Result<(), filesystem::FileError> {
     res
 }
 
+
+#[inline(never)]
+pub fn exec(path: &str) -> Result<(), exec::ExecError> {
+    let mut res: Result<(), exec::ExecError> = Result::Err(exec::ExecError::Init);
+    self::do_sys_call(SystemCallNo::Exec, Option::Some(path.as_ptr() as u32), Option::Some(path.len() as u32), Option::Some(&mut res as *mut _ as u32));
+    return res;
+}
 
 
 

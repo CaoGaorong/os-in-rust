@@ -3,7 +3,7 @@ use os_in_rust_common::racy_cell::RacyCell;
 
 use crate::{print, println, scancode::{Key, ScanCodeType}, sys_call::{self}};
 
-use super::{cmd::Cmd, cmd_cd::{self}, cmd_dir, cmd_ls, cmd_ps, shell::Shell};
+use super::{cmd::Cmd, cmd_cd::{self}, cmd_custom, cmd_dir, cmd_ls, cmd_ps, shell::Shell};
 
 
 const PATH_LEN: usize = 100;
@@ -130,6 +130,9 @@ fn exec_cmd(shell: &mut Shell<PATH_LEN, INPUT_LEN>, buf: &mut [u8]) {
         Cmd::Mkdir => cmd_dir::mkdir(shell.get_cwd(), param, buf),
         // 删除目录
         Cmd::Rmdir => cmd_dir::rmdir(shell.get_cwd(), param, buf),
+        Cmd::Custom(cmd) => {
+            cmd_custom::exec(shell.get_cwd(), cmd, buf);
+        },
     };
 }
 

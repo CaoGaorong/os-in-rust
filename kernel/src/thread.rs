@@ -601,6 +601,12 @@ impl InterruptStack {
         self.ss = SegmentSelector::UserDataSelector as u32;
     }
 
+    #[inline(never)]
+    pub fn init_exec(&mut self, entry: u32) {
+        self.eip = entry;
+        self.esp = 0xC0000000;
+    }
+
     /**
      * 构建默认的eflags寄存器的值
      */

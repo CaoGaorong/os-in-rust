@@ -18,6 +18,7 @@ pub use sys_call_proxy::ForkResult;
 pub use sys_call_proxy::thread_yield;
 pub use sys_call_proxy::clear_screen;
 pub use sys_call_proxy::sys_print;
+pub use sys_call_proxy::exec;
 pub use crate::println;
 pub use crate::print;
 

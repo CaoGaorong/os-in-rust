@@ -147,6 +147,11 @@ pub enum SystemCallNo {
      */
     RemoveFile,
 
+    /**
+     * 执行
+     */
+    Exec,
+
 }
 
 /**
