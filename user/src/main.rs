@@ -7,6 +7,7 @@ use kernel::println;
 
 
 #[no_mangle]
+#[link_section = ".start"]
 pub extern "C" fn _start() {
     println!("Hello, I'm user process");
     loop {}

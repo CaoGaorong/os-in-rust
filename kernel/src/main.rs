@@ -88,16 +88,16 @@ fn test_create_dir() {
 pub extern "C" fn _start(boot_info: &BootContext) {
 
     init::init_all(boot_info);
-    self::test_create_dir();
+    // self::test_create_dir();
     // self::test_read_dir_entry();
     // self::test_create_file();
 
     // 写入和读取文件
-    self::test_write_read_file();
+    // self::test_write_read_file();
 
 
     // 读取并且写入用户进程
-    // read_and_write_user_process();
+    read_and_write_user_process();
 
     // shell::shell_start();
 
@@ -107,6 +107,7 @@ pub extern "C" fn _start(boot_info: &BootContext) {
     }
 }
 
+#[inline(never)]
 fn read_and_write_user_process() {
     const FILE_SIZE: u32 = 4608;
     let sec_cnt = utils::div_ceil(FILE_SIZE, 512);
