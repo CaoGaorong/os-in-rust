@@ -1,4 +1,3 @@
-use core::arch::asm;
 
 use os_in_rust_common::{constants, instruction, paging::{PageTable, PageTableEntry}};
 
@@ -7,11 +6,9 @@ use crate::{interrupt, memory::{self, page_util}, pid_allocator, println, shell,
 /**
  * 用户进程的实现
  */
-#[cfg(all(not(test), target_arch = "x86"))]
 pub extern "C" fn start_process(func_addr: ThreadArg) {
     let pcb_page = thread::current_thread();
 
-    // console_println!("user process:{}", pcb_page.task_struct.name);
     // 申请一个用户页，作为栈空间
     memory::malloc_user_page_by_vaddr(&mut pcb_page.task_struct.vaddr_pool, constants::USER_STACK_TOP_ADDR);
 
@@ -20,21 +17,10 @@ pub extern "C" fn start_process(func_addr: ThreadArg) {
     let pcb_intr_stack_addr = &(pcb_page.interrupt_stack) as *const _ as u32;
     pcb_page.task_struct.kernel_stack = pcb_intr_stack_addr;
     
-
     // 把栈顶，指向中断栈的低地址处，准备恢复中断栈的上下文
-    unsafe {
-        asm!(
-            "mov esp, {:e}",
-            in(reg) pcb_intr_stack_addr
-        )
-    }
+    instruction::set_esp(pcb_intr_stack_addr);
     // 退出中断，恢复上下文数据
     interrupt::intr_exit();
-}
-
-#[cfg(all(not(target_arch = "x86")))]
-pub extern "C" fn start_process(func_addr: ThreadArg) {
-    todo!()
 }
 
 
@@ -117,15 +103,6 @@ extern "C" fn init_process() {
                 sys_call::thread_yield();
             }
         },
-    }
-}
-
-/**
- * 做一个假的sleep
- */
-fn dummy_sleep(instruction_cnt: u32) {
-    for _ in 0 .. instruction_cnt {
-        unsafe {asm!("nop");}
     }
 }
 

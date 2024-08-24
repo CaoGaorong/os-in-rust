@@ -8,11 +8,10 @@
 
 
 use core::{arch::asm, panic::PanicInfo};
-use core::mem::size_of;
 use device::{Disk, Partition};
 use filesystem::{File, FileType, OpenOptions};
 use kernel::filesystem::SeekFrom;
-use kernel::{console_println, device, filesystem, init, memory, println, process, shell, sys_call, thread, thread_management};
+use kernel::{console_println, device, filesystem, init, memory, println, process, program_loader, shell, sys_call, thread, thread_management};
 use os_in_rust_common::domain::LbaAddr;
 use os_in_rust_common::{cstring_utils, disk, instruction, utils, vga, MY_PANIC};
 use os_in_rust_common::{ASSERT, context::BootContext, printk, printkln};
@@ -97,7 +96,7 @@ pub extern "C" fn _start(boot_info: &BootContext) {
 
 
     // 读取并且写入用户进程
-    read_and_write_user_process();
+    program_loader::sync_program(LbaAddr::new(300), 4608, "/userproc");
 
     // shell::shell_start();
 
@@ -105,31 +104,6 @@ pub extern "C" fn _start(boot_info: &BootContext) {
     loop {
         thread_management::thread_yield();
     }
-}
-
-#[inline(never)]
-fn read_and_write_user_process() {
-    const FILE_SIZE: u32 = 4608;
-    let sec_cnt = utils::div_ceil(FILE_SIZE, 512);
-    let channel_idx = 0;
-    let channel = device::get_ata_channel(&channel_idx);
-    ASSERT!(channel.is_some());
-    let channel = channel.as_mut();
-    let channel = channel.unwrap();
-    let disk = channel.disks[0].as_mut();
-    let disk = disk.unwrap();
-    let buff: &mut [u8; FILE_SIZE as usize] = memory::malloc(FILE_SIZE.try_into().unwrap());
-    disk.read_sectors(LbaAddr::new(300), sec_cnt.try_into().unwrap(), buff);
-
-    let file = File::create("/userproc");
-    if file.is_err() {
-        MY_PANIC!("failed to create file. error: {:?}", file.unwrap_err());
-        return;
-    }
-    let mut file = file.unwrap();
-    file.write(buff);
-    memory::sys_free(buff.as_ptr() as usize);
-    printkln!("finish write");
 }
 
 

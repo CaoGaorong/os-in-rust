@@ -1,6 +1,6 @@
 use core::arch::asm;
 
-use os_in_rust_common::{constants, cstr_write, utils, ASSERT};
+use os_in_rust_common::{constants, cstr_write, instruction, utils, ASSERT};
 
 use crate::{filesystem::{self}, interrupt, memory, thread};
 
@@ -28,12 +28,9 @@ pub fn execv(path: &str) -> Result<(), ExecError> {
     let intr_stack_addr = intr_stack as *const _ as u32;
     cur_pcb.task_struct.kernel_stack = intr_stack_addr;
 
-    unsafe {
-        asm!(
-            "mov esp, {0:e}",
-            in(reg) intr_stack_addr
-        );
-    }
+    // 设置esp的值，为这个地址
+    instruction::set_esp(intr_stack_addr);
+    // 中断退出
     interrupt::intr_exit();
     
     return Result::Ok(());

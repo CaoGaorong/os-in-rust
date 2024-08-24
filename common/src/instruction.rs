@@ -119,3 +119,21 @@ pub fn invalidate_page(vaddr: usize) {
 pub fn invalidate_page(vaddr: usize) {
     todo!()
 }
+
+
+#[inline(always)]
+#[cfg(all(not(test), target_arch = "x86"))]
+pub fn set_esp(esp: u32) {
+    unsafe {
+        asm!(
+            "mov esp, {0:e}",
+            in(reg) esp
+        );
+    }
+}
+
+#[inline(always)]
+#[cfg(all(not(target_arch = "x86")))]
+pub fn set_esp(esp: u32) {
+    todo!()
+}
