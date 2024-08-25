@@ -57,5 +57,8 @@ debug: build
 
 clean: 
 	cargo clean && \
-	cd build && rm -rf ./*
+	cd build && rm -rf ./* && \
+	cd .. && \
+	cp emtpy60M.img build/hd60M.img && \
+	cp empty80M.img build/hd80M.img
 

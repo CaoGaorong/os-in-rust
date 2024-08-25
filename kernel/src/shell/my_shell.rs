@@ -131,7 +131,7 @@ fn exec_cmd(shell: &mut Shell<PATH_LEN, INPUT_LEN>, buf: &mut [u8]) {
         // 删除目录
         Cmd::Rmdir => cmd_dir::rmdir(shell.get_cwd(), param, buf),
         Cmd::Custom(cmd) => {
-            cmd_custom::exec(shell.get_cwd(), cmd, buf);
+            cmd_custom::exec(shell.get_cwd(), cmd, param, buf);
         },
     };
 }

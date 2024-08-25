@@ -5,11 +5,22 @@ use core::panic::PanicInfo;
 
 use kernel::println;
 
+use rrt::{_start, env};
 
 #[no_mangle]
-#[link_section = ".start"]
-pub extern "C" fn _start() {
+pub extern "C" fn main() {
     println!("Hello, I'm user process");
+    
+    
+    // 获取传过来的参数
+    let arg = env::get_args();
+    if arg.is_some() {
+        println!("args: {}", arg.unwrap());
+    } else {
+        println!("no args");
+    }
+
+
     loop {}
 }
 

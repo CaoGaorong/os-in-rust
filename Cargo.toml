@@ -7,7 +7,7 @@ edition = "2021"
 
 
 [workspace]
-members = ["mbr", "loader", "common", "tests", "loader2", "kernel", "user"]
+members = ["mbr", "loader", "common", "tests", "loader2", "kernel", "user", "rrt"]
 
 
 [workspace.package]
@@ -18,4 +18,5 @@ edition = "2021"
 os_in_rust_common = { version = "0.1.0", path = "common"}
 kernel = { version = "0.1.0", path = "kernel"}
 user = { version = "0.1.0", path = "user"}
+rrt = { version = "0.1.0", path = "rrt"}
 volatile = "0.2.6"

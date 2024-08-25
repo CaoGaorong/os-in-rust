@@ -6,3 +6,4 @@ edition.workspace = true
 
 [dependencies]
 kernel = { workspace = true }
+rrt = { workspace = true }

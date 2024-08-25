@@ -2,7 +2,7 @@ use core::arch::asm;
 
 use os_in_rust_common::{constants, cstr_write, instruction, utils, ASSERT};
 
-use crate::{filesystem::{self}, interrupt, memory, thread};
+use crate::{common::exec_dto::ExecParam, filesystem::{self}, interrupt, memory, thread};
 
 #[derive(Debug)]
 pub enum ExecError {
@@ -13,17 +13,17 @@ pub enum ExecError {
 const USER_PROC_ENTRY_ADDR: usize = 0xc048000;
 
 #[inline(never)]
-pub fn execv(path: &str) -> Result<(), ExecError> {
+pub fn execv(param: &ExecParam) -> Result<(), ExecError> {
     
     // 把这个文件，加载到0xc048000
-    self::load(path, USER_PROC_ENTRY_ADDR)?;
+    self::load(param.get_file_path(), USER_PROC_ENTRY_ADDR)?;
 
     let cur_pcb = thread::current_thread();
-    cstr_write!(cur_pcb.task_struct.get_name_mut(), "{}", path);
+    cstr_write!(cur_pcb.task_struct.get_name_mut(), "{}", param.get_file_path());
 
     let intr_stack = &mut cur_pcb.interrupt_stack;
     // 这个文件的起始地址，就是执行入口
-    intr_stack.init_exec(USER_PROC_ENTRY_ADDR as u32);
+    intr_stack.init_exec(USER_PROC_ENTRY_ADDR.try_into().unwrap(), param.get_args());
 
     let intr_stack_addr = intr_stack as *const _ as u32;
     cur_pcb.task_struct.kernel_stack = intr_stack_addr;

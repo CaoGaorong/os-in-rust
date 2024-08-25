@@ -3,7 +3,7 @@ use core::{mem::size_of, ptr};
 
 use os_in_rust_common::{instruction, paging::{PageTable, PageTableEntry}, printk, printkln, ASSERT, MY_PANIC};
 
-use crate::memory;
+use crate::{memory, thread};
 
 use super::memory_poll;
 
@@ -25,7 +25,7 @@ pub fn add_page_connection(virtual_addr: usize, physical_addr: usize) {
     let pde =  addr_to_pde(virtual_addr);
     let pte =  addr_to_pte(virtual_addr);
     // 填充pde和pte和物理地址的关系。并且返回 是否新创建了页表
-    self::do_add_page_connection(pde, pte, physical_addr);
+    self::do_add_page_connection(pde, pte, physical_addr, virtual_addr);
 }
 
 
@@ -33,7 +33,7 @@ pub fn add_page_connection(virtual_addr: usize, physical_addr: usize) {
  * 已知pde和pte，我们给定物理地址，然后填充到页目录表和页表中
  */
 #[inline(never)]
-pub fn do_add_page_connection(pde: &mut PageTableEntry, pte: &mut PageTableEntry, physical_addr: usize) {
+pub fn do_add_page_connection(pde: &mut PageTableEntry, pte: &mut PageTableEntry, physical_addr: usize, vaddr: usize) {
     // 如果PDE已经赋值过了
     if pde.present() {
         // PTE一定要没有赋值过
@@ -52,6 +52,8 @@ pub fn do_add_page_connection(pde: &mut PageTableEntry, pte: &mut PageTableEntry
     // 把页表的地址，赋值给这个页目录项
     *pde = PageTableEntry::new_default(apply_kernel_mem.unwrap());
 
+    // 把申请的页表空间，清零
+    *pte.parse_table(self::locate_pte(vaddr)) = PageTable::empty();
     // 然后把我们的物理地址，赋值给这个新页表的这一项
     *pte = PageTableEntry::new_default(physical_addr);
 }
@@ -85,6 +87,16 @@ pub fn addr_to_pde(virtual_addr: usize) -> &'static mut PageTableEntry {
     unsafe { &mut *((0xfffff000 + pde_idx * size_of::<PageTableEntry>() ) as *mut PageTableEntry) }
 }
 
+#[inline(never)]
+pub fn dir_table() -> &'static PageTable {
+    unsafe { &*(0xfffff000 as *const PageTable) }
+}
+
+
+#[inline(never)]
+pub fn page_table(virtual_addr: usize) -> &'static mut PageTable {
+    unsafe { &mut *((0xffc00000 + ((virtual_addr & 0xffc00000) >> 10)) as *mut PageTable) }
+}
 
 /**
  * 构建一个虚拟地址，可以访问到该虚拟地址经过的页表项自身

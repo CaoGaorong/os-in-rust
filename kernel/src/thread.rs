@@ -602,7 +602,12 @@ impl InterruptStack {
     }
 
     #[inline(never)]
-    pub fn init_exec(&mut self, entry: u32) {
+    pub fn init_exec(&mut self, entry: u32, args: Option<&str>) {
+        if args.is_some() {
+            let args = args.unwrap();
+            self.ebx = args.as_ptr() as u32;
+            self.ecx = args.len().try_into().unwrap();
+        }
         self.eip = entry;
         self.esp = 0xC0000000;
     }

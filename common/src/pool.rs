@@ -140,6 +140,16 @@ impl MemPool {
         return true;
     }
 
+
+    pub fn is_set(&self, addr: usize) -> bool {
+        if !self.in_pool(addr) {
+            return false;
+        }
+        // 找到这个地址所在位图的位下标
+        let bit_idx = (addr - self.addr_start) / self.granularity;
+        self.bitmap.is_set(bit_idx)
+    }
+
     /**
      * 判断某个地址，是否在这个池子中
      */

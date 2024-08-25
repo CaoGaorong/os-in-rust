@@ -141,6 +141,9 @@ pub fn free_kernel_page(vaddr: usize, page_cnt: usize, phy_free: bool) {
  */
 #[inline(never)]
 pub fn malloc_user_page_by_vaddr(vaddr_pool: &mut MemPool, vaddr: usize) {
+    if vaddr_pool.is_set(vaddr) {
+        MY_PANIC!("addr: 0x{:x} set", vaddr);
+    }
     let vaddr_pool_set = vaddr_pool.addr_set(vaddr);
     if !vaddr_pool_set {
         MY_PANIC!("vaddr invalid to pool, could not to set vaddr");

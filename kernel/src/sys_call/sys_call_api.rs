@@ -2,7 +2,7 @@ use core::{fmt, mem::size_of, str};
 
 use os_in_rust_common::{printkln, vga, ASSERT, MY_PANIC};
 
-use crate::{blocking_queue::BlockingQueue, console, exec, filesystem::{self, DirError, FileDescriptor}, fork, keyboard, memory, scancode::KeyCode, thread, thread_management};
+use crate::{blocking_queue::BlockingQueue, common::exec_dto::ExecParam, console, exec, filesystem::{self, DirError, FileDescriptor}, fork, keyboard, memory, scancode::KeyCode, thread, thread_management};
 use super::sys_call::{self, HandlerType, SystemCallNo};
 
 /**
@@ -78,7 +78,7 @@ pub fn init() {
     sys_call::register_handler(SystemCallNo::RemoveFile, HandlerType::ThreeParams(remove_file));
     
     // exec
-    sys_call::register_handler(SystemCallNo::Exec, HandlerType::ThreeParams(exec));
+    sys_call::register_handler(SystemCallNo::Exec, HandlerType::TwoParams(exec));
 
 
 }
@@ -320,14 +320,11 @@ fn remove_file(addr: u32, len: u32, res_addr: u32) -> u32 {
 
 
 #[inline(never)]
-fn exec(path_addr: u32, path_len: u32, res_addr: u32) -> u32 {
-    let file_path = unsafe { core::str::from_utf8(core::slice::from_raw_parts(path_addr as *const u8, path_len.try_into().unwrap())) };
-    if file_path.is_err() {
-        MY_PANIC!("file error: {:?}", file_path.unwrap_err());
-        return 0;
-    }
+fn exec(param_addr: u32, res_addr: u32) -> u32 {
+    let param = unsafe { &*(param_addr as *const ExecParam) };
+
     let res = unsafe {&mut *(res_addr as *mut Result<(), exec::ExecError>)};
-    *res = exec::execv(file_path.unwrap());
+    *res = exec::execv(param);
 
     return 0;
 }
