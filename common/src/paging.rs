@@ -172,6 +172,13 @@ impl <'a> Iterator for PageTableEntryIterator<'a> {
     pub fn get_data(&self) -> u32 {
         self.data
     }
+    
+    /**
+     * 获取物理地址（页表项的高20位就是物理地址）
+     */
+    pub fn get_phy_addr(&self) -> u32 {
+        self.data & 0xfffff000
+    }
 
     pub fn parse_table(&mut self, idx: usize) -> &mut PageTable {
         // 当前项的地址 - 前面的项的个数 * 项大小 = 页表的起始地址

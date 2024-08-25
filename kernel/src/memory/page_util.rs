@@ -43,7 +43,7 @@ pub fn do_add_page_connection(pde: &mut PageTableEntry, pte: &mut PageTableEntry
         return;
     }
 
-    // 如果PDE没有赋值，从内核内存池中申请1页
+    // 如果PDE没有赋值，从内核内存池中申请1页，作为页表
     let apply_kernel_mem =  memory_poll::get_kernel_mem_pool().apply_one();
     if apply_kernel_mem.is_err() {
         MY_PANIC!("failed to apply kernel mem, error:{:?}", apply_kernel_mem.err());

@@ -224,6 +224,11 @@ pub fn exec(param: &ExecParam) -> Result<(), exec::ExecError> {
 }
 
 
+#[inline(never)]
+pub fn exit(status: u8) {
+    self::do_sys_call(SystemCallNo::Exit, Option::Some(status as u32), Option::None, Option::None);
+}
+
 
 /**
  * 发起系统调用

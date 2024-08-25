@@ -76,7 +76,7 @@ fn pcb_shallow_fork(from: &PcbPage, to: &mut PcbPage) {
     
     // 申请新的PID
     to_task.pid = pid_allocator::allocate();
-    to_task.parent_pid = from_task.pid;
+    to_task.parent_pid = Option::Some(from_task.pid);
     to_task.pcb_page_addr = to_task as *mut _ as u32;
     // 状态为就绪
     to_task.task_status = TaskStatus::TaskReady;

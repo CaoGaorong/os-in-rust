@@ -1,7 +1,7 @@
 
 use core::ptr;
 
-use os_in_rust_common::{constants, paging::{PageTable, PageTableEntry}, pool::MemPool, printkln, racy_cell::RacyCell, ASSERT, MY_PANIC};
+use os_in_rust_common::{constants, paging::{PageTable, PageTableEntry}, pool::MemPool, racy_cell::RacyCell, ASSERT, MY_PANIC};
 
 use crate::{memory::page_util, sync::Lock, thread::{self, TaskStruct}};
 
@@ -155,6 +155,32 @@ pub fn malloc_user_page_by_vaddr(vaddr_pool: &mut MemPool, vaddr: usize) {
 }
 
 
+#[inline(never)]
+pub fn free_by_addr_pool(vaddr_pool: &MemPool) {
+    // 遍历虚拟地址池
+    for (vaddr, set) in vaddr_pool.iter_valid() {
+        if !set {
+            continue;
+        }
+        // 已知一个虚拟地址，找到这个虚拟地址所在的页表
+        let page_table = page_util::page_table(vaddr);
+        // 遍历页表
+        for page_entry in page_table.iter() {
+            if !page_entry.present() {
+                continue;
+            }
+            // 得到这个页表项中记录的物理地址
+            let phy_addr = page_entry.get_phy_addr();
+            // 把物理地址释放
+            memory_poll::get_user_mem_pool().restore(phy_addr.try_into().unwrap());
+        }
+        // 这个虚拟地址的页目录项
+        let pde = page_util::addr_to_pde(vaddr);
+        ASSERT!(pde.present());
+        // 页目录项保存的是页表的物理地址，释放这个页表自身
+        memory_poll::get_kernel_mem_pool().restore(pde.get_phy_addr().try_into().unwrap());
+    }
+}
 
 /**
  * 已知空间page_data，把这块数据复制一份，并且让to_dir_table页目录表可以访问到

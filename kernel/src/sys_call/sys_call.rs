@@ -152,6 +152,11 @@ pub enum SystemCallNo {
      */
     Exec,
 
+    /**
+     * 系统调用退出
+     */
+    Exit,
+
 }
 
 /**

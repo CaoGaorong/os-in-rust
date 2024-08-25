@@ -233,7 +233,7 @@ pub struct TaskStruct {
     /**
      * 父任务的pid
      */
-    pub parent_pid: Pid,
+    pub parent_pid: Option<Pid>,
     /**
      * PCB内核栈地址
      */
@@ -281,6 +281,8 @@ pub struct TaskStruct {
 
     /**
      * 该进程的虚拟地址池
+     *  虚拟地址池对应的虚拟地址范围，是堆内存的范围
+     *  本系统中，堆内存地址范围是[0x8048000, 0xC0000000)
      */
     pub vaddr_pool: MemPool,
 
@@ -298,6 +300,11 @@ pub struct TaskStruct {
      * 该进程的工作目录的inode
      */
     pub cwd_inode: Option<InodeNo>,
+
+    /**
+     * 该任务退出时，指定的状态
+     */
+    pub exit_status: Option<u8>,
 
     /**
      * 栈边界的魔数
@@ -411,6 +418,18 @@ impl TaskStruct {
         if self.stack_magic != constants::TASK_STRUCT_STACK_MAGIC {
             MY_PANIC!("stack overflow, {}", msg);
         }
+    }
+
+    pub fn find_parent(&self) -> Option<&mut TaskStruct> {
+        if self.parent_pid.is_none() {
+            return Option::None;
+        }
+        // 遍历所有任务
+        self::get_all_thread().iter()
+        .map(|tag| unsafe {&mut *TaskStruct::parse_by_all_tag(&*tag)})
+        // 找到pid是当前任务的parentPid的
+        .filter(|task| task.pid == self.parent_pid.unwrap())
+        .next()
     }
 
 

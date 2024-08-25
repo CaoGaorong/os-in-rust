@@ -278,6 +278,7 @@ pub struct LinkedNodeIterator {
 impl Iterator for LinkedNodeIterator {
     type Item = *mut LinkedNode;
 
+    #[inline(never)]
     fn next(&mut self) -> Option<Self::Item> {
         if self.current == ptr::null_mut() {
             return Option::None;

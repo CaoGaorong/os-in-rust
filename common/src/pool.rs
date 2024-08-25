@@ -171,6 +171,7 @@ impl MemPool {
      * - addr: 要放回的地址
      * return: 是否放回成功
      */
+    #[inline(never)]
     pub fn restore(&mut self, addr: usize) -> bool {
         if !self.in_pool(addr) {
             return false;
