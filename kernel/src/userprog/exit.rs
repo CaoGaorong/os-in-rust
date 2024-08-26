@@ -2,19 +2,21 @@ use os_in_rust_common::{constants, paging::PageTable, pool::MemPool};
 
 use crate::{memory, pid_allocator::Pid, scheduler, thread::{self, TaskStatus, TaskStruct}};
 
+pub type TaskExitStatus = u8;
+
 /**
  * exit系统调用。当某个用户进程调用exit，那么就需要释放这个用户进程的空间
  *   当前任务的所有资源都释放，只剩下当前任务的PCB还在
  */
 #[inline(never)]
-pub fn exit(status: u8) {
+pub fn exit(status: TaskExitStatus) {
     let cur_task = &mut thread::current_thread().task_struct;
     cur_task.exit_status = Option::Some(status);
     
     cur_task.check_stack_magic("failed to exit");
 
     // 自己要退出了，把子进程过继给init
-    self::trans_children_to_init(cur_task.pid);
+    self::trans_children_to_init(cur_task);
     cur_task.check_stack_magic("failed to trans children to init");
 
     // 把当前任务的堆内存资源给释放掉（根据虚拟地址，找到内存空间）
@@ -40,19 +42,14 @@ pub fn exit(status: u8) {
  * 把cur_task任务的子进程过继给init进程
  */
 #[inline(never)]
-fn trans_children_to_init(pid: Pid) {
-    for tag in thread::get_all_thread().iter() {
-        let t = unsafe { &mut *TaskStruct::parse_by_all_tag(&* tag ) };
-        // 找到了当前任务的child
-        if t.parent_pid.is_none() {
-            continue;
-        }
-        if t.parent_pid.unwrap() == pid {
-            // 把这个任务的父，设定为init进程
-            // TODO 怎么确保init进程的pid就是1？
-            t.parent_pid = Option::Some(Pid::new(1));
-        }
+fn trans_children_to_init(task: &TaskStruct) {
+    let child = task.find_child();
+    if child.is_none() {
+        return;
     }
+    // 把这个任务的父，设定为init进程
+    // TODO 怎么确保init进程的pid就是1？
+    child.unwrap().parent_pid = Option::Some(Pid::new(1));
 }
 
 /**

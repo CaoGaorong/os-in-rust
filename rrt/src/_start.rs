@@ -4,6 +4,8 @@
 
 use core::arch::asm;
 
+use kernel::sys_call;
+
 use crate::env;
 
 #[no_mangle]
@@ -35,4 +37,7 @@ pub fn _start() {
             "call main"
         )
     }
+
+    // 执行系统调用退出
+    sys_call::exit(0);
 }

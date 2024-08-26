@@ -5,6 +5,7 @@ edition.workspace = true
 
 [dependencies]
 os_in_rust_common = { workspace = true }
+kernel = { workspace = true }
 
 [profile.release]
 opt-level = "s"

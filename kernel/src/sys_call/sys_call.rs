@@ -156,6 +156,10 @@ pub enum SystemCallNo {
      * 系统调用退出
      */
     Exit,
+    /**
+     * 系统调用等待
+     */
+    Wait,
 
 }
 

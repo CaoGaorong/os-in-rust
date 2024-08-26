@@ -155,29 +155,41 @@ pub fn malloc_user_page_by_vaddr(vaddr_pool: &mut MemPool, vaddr: usize) {
 }
 
 
+/**
+ * 释放某个虚拟地址池的所有内存
+ *    - 根据虚拟地址池的开始地址和结束地址
+ *    - 遍历页目录表的每一项，然后看页目录项是否赋值
+ *    - 如果这个页目录项存在，那么找到其中的页表，然后回收掉这个页表指向的所有内存空间（4MB）以及这个页表自身的空间
+ */
 #[inline(never)]
 pub fn free_by_addr_pool(vaddr_pool: &MemPool) {
-    // 遍历虚拟地址池
-    for (vaddr, set) in vaddr_pool.iter_valid() {
-        if !set {
+    // 遍历虚拟地址池的开始地址
+    let start_addr = vaddr_pool.addr_start;
+    // 虚拟地址池的结束地址
+    let end_addr = start_addr + vaddr_pool.bitmap.bits_len() * vaddr_pool.granularity;
+
+    // 遍历地址池的地址。跨度是4K * 1024（1个页表的地址）
+    for vaddr in (start_addr..end_addr).step_by(vaddr_pool.granularity * constants::PAGE_TABLE_ENTRY_COUNT) {
+        // 查询页目录项
+        let pde = page_util::addr_to_pde(vaddr);
+        
+        // 如果页目录项都不存在，那么这一项就无需处理了
+        if !pde.present() {
             continue;
         }
         // 已知一个虚拟地址，找到这个虚拟地址所在的页表
         let page_table = page_util::page_table(vaddr);
-        // 遍历页表
+        // 遍历页表，回收掉这个页表指向的所有空间
         for page_entry in page_table.iter() {
             if !page_entry.present() {
                 continue;
             }
             // 得到这个页表项中记录的物理地址
             let phy_addr = page_entry.get_phy_addr();
-            // 把物理地址释放
+            // 用户内存池释放
             memory_poll::get_user_mem_pool().restore(phy_addr.try_into().unwrap());
         }
-        // 这个虚拟地址的页目录项
-        let pde = page_util::addr_to_pde(vaddr);
-        ASSERT!(pde.present());
-        // 页目录项保存的是页表的物理地址，释放这个页表自身
+        // 释放页表自身（内核内存池）
         memory_poll::get_kernel_mem_pool().restore(pde.get_phy_addr().try_into().unwrap());
     }
 }

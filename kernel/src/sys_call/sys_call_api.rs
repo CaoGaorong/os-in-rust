@@ -2,7 +2,7 @@ use core::{fmt, mem::size_of, str};
 
 use os_in_rust_common::{printkln, vga, ASSERT, MY_PANIC};
 
-use crate::{blocking_queue::BlockingQueue, common::exec_dto::ExecParam, console, exec, filesystem::{self, DirError, FileDescriptor}, fork, keyboard, memory, scancode::KeyCode, thread, thread_management, userprog};
+use crate::{blocking_queue::BlockingQueue, common::exec_dto::ExecParam, console, exec, filesystem::{self, DirError, FileDescriptor}, fork, keyboard, memory, pid_allocator::Pid, scancode::KeyCode, thread, thread_management, userprog::{self, TaskExitStatus}};
 use super::sys_call::{self, HandlerType, SystemCallNo};
 
 /**
@@ -82,6 +82,9 @@ pub fn init() {
     
     // exit
     sys_call::register_handler(SystemCallNo::Exit, HandlerType::OneParam(exit));
+    
+    // wait
+    sys_call::register_handler(SystemCallNo::Wait, HandlerType::OneParam(wait));
 
 
 }
@@ -335,5 +338,12 @@ fn exec(param_addr: u32, res_addr: u32) -> u32 {
 #[inline(never)]
 fn exit(status: u32) -> u32 {
     userprog::exit(status as u8);
+    0
+}
+
+#[inline(never)]
+fn wait(res_addr: u32) -> u32 {
+    let res = unsafe { &mut *(res_addr as *mut Option<(Pid, Option<TaskExitStatus>)>) };
+    *res = userprog::wait();
     0
 }

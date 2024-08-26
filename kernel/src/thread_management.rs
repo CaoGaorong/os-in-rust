@@ -4,7 +4,7 @@ use os_in_rust_common::{
     bitmap::BitMap, constants, instruction, pool::MemPool, utils, ASSERT
 };
 
-use crate::{memory, pid_allocator, scheduler, thread::{self, PcbPage, TaskStatus, ThreadArg, ThreadFunc}};
+use crate::{memory, pid_allocator, scheduler, thread::{self, PcbPage, TaskStatus, TaskStruct, ThreadArg, ThreadFunc}};
 
 
 #[inline(never)]
@@ -156,4 +156,28 @@ pub fn apply_user_addr_pool() -> MemPool {
     let bitmap_array = unsafe { core::slice::from_raw_parts_mut(bitmap_addr as *mut u8, bitmap_byte_len) };
     // 进程的虚拟地址池
     MemPool::new(constants::USER_PROCESS_ADDR_START, BitMap::new(bitmap_array))
+}
+
+
+
+/**
+ * 某个线程退出
+ */
+#[inline(never)]
+pub fn free_thread(task: &mut TaskStruct) {
+    // let old_status = instruction::disable_interrupt();
+    // task.task_status = TaskStatus::TaskDied;
+
+    // // 从就绪队列移除
+    // thread::remove_from_ready_thread(task);
+    // // 从全部队列移除
+    // thread::remove_from_all_thread(task);
+
+    // // 释放pid
+    // pid_allocator::release(task.pid);
+
+    // // 把这PCB占用的一整页内核空间给释放掉
+    // memory::free_kernel_page(task as *const _ as usize, 1, true);
+
+    // instruction::set_interrupt(old_status);
 }

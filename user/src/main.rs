@@ -3,7 +3,7 @@
 
 use core::panic::PanicInfo;
 
-use kernel::println;
+use kernel::{println, sys_call};
 
 use rrt::{_start, env};
 
@@ -19,9 +19,8 @@ pub extern "C" fn main() {
     } else {
         println!("no args");
     }
-
-
-    loop {}
+    // 调用系统调用退出，错误码是10
+    sys_call::exit(10);
 }
 
 #[panic_handler]

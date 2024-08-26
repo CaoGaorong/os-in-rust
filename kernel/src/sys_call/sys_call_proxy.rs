@@ -8,6 +8,7 @@ use crate::exec;
 use crate::filesystem::{self, FileDescriptor, SeekFrom, StdFileDescriptor};
 use crate::pid_allocator::Pid;
 use crate::scancode::KeyCode;
+use crate::userprog::TaskExitStatus;
 
 use super::sys_call::SystemCallNo;
 
@@ -225,8 +226,15 @@ pub fn exec(param: &ExecParam) -> Result<(), exec::ExecError> {
 
 
 #[inline(never)]
-pub fn exit(status: u8) {
+pub fn exit(status: TaskExitStatus) {
     self::do_sys_call(SystemCallNo::Exit, Option::Some(status as u32), Option::None, Option::None);
+}
+
+#[inline(never)]
+pub fn wait() -> Option<(Pid, Option<u8>)> {
+    let mut res: Option<(Pid, Option<u8>)> = Option::None;
+    self::do_sys_call(SystemCallNo::Wait, Option::Some(&mut res as *mut _ as u32), Option::None,  Option::None);
+    res
 }
 
 

@@ -3,7 +3,6 @@ use os_in_rust_common::{bios_mem::{ARDSType, AddressRangeDescriptorStructure}, c
 use crate::{device, filesystem, interrupt, memory, process, sys_call, thread, thread_management, tss};
 
 #[inline(never)]
-#[no_mangle]
 pub fn init_all(boot_info: &BootContext) {
     // 初始化中断描述符和中断控制器
     interrupt::init();

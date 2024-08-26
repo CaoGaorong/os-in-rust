@@ -73,6 +73,7 @@ dependencies = [
 name = "rrt"
 version = "0.1.0"
 dependencies = [
+ "kernel",
  "os_in_rust_common",
 ]
 

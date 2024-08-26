@@ -95,6 +95,13 @@ extern "C" fn init_process() {
             loop {
                 sys_call::thread_yield();
             }
+            // let wait_res = sys_call::wait();
+            // if wait_res.is_none() {
+            //     println!("child process exit with no result, child pid:{}", child_pid.get_data());
+            //     return;
+            // }
+            // let (cpid, exit_status) = wait_res.unwrap();
+            // println!("child process exit with {:?}, child pid:{}", exit_status, cpid.get_data());
         },
         sys_call::ForkResult::Child => {
             println!("im child, my pid is {}", sys_call::get_pid().get_data());

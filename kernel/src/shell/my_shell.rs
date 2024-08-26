@@ -1,5 +1,5 @@
 
-use os_in_rust_common::racy_cell::RacyCell;
+use os_in_rust_common::{racy_cell::RacyCell, MY_PANIC};
 
 use crate::{print, println, scancode::{Key, ScanCodeType}, sys_call::{self}};
 
@@ -131,7 +131,21 @@ fn exec_cmd(shell: &mut Shell<PATH_LEN, INPUT_LEN>, buf: &mut [u8]) {
         // 删除目录
         Cmd::Rmdir => cmd_dir::rmdir(shell.get_cwd(), param, buf),
         Cmd::Custom(cmd) => {
-            cmd_custom::exec(shell.get_cwd(), cmd, param, buf);
+            let fork_res = sys_call::fork();
+            match fork_res {
+                sys_call::ForkResult::Parent(child_id) => {
+                    // 阻塞等待子进程退出
+                    let wait_res = sys_call::wait();
+                    if wait_res.is_none() {
+                        println!("child process does not exit");
+                    }
+                    let (chpid, exit_status) = wait_res.unwrap();
+                    println!("child process exit. fork child pid:{}, child pid:{}, child status:{:?}", child_id.get_data(), chpid.get_data(), exit_status);
+                },
+                sys_call::ForkResult::Child => {
+                    cmd_custom::exec(shell.get_cwd(), cmd, param, buf);
+                },
+            }
         },
     };
 }

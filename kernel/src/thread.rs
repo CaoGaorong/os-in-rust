@@ -2,7 +2,7 @@ use core::{arch::asm, fmt::{write, Display}, mem::size_of, ptr};
 
 use os_in_rust_common::{constants, cstr_write, cstring_utils, domain::InodeNo, elem2entry, instruction::{self, enable_interrupt}, linked_list::{LinkedList, LinkedNode, LinkedNodeIterator}, paging::{self, PageTable}, pool::MemPool, printkln, racy_cell::RacyCell, reg_cr3::{self, CR3}, reg_eflags::{self, EFlags, FlagEnum}, selector::SegmentSelector, utils, ASSERT, MY_PANIC};
 
-use crate::{console_println, console_print, filesystem::FileDescriptorTable, interrupt, memory::{page_util, MemBlockAllocator}, pid_allocator::Pid, tss};
+use crate::{console_println, filesystem::FileDescriptorTable, interrupt, memory::{page_util, MemBlockAllocator}, pid_allocator::Pid, tss, userprog::TaskExitStatus};
 
 
 /**
@@ -38,6 +38,10 @@ pub fn append_all_thread(thread: &mut TaskStruct) {
     get_all_thread().append(&mut thread.all_tag);
 }
 
+// #[inline(never)]
+// pub fn remove_from_all_thread(thread_to_remove: &TaskStruct) {
+//     self::get_all_thread().remove(&thread_to_remove.all_tag);
+// }
 
 #[inline(never)]
 pub fn get_ready_thread() -> &'static mut LinkedList{
@@ -48,6 +52,11 @@ pub fn get_ready_thread() -> &'static mut LinkedList{
 pub fn append_read_thread(thread: &mut TaskStruct) {
     get_ready_thread().append(&mut thread.general_tag);
 }
+
+// #[inline(never)]
+// pub fn remove_from_ready_thread(thread: &TaskStruct) {
+//     self::get_ready_thread().remove(&thread.general_tag)
+// }
 
 #[inline(never)]
 pub fn set_idle_thread(thread: &'static mut TaskStruct) {
@@ -304,7 +313,7 @@ pub struct TaskStruct {
     /**
      * 该任务退出时，指定的状态
      */
-    pub exit_status: Option<u8>,
+    pub exit_status: Option<TaskExitStatus>,
 
     /**
      * 栈边界的魔数
@@ -420,6 +429,7 @@ impl TaskStruct {
         }
     }
 
+    #[inline(never)]
     pub fn find_parent(&self) -> Option<&mut TaskStruct> {
         if self.parent_pid.is_none() {
             return Option::None;
@@ -430,6 +440,19 @@ impl TaskStruct {
         // 找到pid是当前任务的parentPid的
         .filter(|task| task.pid == self.parent_pid.unwrap())
         .next()
+    }
+
+    #[inline(never)]
+    pub fn find_child(&self) -> Option<&'static mut TaskStruct> {
+        // 遍历所有任务
+        for tag in self::get_all_thread().iter() {
+            let task = unsafe {&mut *TaskStruct::parse_by_all_tag(&*tag)};
+            let task_parent_id = task.parent_pid;
+            if task_parent_id.is_some() && task_parent_id.unwrap() == self.pid {
+                return Option::Some(task);
+            }
+        }
+        return Option::None;
     }
 
 
