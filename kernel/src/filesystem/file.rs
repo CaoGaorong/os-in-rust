@@ -108,7 +108,7 @@ pub fn open_file(file_path: &str, append: bool) -> Result<FileDescriptor, FileEr
     let (_, file_inode) = searched_file.unwrap();
 
     // // 如果打开的是一个文件夹，不允许打开
-    // if searched_file.file_type as FileType == FileType::Directory {
+    // if entry.file_type as FileType == FileType::Directory {
     //     return Result::Err(FileError::IsADirectory);
     // }
     

@@ -1,4 +1,4 @@
-use crate::{println, sys_call};
+use crate::sys_call;
 
 use super::shell_util;
 
@@ -14,5 +14,8 @@ pub fn cd<'a>(cwd: &str, param: Option<&str>, buf: &'a mut [u8]) -> Option<&'a s
     if res.is_err() {
         return Option::None;
     }
+    // 系统调用，切换当前任务的工作目录
+    sys_call::change_dir(abs_path)?;
+
     return Option::Some(abs_path);
 }

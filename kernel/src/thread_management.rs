@@ -165,19 +165,19 @@ pub fn apply_user_addr_pool() -> MemPool {
  */
 #[inline(never)]
 pub fn free_thread(task: &mut TaskStruct) {
-    // let old_status = instruction::disable_interrupt();
-    // task.task_status = TaskStatus::TaskDied;
+    let old_status = instruction::disable_interrupt();
+    task.task_status = TaskStatus::TaskDied;
 
-    // // 从就绪队列移除
-    // thread::remove_from_ready_thread(task);
-    // // 从全部队列移除
-    // thread::remove_from_all_thread(task);
+    // 从就绪队列移除
+    thread::remove_from_ready_thread(task);
+    // 从全部队列移除
+    thread::remove_from_all_thread(task);
 
-    // // 释放pid
-    // pid_allocator::release(task.pid);
+    // 释放pid
+    pid_allocator::release(task.pid);
 
-    // // 把这PCB占用的一整页内核空间给释放掉
-    // memory::free_kernel_page(task as *const _ as usize, 1, true);
+    // 把这PCB占用的一整页内核空间给释放掉
+    memory::free_kernel_page(task as *const _ as usize, 1, true);
 
-    // instruction::set_interrupt(old_status);
+    instruction::set_interrupt(old_status);
 }

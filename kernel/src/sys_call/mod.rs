@@ -21,6 +21,8 @@ pub use sys_call_proxy::sys_print;
 pub use sys_call_proxy::exec;
 pub use sys_call_proxy::exit;
 pub use sys_call_proxy::wait;
+pub use sys_call_proxy::get_cwd;
+pub use sys_call_proxy::change_dir;
 pub use crate::println;
 pub use crate::print;
 

@@ -12,6 +12,7 @@ pub fn exec(cwd: &str, cmd: &str, param: Option<&str>, buff: &mut [u8]) {
     }
     
     let cmd_path = cmd_path.unwrap();
+
     let exec_param = ExecParam::new(cmd_path, param);
     
     // 执行exec系统调用

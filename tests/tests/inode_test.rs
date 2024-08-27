@@ -1,9 +1,8 @@
 #[cfg(test)]
 mod tests {
-    use std::{array, fs::{read, File}, io::{BufReader, Read, Seek}, mem::size_of, os::unix::fs::FileExt, slice};
+    use std::{fs::File, mem::size_of, slice};
 
-    use kernel::{filesystem::{constant, dir::DirEntry, inode::{Inode, OpenedInode}, superblock::SuperBlock}};
-    use os_in_rust_common::constants;
+    use kernel::filesystem::{DirEntry, inode::{Inode, OpenedInode}, superblock::SuperBlock};
     use tests::file_system;
     
 

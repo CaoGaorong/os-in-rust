@@ -38,10 +38,10 @@ pub fn append_all_thread(thread: &mut TaskStruct) {
     get_all_thread().append(&mut thread.all_tag);
 }
 
-// #[inline(never)]
-// pub fn remove_from_all_thread(thread_to_remove: &TaskStruct) {
-//     self::get_all_thread().remove(&thread_to_remove.all_tag);
-// }
+#[inline(never)]
+pub fn remove_from_all_thread(thread_to_remove: &TaskStruct) {
+    self::get_all_thread().remove(&thread_to_remove.all_tag);
+}
 
 #[inline(never)]
 pub fn get_ready_thread() -> &'static mut LinkedList{
@@ -53,10 +53,10 @@ pub fn append_read_thread(thread: &mut TaskStruct) {
     get_ready_thread().append(&mut thread.general_tag);
 }
 
-// #[inline(never)]
-// pub fn remove_from_ready_thread(thread: &TaskStruct) {
-//     self::get_ready_thread().remove(&thread.general_tag)
-// }
+#[inline(never)]
+pub fn remove_from_ready_thread(thread: &TaskStruct) {
+    self::get_ready_thread().remove(&thread.general_tag)
+}
 
 #[inline(never)]
 pub fn set_idle_thread(thread: &'static mut TaskStruct) {

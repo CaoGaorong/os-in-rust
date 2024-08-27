@@ -67,6 +67,7 @@ pub fn allocate() -> Pid {
 /**
  * 释放某一个pid
  */
+#[inline(never)]
 pub fn release(pid_to_release: Pid) {
     let pid_to_release = pid_to_release.data;
     let mut pid_pool = unsafe { GLOBAL_PID_POOL.lock() };

@@ -1,6 +1,5 @@
 
 use os_in_rust_common::{array_deque::ArrayDeque, cstring_utils};
-use crate::println;
 
 #[derive(Debug)]
 #[derive(Clone, Copy)]

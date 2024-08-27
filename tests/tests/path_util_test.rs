@@ -7,6 +7,8 @@ mod tests {
         let mut abs_path = [0; 100];
         let result = shell_util::get_abs_path("/dev/", "..", &mut abs_path);
         println!("res:{:?}" , result);
+
+        println!("{}", shell_util::get_abs_path("/", "hello", &mut abs_path).unwrap())
     }
 
 

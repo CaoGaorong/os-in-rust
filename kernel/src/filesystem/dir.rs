@@ -1,7 +1,7 @@
 use os_in_rust_common::domain::InodeNo;
-use os_in_rust_common::{ASSERT, MY_PANIC, printkln};
+use os_in_rust_common::{instruction, printkln, ASSERT, MY_PANIC};
 use crate::filesystem::dir_entry::DirEntrySearchReq;
-use crate::memory;
+use crate::{memory, thread};
 use crate::thread::TaskStruct;
 
 use super::{dir_entry::{self, FileType}, file, file_util, fs::{self, FileSystem}, inode::{self, OpenedInode}};
@@ -14,7 +14,11 @@ use super::{dir_entry::{self, FileType}, file, file_util, fs::{self, FileSystem}
 
 #[inline(never)]
 pub fn init_root_dir() {
+    // 设置文件小系统的根目录
     self::load_root_dir();
+
+    // 每个任务的当前工作目录都设置为根目录
+    self::set_root_dir_for_task();
 }
 
 /**
@@ -27,6 +31,17 @@ pub fn load_root_dir() {
     file_system.set_root_inode(root_inode);
 }
 
+
+#[inline(never)]
+fn set_root_dir_for_task() {
+    let old = instruction::disable_interrupt();
+    let file_system = fs::get_filesystem();
+    for tag in thread::get_all_thread().iter() {
+        let task = unsafe { &mut *TaskStruct::parse_by_all_tag(&*tag) };
+        task.cwd_inode = Option::Some(file_system.super_block.root_inode_no);
+    }
+    instruction::set_interrupt(old);
+}
 /**
  * 在parent_dir目录下，创建一个名为dir_name的子目录
  */
@@ -52,9 +67,9 @@ pub fn mkdir(fs: &mut FileSystem, parent_dir_inode: &mut OpenedInode, dir_name: 
  * 得到这个任务的工作路径
  */
 #[inline(never)]
-pub fn get_cwd(task: &TaskStruct, path: &mut [u8]) {
+pub fn get_cwd<'a>(task: &TaskStruct, path: &'a mut [u8]) -> Option<&'a str> {
     if task.cwd_inode.is_none() {
-        return;
+        return Option::None;
     }
 
     let buf: &mut [u8; 100] = memory::malloc(100);
@@ -91,6 +106,10 @@ pub fn get_cwd(task: &TaskStruct, path: &mut [u8]) {
         idx += entry_name.len();
         base_inode = parent_inode;
     }
+    if idx == 0 {
+        buf[idx ..idx + 1].copy_from_slice("/".as_bytes());
+        idx += "/".len();
+    }
 
     let min_len = path.len().min(buf.len()).min(idx);
     let from_path = core::str::from_utf8(&buf[.. min_len]);
@@ -98,11 +117,13 @@ pub fn get_cwd(task: &TaskStruct, path: &mut [u8]) {
         MY_PANIC!("failed to get work directory. error:{:?}", from_path);
     }
     let from_path = from_path.unwrap();
-    printkln!("from path:{},", from_path);
 
     file_util::reverse_path(&from_path[..min_len], "/", &mut path[..min_len]);
 
     memory::sys_free(buf.as_ptr() as usize);
+    
+    let path = core::str::from_utf8(&path[..min_len]);
+    Option::Some(path.unwrap())
 }
 
 

@@ -91,7 +91,7 @@ extern "C" fn init_process() {
     let fork_res = sys_call::fork();
     match fork_res {
         sys_call::ForkResult::Parent(child_pid) => {
-            println!("i'm father, my pid is {}, my child pid is {}", sys_call::get_pid().get_data(), child_pid.get_data());
+            // println!("i'm father, my pid is {}, my child pid is {}", sys_call::get_pid().get_data(), child_pid.get_data());
             loop {
                 sys_call::thread_yield();
             }
@@ -104,7 +104,7 @@ extern "C" fn init_process() {
             // println!("child process exit with {:?}, child pid:{}", exit_status, cpid.get_data());
         },
         sys_call::ForkResult::Child => {
-            println!("im child, my pid is {}", sys_call::get_pid().get_data());
+            // println!("im child, my pid is {}", sys_call::get_pid().get_data());
             shell::shell_start();
             loop {
                 sys_call::thread_yield();

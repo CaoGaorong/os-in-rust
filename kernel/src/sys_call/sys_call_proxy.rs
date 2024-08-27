@@ -3,6 +3,7 @@ use core::arch::asm;
 use core::fmt;
 use core::mem::size_of_val;
 
+use crate::common::cwd_dto::CwdDto;
 use crate::common::exec_dto::ExecParam;
 use crate::exec;
 use crate::filesystem::{self, FileDescriptor, SeekFrom, StdFileDescriptor};
@@ -234,6 +235,24 @@ pub fn exit(status: TaskExitStatus) {
 pub fn wait() -> Option<(Pid, Option<u8>)> {
     let mut res: Option<(Pid, Option<u8>)> = Option::None;
     self::do_sys_call(SystemCallNo::Wait, Option::Some(&mut res as *mut _ as u32), Option::None,  Option::None);
+    res
+}
+
+
+#[inline(never)]
+pub fn get_cwd(path: &mut[u8]) -> &str {
+    let mut dto = CwdDto {
+        buff: path,
+        str: Option::None,
+    };
+    self::do_sys_call(SystemCallNo::Cwd, Option::Some(&mut dto as *mut _ as u32), Option::None, Option::None);
+    dto.str.unwrap()
+}
+
+#[inline(never)]
+pub fn change_dir(path: &str) -> Option<()> {
+    let mut res: Option<()> = Option::None;
+    self::do_sys_call(SystemCallNo::Cd, Option::Some(path.as_ptr() as u32), Option::Some(path.len() as u32), Option::Some(&mut res as *mut _ as u32));
     res
 }
 

@@ -1,5 +1,11 @@
 pub struct ExecParam<'a> {
+    /**
+     * 执行某个文件的绝对路径
+     */
     file_path: &'a str,
+    /**
+     * 执行某个文件的参数
+     */
     args: Option<&'a str>,
 }
 impl <'a> ExecParam<'a> {

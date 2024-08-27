@@ -177,20 +177,24 @@ pub fn free_by_addr_pool(vaddr_pool: &MemPool) {
         if !pde.present() {
             continue;
         }
+        
         // 已知一个虚拟地址，找到这个虚拟地址所在的页表
         let page_table = page_util::page_table(vaddr);
-        // 遍历页表，回收掉这个页表指向的所有空间
-        for page_entry in page_table.iter() {
-            if !page_entry.present() {
+        for idx in 0 .. page_table.size() {
+            let pte = page_table.get_entry_mut(idx);
+            if !pte.present() {
                 continue;
             }
             // 得到这个页表项中记录的物理地址
-            let phy_addr = page_entry.get_phy_addr();
+            let phy_addr = pte.get_phy_addr();
             // 用户内存池释放
             memory_poll::get_user_mem_pool().restore(phy_addr.try_into().unwrap());
+            pte.set_present(false);
         }
+
         // 释放页表自身（内核内存池）
         memory_poll::get_kernel_mem_pool().restore(pde.get_phy_addr().try_into().unwrap());
+        pde.set_present(false);
     }
 }
 

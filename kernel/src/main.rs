@@ -87,7 +87,7 @@ fn test_create_dir() {
 pub extern "C" fn _start(boot_info: &BootContext) {
 
     init::init_all(boot_info);
-    // self::test_create_dir();
+    self::test_create_dir();
     // self::test_read_dir_entry();
     // self::test_create_file();
 
@@ -97,9 +97,14 @@ pub extern "C" fn _start(boot_info: &BootContext) {
 
     // 读取并且写入用户进程
     program_loader::sync_program(LbaAddr::new(300), 4608, "/userproc");
+    program_loader::sync_program(LbaAddr::new(310), 4608, "/cat");
+    program_loader::sync_program(LbaAddr::new(320), 4608, "/main.rs");
 
-    // shell::shell_start();
 
+    // let buff: &mut [u8; 20] = sys_call::malloc(20);
+    // let cur_task = &thread::current_thread().task_struct;
+    // let cwd = filesystem::get_cwd(cur_task, buff);
+    // println!("cwd: {:?}", cwd.unwrap());
     
     loop {
         thread_management::thread_yield();

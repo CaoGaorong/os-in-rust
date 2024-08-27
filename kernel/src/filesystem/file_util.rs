@@ -28,6 +28,7 @@ pub fn split_file_path(path: &str) -> Option<(&str, &str)> {
 
 // #[inline(never)]
 pub fn reverse_path(src: &str, separator: &str, dest: &mut [u8]) {
+    let src = src.trim();
     assert!(dest.len() >= src.len());
     // 目标字符串
     let dest = &mut dest[..src.len()];
@@ -111,8 +112,8 @@ pub mod test {
 
     #[test]
     pub fn test_reverse_str() {
-        let src = "/proc/dev ";
-        let mut buf = [0u8; 20];
+        let src = "/";
+        let mut buf = [0u8; 100];
         reverse_path(src, "/", &mut buf);
         let dest = core::str::from_utf8(&mut buf).unwrap();
         println!("src :{}, len:{}", src, src.len());

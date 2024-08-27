@@ -2,7 +2,7 @@ use core::{fmt, mem::size_of, str};
 
 use os_in_rust_common::{printkln, vga, ASSERT, MY_PANIC};
 
-use crate::{blocking_queue::BlockingQueue, common::exec_dto::ExecParam, console, exec, filesystem::{self, DirError, FileDescriptor}, fork, keyboard, memory, pid_allocator::Pid, scancode::KeyCode, thread, thread_management, userprog::{self, TaskExitStatus}};
+use crate::{blocking_queue::BlockingQueue, common::{cwd_dto::CwdDto, exec_dto::ExecParam}, console, exec, filesystem::{self, DirError, FileDescriptor}, fork, keyboard, memory, pid_allocator::Pid, scancode::KeyCode, thread, thread_management, userprog::{self, TaskExitStatus}};
 use super::sys_call::{self, HandlerType, SystemCallNo};
 
 /**
@@ -86,6 +86,11 @@ pub fn init() {
     // wait
     sys_call::register_handler(SystemCallNo::Wait, HandlerType::OneParam(wait));
 
+    // cwd
+    sys_call::register_handler(SystemCallNo::Cwd, HandlerType::OneParam(get_cwd));
+    
+    // cd
+    sys_call::register_handler(SystemCallNo::Cd, HandlerType::ThreeParams(change_dir));
 
 }
 
@@ -345,5 +350,22 @@ fn exit(status: u32) -> u32 {
 fn wait(res_addr: u32) -> u32 {
     let res = unsafe { &mut *(res_addr as *mut Option<(Pid, Option<TaskExitStatus>)>) };
     *res = userprog::wait();
+    0
+}
+
+#[inline(never)]
+fn get_cwd(dto_addr: u32) -> u32 {
+    let cwd_dto = unsafe { &mut *(dto_addr as *mut CwdDto) };
+    let cur_task = &thread::current_thread().task_struct;
+    cwd_dto.str = filesystem::get_cwd(cur_task, cwd_dto.buff);
+    return 0;
+}
+
+#[inline(never)]
+fn change_dir(path_addr: u32, path_len: u32, res_addr: u32) -> u32 {
+    let path = unsafe { core::str::from_utf8(core::slice::from_raw_parts(path_addr as *const u8, path_len.try_into().unwrap())) }.unwrap();
+    let res = unsafe { &mut *(res_addr as *mut Option<()>) };
+    let cur_task = &mut thread::current_thread().task_struct;
+    *res = filesystem::change_dir(cur_task, path);
     0
 }
