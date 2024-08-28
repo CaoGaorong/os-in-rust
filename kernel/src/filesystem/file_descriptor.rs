@@ -21,11 +21,19 @@ pub enum StdFileDescriptor {
 }
 
 
+#[derive(Debug, PartialEq)]
+#[derive(Clone, Copy)]
+pub enum FileDescriptorType {
+    File,
+    Pipe
+}
+
 #[derive(Debug)]
 #[derive(Clone, Copy)]
-#[repr(transparent)]
+#[repr(C)]
 pub struct FileDescriptor {
-    value: usize
+    value: usize,
+    fd_type: FileDescriptorType,
 }
 
 impl Display for FileDescriptor {
@@ -36,14 +44,26 @@ impl Display for FileDescriptor {
 }
 
 impl FileDescriptor {
-    pub fn new(value: usize) -> Self {
+    pub fn new_fd(value: usize) -> Self {
         Self {
             value,
+            fd_type: FileDescriptorType::File,
+        }
+    }
+
+    pub fn new(value: usize, fd_type: FileDescriptorType) -> Self {
+        Self {
+            value,
+            fd_type,
         }
     }
 
     pub fn get_value(&self) -> usize {
         self.value
+    }
+
+    pub fn get_type(&self) -> FileDescriptorType {
+        self.fd_type
     }
 }
 
@@ -94,7 +114,7 @@ impl FileDescriptorTable {
      * 给当前进程的文件描述符表，安装一个全局文件描述符
      */
     #[inline(never)]
-    pub fn install_fd(&mut self, global_file_descriptor: usize) -> Option<FileDescriptor> {
+    pub fn install_fd(&mut self, global_file_descriptor: usize, fd_type: FileDescriptorType) -> Option<FileDescriptor> {
         // 当前的文件描述符表，找到空位
         let slot_idx = self.get_free_slot();
         if slot_idx.is_none() {
@@ -105,7 +125,7 @@ impl FileDescriptorTable {
         self.data[slot_idx] = Option::Some(global_file_descriptor);
         
         // 数组下标，就是文件描述符
-        Option::Some(FileDescriptor::new(slot_idx))
+        Option::Some(FileDescriptor::new(slot_idx, fd_type))
     }
 
     pub fn get_global_idx(&self, fd: FileDescriptor) -> Option<usize> {

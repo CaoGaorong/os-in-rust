@@ -17,6 +17,7 @@ pub use fs::get_filesystem;
 pub use file_descriptor::FileDescriptorTable;
 pub use file_descriptor::FileDescriptor;
 pub use file_descriptor::StdFileDescriptor;
+pub use file_descriptor::FileDescriptorType;
 
 pub use file::FileError;
 pub use file::read_file;

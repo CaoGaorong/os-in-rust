@@ -1,8 +1,8 @@
 use core::{fmt, mem::size_of, str};
 
-use os_in_rust_common::{printk, printkln, vga::{self}, ASSERT, MY_PANIC};
+use os_in_rust_common::{vga::{self}, ASSERT, MY_PANIC};
 
-use crate::{blocking_queue::BlockingQueue, common::{cwd_dto::CwdDto, exec_dto::ExecParam}, console, console_print, exec, filesystem::{self, DirError, FileDescriptor}, fork, keyboard, memory, pid_allocator::Pid, scancode::KeyCode, thread, thread_management, userprog::{self, TaskExitStatus}};
+use crate::{blocking_queue::BlockingQueue, common::{cwd_dto::CwdDto, exec_dto::ExecParam}, console, console_print, exec, filesystem::{self, DirError, FileDescriptor, FileDescriptorType}, fork, keyboard, memory, pid_allocator::Pid, pipe::{self, PipeError, PipeReader, PipeWriter}, scancode::KeyCode, thread, thread_management, userprog::{self, TaskExitStatus}};
 use super::sys_call::{self, HandlerType, SystemCallNo};
 
 /**
@@ -91,7 +91,12 @@ pub fn init() {
     
     // cd
     sys_call::register_handler(SystemCallNo::Cd, HandlerType::ThreeParams(change_dir));
-
+    
+    // 创建管道
+    sys_call::register_handler(SystemCallNo::PipeCreate, HandlerType::TwoParams(pipe_create));
+    
+    // 关闭管道
+    sys_call::register_handler(SystemCallNo::PipeEnd, HandlerType::OneParam(pipe_end));
 }
 
 /**
@@ -106,17 +111,29 @@ fn get_pid() -> u32 {
  * write系统调用
  */
 #[inline(never)]
-fn write(fd: u32, addr: u32, len: u32) -> u32 {
-
+fn write(fd_addr: u32, addr: u32, len: u32) -> u32 {
+    let fd  = unsafe { *(fd_addr as *const FileDescriptor) };
     let buf = unsafe { core::slice::from_raw_parts_mut(addr as *mut u8, len.try_into().unwrap()) };
 
-    let fd = FileDescriptor::new(fd.try_into().unwrap());
     if filesystem::StdFileDescriptor::StdOutputNo as usize == fd.get_value() {
         let str_res = str::from_utf8(buf);
         ASSERT!(str_res.is_ok());
         let string = str_res.unwrap();
         console_print!("{}", string);
         return string.len() as u32;
+    }
+
+
+    // 如果是管道
+    if fd.get_type() == FileDescriptorType::Pipe {
+        let pipe_container = pipe::get_pipe_by_fd(fd);
+        if pipe_container.is_none() {
+            return 0;
+        }
+        let pipe_container = pipe_container.unwrap();
+        pipe_container.write(buf);
+        
+        return 0;
     }
 
     
@@ -129,8 +146,8 @@ fn write(fd: u32, addr: u32, len: u32) -> u32 {
  * read系统调用
  */
 #[inline(never)]
-fn read(fd: u32, buf: u32, len: u32) -> u32 {
-    let fd = FileDescriptor::new(fd.try_into().unwrap());
+fn read(fd_addr: u32, buf: u32, len: u32) -> u32 {
+    let fd  = unsafe { *(fd_addr as *const FileDescriptor) };
     let buf = unsafe { core::slice::from_raw_parts_mut(buf as *mut u8, len.try_into().unwrap()) };
     // 如果是标准输入
     if filesystem::StdFileDescriptor::StdInputNo as usize == fd.get_value() {
@@ -140,7 +157,7 @@ fn read(fd: u32, buf: u32, len: u32) -> u32 {
         let keyboard_queue = keyboard::get_keycode_queue();
         while idx < key_buff.len() {
             // 逐个取出输入的键，直到满了
-            let key_res = keyboard_queue.take();
+            let key_res = keyboard_queue.take().unwrap();
             if key_res.is_none() {
                 continue;
             }
@@ -149,6 +166,18 @@ fn read(fd: u32, buf: u32, len: u32) -> u32 {
         }
         return idx.try_into().unwrap();
     }
+
+    // 如果是管道
+    if fd.get_type() == FileDescriptorType::Pipe {
+        // 根据文件描述符，找到管道
+        let pipe_container = pipe::get_pipe_by_fd(fd);
+        ASSERT!(pipe_container.is_some());
+        let pipe_container = pipe_container.unwrap();
+
+        // 从管道里读取出数据
+        return pipe_container.read(buf).try_into().unwrap();
+    }
+
 
     // 根据文件描述符，得到这个文件
     let file = filesystem::get_file_by_fd(fd).unwrap();
@@ -368,5 +397,23 @@ fn change_dir(path_addr: u32, path_len: u32, res_addr: u32) -> u32 {
     let res = unsafe { &mut *(res_addr as *mut Option<()>) };
     let cur_task = &mut thread::current_thread().task_struct;
     *res = filesystem::change_dir(cur_task, path);
+    0
+}
+
+#[inline(never)]
+fn pipe_create(size: u32, res_addr: u32) -> u32 {
+    let res = unsafe { &mut *(res_addr as *mut Result<(PipeReader, PipeWriter), PipeError>) };
+    *res = pipe::pipe(size as usize);
+    0
+}
+
+#[inline(never)]
+fn pipe_end(fd: u32) -> u32 {
+    let fd = FileDescriptor::new_fd(fd.try_into().unwrap());
+    let pipe = pipe::get_pipe_by_fd(fd);
+    if pipe.is_none() {
+        return 0;
+    }
+    pipe.unwrap().write_end();
     0
 }

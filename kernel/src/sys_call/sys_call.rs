@@ -171,6 +171,14 @@ pub enum SystemCallNo {
      */
     Cd,
 
+    /**
+     * 创建pipe
+     */
+    PipeCreate,
+    /**
+     * pipe结束
+     */
+    PipeEnd,
 }
 
 /**

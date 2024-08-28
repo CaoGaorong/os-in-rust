@@ -31,3 +31,4 @@ pub mod exec;
 pub mod program_loader;
 mod common;
 pub mod userprog;
+pub mod pipe;

@@ -124,7 +124,7 @@ pub fn open_file(file_path: &str, append: bool) -> Result<FileDescriptor, FileEr
     // 然后安装到当前任务的「文件结构数组」中
     let file_table_idx = global_file_idx.unwrap();
     let cur_task = &mut thread::current_thread().task_struct;
-    let fd = cur_task.fd_table.install_fd(file_table_idx);
+    let fd = cur_task.fd_table.install_fd(file_table_idx, super::FileDescriptorType::File);
     // 当前任务没有空位了
     if fd.is_none() {
         return Result::Err(FileError::FileExceedTask);
@@ -179,7 +179,7 @@ pub fn create_file(file_path: &str) -> Result<FileDescriptor, FileError> {
 
     // 然后安装到当前任务的「文件结构数组」中
     let file_table_idx = global_file_idx.unwrap();
-    let fd = thread::current_thread().task_struct.fd_table.install_fd(file_table_idx);
+    let fd = thread::current_thread().task_struct.fd_table.install_fd(file_table_idx, super::FileDescriptorType::File);
     // 当前任务没有空位了
     if fd.is_none() {
         return Result::Err(FileError::FileExceedTask);

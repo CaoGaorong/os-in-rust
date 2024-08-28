@@ -10,7 +10,7 @@ pub trait Queue<T: Copy> {
     /**
      * 取出数据
      */
-    fn poll(&mut self) -> T;
+    fn poll(&mut self) -> Option<T>;
     /**
      * 队列大小
      */
@@ -41,6 +41,10 @@ impl <'a, T: Copy> ArrayQueue<'a, T> {
             len: 0, 
         }
     }
+
+    pub fn get_data(&mut self) -> &mut[T] {
+        self.buffer
+    }
 }
 
 pub enum QueueError {
@@ -64,14 +68,17 @@ impl<'a, T: Copy> Queue<T> for ArrayQueue<'a, T> {
     /**
      * 从队列头取出一个元素出来
      */
-    fn poll(&mut self) -> T {
+    fn poll(&mut self) -> Option<T> {
+        if self.size() == 0 {
+            return Option::None;
+        }
         let e = self.buffer[0];
         // 把数组元素，往前挪动
         for i in 0..self.buffer.len() - 1 {
             self.buffer[i] = self.buffer[i + 1];
         }
         self.len -= 1;
-        e
+        Option::Some(e)
     }
 
     fn size(&self) -> u32 {

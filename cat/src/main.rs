@@ -41,7 +41,7 @@ pub extern "C" fn main() {
             println!("error:{:?}", s.unwrap_err());
             break;
         }
-        sys_call::write(FileDescriptor::new(StdFileDescriptor::StdOutputNo as usize), buff);
+        sys_call::write(FileDescriptor::new_fd(StdFileDescriptor::StdOutputNo as usize), buff);
     }
 }
 

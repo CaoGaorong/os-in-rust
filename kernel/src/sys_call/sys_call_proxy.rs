@@ -8,6 +8,7 @@ use crate::common::exec_dto::ExecParam;
 use crate::exec;
 use crate::filesystem::{self, FileDescriptor, SeekFrom, StdFileDescriptor};
 use crate::pid_allocator::Pid;
+use crate::pipe::{PipeError, PipeReader, PipeWriter};
 use crate::scancode::KeyCode;
 use crate::userprog::TaskExitStatus;
 
@@ -60,7 +61,7 @@ pub fn sys_print(args: fmt::Arguments) {
  * 写入字符
  */
 pub fn write(fd: FileDescriptor, buff: &[u8]) {
-    do_sys_call(SystemCallNo::Write, Option::Some(fd.get_value().try_into().unwrap()), Option::Some(buff.as_ptr() as u32), Option::Some(buff.len().try_into().unwrap()));
+    do_sys_call(SystemCallNo::Write, Option::Some(&fd as *const _ as u32), Option::Some(buff.as_ptr() as u32), Option::Some(buff.len().try_into().unwrap()));
 }
 
 /**
@@ -115,12 +116,12 @@ pub fn clear_screen() {
 pub fn read_key() -> KeyCode {
     let mut key = KeyCode::empty();
     let buf = unsafe { core::slice::from_raw_parts_mut(&mut key as *mut _ as *mut u8, size_of_val(&key)) };
-    self::read(FileDescriptor::new(StdFileDescriptor::StdInputNo as usize), buf);
+    self::read(FileDescriptor::new_fd(StdFileDescriptor::StdInputNo as usize), buf);
     key
 }
 
 pub fn read(fd: FileDescriptor, buff: &mut[u8]) -> usize {
-    self::do_sys_call(SystemCallNo::Read, Option::Some(fd.get_value().try_into().unwrap()), Option::Some(buff.as_mut_ptr() as u32), Option::Some(buff.len() as u32)) as usize
+    self::do_sys_call(SystemCallNo::Read, Option::Some(&fd as *const _ as u32), Option::Some(buff.as_mut_ptr() as u32), Option::Some(buff.len() as u32)) as usize
 }
 
 
@@ -256,6 +257,18 @@ pub fn change_dir(path: &str) -> Option<()> {
     res
 }
 
+#[inline(never)]
+pub fn pipe(size: usize) -> Result<(PipeReader, PipeWriter), PipeError> {
+    let mut res: Result<(PipeReader, PipeWriter), PipeError> = Result::Err(PipeError::PipeExhaust);
+    self::do_sys_call(SystemCallNo::PipeCreate, Option::Some(size as u32), Option::Some(&mut res as *mut _ as u32), Option::None);
+    res
+}
+
+
+#[inline(never)]
+pub fn pipe_end(fd: FileDescriptor) {
+    self::do_sys_call(SystemCallNo::PipeEnd, Option::Some(fd.get_value() as u32), Option::None, Option::None);
+}
 
 /**
  * 发起系统调用
