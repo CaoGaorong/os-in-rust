@@ -119,8 +119,8 @@ pub fn read_key() -> KeyCode {
     key
 }
 
-pub fn read(fd: FileDescriptor, buff: &mut[u8]) {
-    self::do_sys_call(SystemCallNo::Read, Option::Some(fd.get_value().try_into().unwrap()), Option::Some(buff.as_mut_ptr() as u32), Option::Some(buff.len() as u32));
+pub fn read(fd: FileDescriptor, buff: &mut[u8]) -> usize {
+    self::do_sys_call(SystemCallNo::Read, Option::Some(fd.get_value().try_into().unwrap()), Option::Some(buff.as_mut_ptr() as u32), Option::Some(buff.len() as u32)) as usize
 }
 
 

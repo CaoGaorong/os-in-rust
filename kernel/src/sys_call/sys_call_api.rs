@@ -1,8 +1,8 @@
 use core::{fmt, mem::size_of, str};
 
-use os_in_rust_common::{printkln, vga, ASSERT, MY_PANIC};
+use os_in_rust_common::{printk, printkln, vga::{self}, ASSERT, MY_PANIC};
 
-use crate::{blocking_queue::BlockingQueue, common::{cwd_dto::CwdDto, exec_dto::ExecParam}, console, exec, filesystem::{self, DirError, FileDescriptor}, fork, keyboard, memory, pid_allocator::Pid, scancode::KeyCode, thread, thread_management, userprog::{self, TaskExitStatus}};
+use crate::{blocking_queue::BlockingQueue, common::{cwd_dto::CwdDto, exec_dto::ExecParam}, console, console_print, exec, filesystem::{self, DirError, FileDescriptor}, fork, keyboard, memory, pid_allocator::Pid, scancode::KeyCode, thread, thread_management, userprog::{self, TaskExitStatus}};
 use super::sys_call::{self, HandlerType, SystemCallNo};
 
 /**
@@ -105,6 +105,7 @@ fn get_pid() -> u32 {
 /**
  * write系统调用
  */
+#[inline(never)]
 fn write(fd: u32, addr: u32, len: u32) -> u32 {
 
     let buf = unsafe { core::slice::from_raw_parts_mut(addr as *mut u8, len.try_into().unwrap()) };
@@ -114,7 +115,7 @@ fn write(fd: u32, addr: u32, len: u32) -> u32 {
         let str_res = str::from_utf8(buf);
         ASSERT!(str_res.is_ok());
         let string = str_res.unwrap();
-        printkln!("{}", string);
+        console_print!("{}", string);
         return string.len() as u32;
     }
 

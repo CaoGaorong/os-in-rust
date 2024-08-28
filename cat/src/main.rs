@@ -3,7 +3,7 @@
 
 use core::panic::PanicInfo;
 
-use kernel::{println, shell::shell_util, sys_call};
+use kernel::{filesystem::{FileDescriptor, StdFileDescriptor}, print, println, shell::shell_util, sys_call};
 
 use rrt::{_start, env};
 
@@ -20,14 +20,33 @@ pub extern "C" fn main() {
     let cwd = sys_call::get_cwd(buff);
 
     let buff: &mut [u8; 20] = sys_call::malloc(20);
-    println!("cwd:{}, input_path:{}", cwd, input_path);
-    // let abs_path = shell_util::get_abs_path(cwd, input_path, buff).unwrap();
-    // println!("abs path:{}", abs_path);
+    let abs_path = shell_util::get_abs_path(cwd, input_path, buff).unwrap();
 
+    let file = sys_call::File::open(abs_path);
+    
+    if file.is_err() {
+        println!("failed to cat, error: {:?}", file.unwrap_err());
+        return;
+    }
+    let file = file.unwrap();
+    loop {
+        // read file data from file and to buffer
+        let read_bytes = file.read(buff);
+        if read_bytes == 0 {
+            break;
+        }
+        // convert byte buff to string
+        let s = core::str::from_utf8(buff);
+        if s.is_err() {
+            println!("error:{:?}", s.unwrap_err());
+            break;
+        }
+        sys_call::write(FileDescriptor::new(StdFileDescriptor::StdOutputNo as usize), buff);
+    }
 }
 
 #[panic_handler]
 fn panic(_info: &PanicInfo) -> ! {
-    println!("user process panic");
+    println!("user process panic, error:{:?}", _info);
     loop {}
 }

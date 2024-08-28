@@ -344,11 +344,13 @@ pub fn sync_inode(fs: &mut FileSystem, opened_inode: &mut OpenedInode) {
     if indirect_block_lba.is_empty() {
         return;
     }
+    // 把缓冲区清空一下
+    unsafe { buf.as_mut_ptr().write_bytes(0, buf.len()) };
 
-    // 间接块里面全部都是LBA地址
-    let indirect_block_sec_lba = unsafe { slice::from_raw_parts_mut(buff_addr as *mut LbaAddr, constants::DISK_SECTOR_SIZE * 2) };
+    // 间接块（一个块）里面全部都是LBA地址
+    let indirect_block_sec_lba = unsafe { slice::from_raw_parts_mut(buf.as_mut_ptr() as *mut LbaAddr, buf.len() / size_of::<LbaAddr>()) };
     // 用内存的数据，覆盖硬盘的数据
-    indirect_block_sec_lba.copy_from_slice(opened_inode.get_indirect_data_blocks_ref());
+    indirect_block_sec_lba[..opened_inode.get_indirect_data_blocks_ref().len()].copy_from_slice(opened_inode.get_indirect_data_blocks_ref());
     // 写回到硬盘中
     disk.write_sector(buf, *indirect_block_lba, 1);
 }

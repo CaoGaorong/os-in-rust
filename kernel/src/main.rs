@@ -13,7 +13,7 @@ use filesystem::{File, FileType, OpenOptions};
 use kernel::filesystem::SeekFrom;
 use kernel::{console_println, device, filesystem, init, memory, println, process, program_loader, shell, sys_call, thread, thread_management};
 use os_in_rust_common::domain::LbaAddr;
-use os_in_rust_common::{cstring_utils, disk, instruction, utils, vga, MY_PANIC};
+use os_in_rust_common::{constants, cstring_utils, disk, instruction, utils, vga, MY_PANIC};
 use os_in_rust_common::{ASSERT, context::BootContext, printk, printkln};
 
 
@@ -87,7 +87,7 @@ fn test_create_dir() {
 pub extern "C" fn _start(boot_info: &BootContext) {
 
     init::init_all(boot_info);
-    self::test_create_dir();
+    // self::test_create_dir();
     // self::test_read_dir_entry();
     // self::test_create_file();
 
@@ -96,9 +96,9 @@ pub extern "C" fn _start(boot_info: &BootContext) {
 
 
     // 读取并且写入用户进程
-    program_loader::sync_program(LbaAddr::new(300), 4608, "/userproc");
-    program_loader::sync_program(LbaAddr::new(310), 4608, "/cat");
-    program_loader::sync_program(LbaAddr::new(320), 4608, "/main.rs");
+    program_loader::sync_program(LbaAddr::new(300), 10 * constants::DISK_SECTOR_SIZE, "/userproc");
+    program_loader::sync_program(LbaAddr::new(310), 100 * constants::DISK_SECTOR_SIZE, "/cat");
+    program_loader::sync_program(LbaAddr::new(430), 1340, "/main.rs");
 
 
     // let buff: &mut [u8; 20] = sys_call::malloc(20);

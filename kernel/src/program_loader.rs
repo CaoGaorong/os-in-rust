@@ -13,7 +13,7 @@ use crate::{device, filesystem::File, memory};
 #[inline(never)]
 pub fn sync_program(file_lba: LbaAddr, file_size: usize, file_path_to_sync: &str) {
     // 文件占用的扇区数量
-    let sec_cnt = utils::div_ceil(file_size as u32, constants::DISK_SECTOR_SIZE as u32);
+    let sec_cnt = utils::div_ceil(file_size as u32, constants::DISK_SECTOR_SIZE as u32) as usize;
     
     // 主channel
     let channel_idx = 0;
@@ -27,10 +27,10 @@ pub fn sync_program(file_lba: LbaAddr, file_size: usize, file_path_to_sync: &str
     let disk = disk.unwrap();
 
     // 创建一个缓冲区
-    let buff = unsafe { core::slice::from_raw_parts_mut(memory::sys_malloc(file_size) as *mut u8, file_size) };
+    let buff = unsafe { core::slice::from_raw_parts_mut(memory::sys_malloc(sec_cnt * constants::DISK_SECTOR_SIZE) as *mut u8, sec_cnt * constants::DISK_SECTOR_SIZE) };
     
     // 把这个文件从缓冲区读取出来
-    disk.read_sectors(file_lba, sec_cnt.try_into().unwrap(), buff);
+    disk.read_sectors(file_lba, sec_cnt, buff);
 
     
     // 创建这个文件

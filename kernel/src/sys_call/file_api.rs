@@ -95,7 +95,7 @@ impl File {
      * 从该文件中读取数据
      */
     #[inline(never)]
-    pub fn read(&self, buff: &mut [u8]) {
+    pub fn read(&self, buff: &mut [u8]) -> usize {
         sys_call_proxy::read(self.file.get_file_descriptor(), buff)
     }
 
