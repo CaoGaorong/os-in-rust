@@ -4,6 +4,7 @@ use core::mem::size_of;
 use os_in_rust_common::{cstr_write, printk, MY_PANIC};
 use os_in_rust_common::{constants, linked_list::LinkedNode, paging::PageTable, printkln, ASSERT};
 
+use crate::filesystem::FileDescriptorType;
 use crate::process;
 use crate::{filesystem::{self}, memory::{self, MemBlockAllocator}, pid_allocator::{self, Pid}, thread::{self, PcbPage, TaskStatus, TaskStruct}, thread_management};
 
@@ -161,7 +162,11 @@ fn reopen_file(task: &mut TaskStruct) {
         if descriptor.is_none() {
             continue;
         }
-        let opened_file = filesystem::get_opened_file(descriptor.unwrap());
+        let descriptor = descriptor.unwrap();
+        if descriptor.get_fd_type() != FileDescriptorType::File {
+            continue;
+        }
+        let opened_file = filesystem::get_opened_file(descriptor.get_global_idx());
         if opened_file.is_none() {
             continue;
         }

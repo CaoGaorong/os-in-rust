@@ -2,7 +2,7 @@ use core::{arch::asm, fmt::{write, Display}, mem::size_of, ptr};
 
 use os_in_rust_common::{constants, cstr_write, cstring_utils, domain::InodeNo, elem2entry, instruction::{self, enable_interrupt}, linked_list::{LinkedList, LinkedNode, LinkedNodeIterator}, paging::{self, PageTable}, pool::MemPool, printkln, racy_cell::RacyCell, reg_cr3::{self, CR3}, reg_eflags::{self, EFlags, FlagEnum}, selector::SegmentSelector, utils, ASSERT, MY_PANIC};
 
-use crate::{console_println, filesystem::FileDescriptorTable, interrupt, memory::{page_util, MemBlockAllocator}, pid_allocator::Pid, tss, userprog::TaskExitStatus};
+use crate::{console_println, filesystem::TaskFileDescriptorTable, interrupt, memory::{page_util, MemBlockAllocator}, pid_allocator::Pid, tss, userprog::TaskExitStatus};
 
 
 /**
@@ -276,7 +276,7 @@ pub struct TaskStruct {
     /**
      * 该任务的文件描述符数组
      */
-    pub fd_table: FileDescriptorTable,
+    pub fd_table: TaskFileDescriptorTable,
 
     /**
      * 该pcb的通用链表tag。
@@ -347,7 +347,7 @@ impl TaskStruct {
         self.general_tag = LinkedNode::new();
         self.all_tag = LinkedNode::new();
         self.pcb_page_addr = pcb_page_addr;
-        self.fd_table = FileDescriptorTable::new();
+        self.fd_table = TaskFileDescriptorTable::new();
     }
 
     #[inline(never)]

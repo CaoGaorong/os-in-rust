@@ -1,4 +1,4 @@
-use core::{fmt, mem::size_of, str};
+use core::{fmt, mem::{size_of, take}, str, task};
 
 use os_in_rust_common::{vga::{self}, ASSERT, MY_PANIC};
 
@@ -123,23 +123,31 @@ fn write(fd_addr: u32, addr: u32, len: u32) -> u32 {
         return string.len() as u32;
     }
 
-
+    
+    // 根据文件描述符找
+    let task_file_descriptor = filesystem::get_task_file_descriptor(fd);
+    if task_file_descriptor.is_none() {
+        return 0;
+    }
+    let task_file_descriptor = task_file_descriptor.unwrap();
+    
     // 如果是管道
-    if fd.get_type() == FileDescriptorType::Pipe {
+    if task_file_descriptor.get_fd_type() == FileDescriptorType::Pipe {
         let pipe_container = pipe::get_pipe_by_fd(fd);
         if pipe_container.is_none() {
             return 0;
         }
         let pipe_container = pipe_container.unwrap();
         pipe_container.write(buf);
-        
         return 0;
     }
-
-    
-    let file = filesystem::get_file_by_fd(fd).unwrap();
-    let fs = filesystem::get_filesystem();
-    filesystem::write_file(fs, file, buf).try_into().unwrap()
+    // 普通文件
+    if task_file_descriptor.get_fd_type() == FileDescriptorType::File {
+        let file = filesystem::get_file_by_fd(fd).unwrap();
+        let fs = filesystem::get_filesystem();
+        return filesystem::write_file(fs, file, buf).try_into().unwrap()
+    }
+    return 0;
 }
 
 /**
@@ -167,8 +175,13 @@ fn read(fd_addr: u32, buf: u32, len: u32) -> u32 {
         return idx.try_into().unwrap();
     }
 
+
+    let task_file_descriptor = filesystem::get_task_file_descriptor(fd);
+    ASSERT!(task_file_descriptor.is_some());
+    let task_file_descriptor = task_file_descriptor.unwrap();
+
     // 如果是管道
-    if fd.get_type() == FileDescriptorType::Pipe {
+    if task_file_descriptor.get_fd_type() == FileDescriptorType::Pipe {
         // 根据文件描述符，找到管道
         let pipe_container = pipe::get_pipe_by_fd(fd);
         ASSERT!(pipe_container.is_some());
@@ -178,12 +191,15 @@ fn read(fd_addr: u32, buf: u32, len: u32) -> u32 {
         return pipe_container.read(buf).try_into().unwrap();
     }
 
-
-    // 根据文件描述符，得到这个文件
-    let file = filesystem::get_file_by_fd(fd).unwrap();
-    let fs = filesystem::get_filesystem();
-    // 读取文件
-    filesystem::read_file(fs, file, buf).try_into().unwrap()
+    // 普通文件
+    if task_file_descriptor.get_fd_type() == FileDescriptorType::File {
+        // 根据文件描述符，得到这个文件
+        let file = filesystem::get_file_by_fd(fd).unwrap();
+        let fs = filesystem::get_filesystem();
+        // 读取文件
+        return filesystem::read_file(fs, file, buf).try_into().unwrap();
+    }
+    return 0;
 }
 
 /**
@@ -409,7 +425,7 @@ fn pipe_create(size: u32, res_addr: u32) -> u32 {
 
 #[inline(never)]
 fn pipe_end(fd: u32) -> u32 {
-    let fd = FileDescriptor::new_fd(fd.try_into().unwrap());
+    let fd = FileDescriptor::new(fd.try_into().unwrap());
     let pipe = pipe::get_pipe_by_fd(fd);
     if pipe.is_none() {
         return 0;

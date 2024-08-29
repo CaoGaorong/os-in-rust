@@ -1,8 +1,10 @@
+use core::task;
+
 use os_in_rust_common::racy_cell::RacyCell;
 
 use crate::{filesystem::constant, thread};
 
-use super::{file::OpenedFile, FileDescriptor, FileError};
+use super::{file::OpenedFile, file_descriptor::TaskFileDescriptor, FileDescriptor, FileDescriptorType, FileError};
 
 
 /**
@@ -75,21 +77,31 @@ pub fn get_opened_file(idx: usize) -> Option<&'static mut OpenedFile> {
     file_table.table[idx].as_mut()
 }
 
+
+pub fn get_task_file_descriptor(fd: FileDescriptor) -> Option<TaskFileDescriptor>{
+    // 先根据文件描述符找
+    let cur_task = &thread::current_thread().task_struct;
+    let fd_table = &cur_task.fd_table;
+    fd_table.get_task_file_descriptor(fd)
+}
+
 /**
  * 根据当前任务的文件描述符，得到对应打开的文件
  */
 #[inline(never)]
 pub fn get_file_by_fd(fd: FileDescriptor) -> Result<&'static mut OpenedFile, FileError> {
-    // 先根据文件描述符找
-    let cur_task = &thread::current_thread().task_struct;
-    let fd_table = &cur_task.fd_table;
-    let global_idx = fd_table.get_global_idx(fd);
-    if global_idx.is_none() {
+    let task_file_descriptor = self::get_task_file_descriptor(fd);
+
+    if task_file_descriptor.is_none() {
         return Result::Err(FileError::FileDescriptorNotFound);
     }
+    let task_file_descriptor = task_file_descriptor.unwrap();
+    if task_file_descriptor.get_fd_type() != FileDescriptorType::File {
+        return Result::Err(FileError::BadDescriptor);
+    }
+    let global_idx = task_file_descriptor.get_global_idx();
 
     // 在全局文件结构表里面查找
-    let global_idx = global_idx.unwrap();
     let opened_file = self::get_opened_file(global_idx);
     if opened_file.is_none() {
         return Result::Err(FileError::GlobalFileStructureNotFound);

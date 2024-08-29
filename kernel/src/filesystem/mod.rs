@@ -14,7 +14,7 @@ mod file_util;
 
 pub use fs::get_filesystem;
 
-pub use file_descriptor::FileDescriptorTable;
+pub use file_descriptor::TaskFileDescriptorTable;
 pub use file_descriptor::FileDescriptor;
 pub use file_descriptor::StdFileDescriptor;
 pub use file_descriptor::FileDescriptorType;
@@ -53,3 +53,4 @@ pub use file_api::remove_file;
 
 pub use global_file_table::get_opened_file;
 pub use global_file_table::get_file_by_fd;
+pub use global_file_table::get_task_file_descriptor;

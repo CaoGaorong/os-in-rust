@@ -25,7 +25,7 @@ pub extern "C" fn main() {
     let file = sys_call::File::open(abs_path);
     
     if file.is_err() {
-        println!("failed to cat, error: {:?}", file.unwrap_err());
+        println!("failed to cat, file:{} {:?}", abs_path, file.unwrap_err());
         return;
     }
     let file = file.unwrap();
@@ -41,7 +41,7 @@ pub extern "C" fn main() {
             println!("error:{:?}", s.unwrap_err());
             break;
         }
-        sys_call::write(FileDescriptor::new_fd(StdFileDescriptor::StdOutputNo as usize), buff);
+        sys_call::write(FileDescriptor::new(StdFileDescriptor::StdOutputNo as usize), buff);
     }
 }
 

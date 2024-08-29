@@ -15,7 +15,7 @@ pub extern "C" fn main() {
         return;
     }
     let args = args.unwrap().trim();
-    sys_call::write(FileDescriptor::new_fd(StdFileDescriptor::StdOutputNo as usize), args.as_bytes());
+    sys_call::write(FileDescriptor::new(StdFileDescriptor::StdOutputNo as usize), args.as_bytes());
 }
 
 #[panic_handler]

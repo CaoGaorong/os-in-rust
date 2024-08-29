@@ -1,7 +1,7 @@
-use core::ptr::addr_of;
+use core::{ptr::addr_of, task};
 
 use os_in_rust_common::racy_cell::RacyCell;
-use crate::{blocking_queue::{ArrayBlockingQueue, BlockingQueue}, filesystem::FileDescriptor, memory, thread};
+use crate::{blocking_queue::{ArrayBlockingQueue, BlockingQueue}, filesystem::{FileDescriptor, FileDescriptorType}, memory, thread};
 
 
 const PILE_LIST_SIZE: usize = 10;
@@ -13,16 +13,19 @@ const NONE_PIPE: Option<PipeContainer<'static, u8>> = Option::None;
 static PIPE_LIST: RacyCell<[Option<PipeContainer<'static, u8>>; PILE_LIST_SIZE]> = RacyCell::new([NONE_PIPE; PILE_LIST_SIZE]);
 
 
+#[inline(never)]
 pub fn get_pipe_list() -> &'static mut [Option<PipeContainer<'static, u8>>] {
     unsafe { PIPE_LIST.get_mut() }
 }
 
+#[inline(never)]
 fn get_pipe(idx: usize) -> &'static mut  Option<PipeContainer<'static, u8>> {
     &mut self::get_pipe_list()[idx]
 }
 
 
 
+#[inline(never)]
 pub fn install_pipe(container: PipeContainer<'static, u8>) -> Option<usize> {
     let pipe_list = self::get_pipe_list();
     for (idx, pipe) in pipe_list.iter_mut().enumerate() {
@@ -37,9 +40,14 @@ pub fn install_pipe(container: PipeContainer<'static, u8>) -> Option<usize> {
 /**
  * 通过文件描述符或者
  */
+#[inline(never)]
 pub fn get_pipe_by_fd(fd: FileDescriptor) -> Option<&'static mut PipeContainer<'static, u8>> {
     let cur_task = &thread::current_thread().task_struct;
-    let global_idx = cur_task.fd_table.get_global_idx(fd)?;
+    let task_file_descriptor = cur_task.fd_table.get_task_file_descriptor(fd)?;
+    if task_file_descriptor.get_fd_type() != FileDescriptorType::Pipe {
+        return Option::None;
+    }
+    let global_idx = task_file_descriptor.get_global_idx();
     self::get_pipe(global_idx).as_mut()
 }
 

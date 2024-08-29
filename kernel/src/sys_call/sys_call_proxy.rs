@@ -116,7 +116,7 @@ pub fn clear_screen() {
 pub fn read_key() -> KeyCode {
     let mut key = KeyCode::empty();
     let buf = unsafe { core::slice::from_raw_parts_mut(&mut key as *mut _ as *mut u8, size_of_val(&key)) };
-    self::read(FileDescriptor::new_fd(StdFileDescriptor::StdInputNo as usize), buf);
+    self::read(FileDescriptor::new(StdFileDescriptor::StdInputNo as usize), buf);
     key
 }
 

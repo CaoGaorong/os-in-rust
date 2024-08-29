@@ -4,7 +4,41 @@ use super::shell_util;
 use crate::println;
 
 #[inline(never)]
-pub fn exec(cwd: &str, cmd: &str, param: Option<&str>, buff: &mut [u8]) {
+pub fn custom_cmd<'a> (cwd: &str, cmd: &str, param: Option<&str>, buf: &'a mut [u8]) {
+    let fork_res = sys_call::fork();
+    match fork_res {
+        sys_call::ForkResult::Parent(child_id) => {
+            // 阻塞等待子进程退出
+            let wait_res = sys_call::wait();
+            if wait_res.is_none() {
+                println!("child process does not exit");
+            }
+            let (chpid, exit_status) = wait_res.unwrap();
+            println!("child process exit. fork child pid:{}, child pid:{}, child status:{:?}", child_id.get_data(), chpid.get_data(), exit_status);
+        },
+        sys_call::ForkResult::Child => {
+            self::exec(cwd, cmd, param, buf);
+        },
+    }
+}
+
+fn cmd_dispatch<'a>(cwd: &str, cmd: &str, param: Option<&str>, buf: &'a mut [u8]) {
+    if param.is_none() {
+        self::exec(cwd, cmd, Option::None, buf);
+        return;
+    }
+    let param = param.unwrap();
+    // 把参数，按照管道分隔
+    let pipe_split = param.split("|");
+    // 管道的数量
+    let pipe_cnt = pipe_split.count();
+
+    
+}
+
+
+#[inline(never)]
+fn exec(cwd: &str, cmd: &str, param: Option<&str>, buff: &mut [u8]) {
     let cmd_path = shell_util::get_abs_path(cwd, cmd, buff);
     if cmd_path.is_err() {
         println!("failed to get abs path, cwd:{}, cmd:{}, error:{:?}", cwd, cmd, cmd_path.unwrap_err());

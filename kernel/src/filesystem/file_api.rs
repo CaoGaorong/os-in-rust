@@ -135,11 +135,12 @@ impl File {
     pub fn close(&self)  -> Result<(), FileError> {
         // 1. 释放当前进程的文件描述符
         let fd_table = &mut thread::current_thread().task_struct.fd_table;
-        let global_idx = fd_table.release_fd(self.fd);
-        if global_idx.is_none() {
+        let task_fd = fd_table.release_fd(self.fd);
+        if task_fd.is_none() {
             return Result::Err(FileError::BadDescriptor);
         }
-        let global_idx = global_idx.unwrap();
+        let task_fd = task_fd.unwrap();
+        let global_idx = task_fd.get_global_idx();
         let opend_file = global_file_table::get_opened_file(global_idx);
         if opend_file.is_none() {
             return Result::Err(FileError::BadDescriptor);
