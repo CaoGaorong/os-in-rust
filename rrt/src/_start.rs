@@ -37,7 +37,6 @@ pub fn _start() {
             "call main"
         )
     }
-
     // 执行系统调用退出
     sys_call::exit(0);
 }

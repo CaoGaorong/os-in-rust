@@ -85,6 +85,22 @@ pub fn get_task_file_descriptor(fd: FileDescriptor) -> Option<TaskFileDescriptor
     fd_table.get_task_file_descriptor(fd)
 }
 
+
+/**
+ * 重定向文件描述符
+ */
+#[inline(never)]
+pub fn redirect_file_descriptor(source_fd: FileDescriptor, redirect_to: FileDescriptor) {
+    // 当前任务，使用的文件描述符数组
+    let cur_task = &mut thread::current_thread().task_struct;
+    let fd_table = &mut cur_task.fd_table;
+
+    // 要重定向的文件描述符 内容
+    let redirected_fd = fd_table.get_task_file_descriptor(redirect_to);
+    // 把当前任务的原始文件描述符内容，替换为 要重定向的文件描述符
+    fd_table.set_task_file_descriptor(source_fd, redirected_fd);
+}
+
 /**
  * 根据当前任务的文件描述符，得到对应打开的文件
  */

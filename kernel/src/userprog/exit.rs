@@ -1,6 +1,6 @@
 use os_in_rust_common::{constants, paging::PageTable, pool::MemPool};
 
-use crate::{memory, pid_allocator::Pid, scheduler, thread::{self, TaskStatus, TaskStruct}};
+use crate::{filesystem::FileDescriptorType, memory, pid_allocator::Pid, pipe, scheduler, thread::{self, TaskStatus, TaskStruct}};
 
 pub type TaskExitStatus = u8;
 
@@ -33,6 +33,9 @@ pub fn exit(status: TaskExitStatus) {
 
     // 把当前任务的父任务，给唤醒（如果在等待的话）
     self::wake_up_parent(cur_task);
+
+    // 把管道关掉
+    self::close_pipe(cur_task);
 
     // 当前进程退出了，设置为挂着状态
     scheduler::block_thread(cur_task, TaskStatus::TaskHanging);
@@ -93,5 +96,32 @@ fn wake_up_parent(cur_task: &TaskStruct) {
         if parent_task.task_status == TaskStatus::TaskWaiting {
             thread::wake_thread(parent_task);
         }
+    }
+}
+
+/**
+ * 任务结束，pipe写入完毕
+ */
+#[inline(never)]
+fn close_pipe(cur_task: &TaskStruct) {
+    let file_descriptors = cur_task.fd_table.get_file_descriptors();
+    if file_descriptors.is_empty() {
+        return;
+    }
+    for descriptor in file_descriptors {
+        if descriptor.is_none() {
+            continue;
+        }
+        let descriptor = descriptor.unwrap();
+        if descriptor.get_fd_type() != FileDescriptorType::Pipe {
+            continue;
+        }
+        let idx = descriptor.get_global_idx();
+        let pipe = pipe::get_pipe(idx).as_mut();
+        if pipe.is_none() {
+            continue;
+        }
+        let pipe = pipe.unwrap();
+        pipe.write_end();
     }
 }

@@ -89,14 +89,6 @@ impl <const PATH_LEN: usize, const CMD_LEN: usize> Shell<PATH_LEN, CMD_LEN> {
         if input.is_empty() {
             return Option::None;
         }
-        let input_split = input.split_once(" ");
-        if input_split.is_none() {
-            let cmd = cmd::Cmd::get_by_name(input);
-            return Option::Some((cmd, Option::None));
-        }
-        let (cmd, argv) = input_split.unwrap();
-        let cmd = cmd::Cmd::get_by_name(cmd.trim());
-        let param = if argv.trim().is_empty() {Option::None} else {Option::Some(argv.trim())};
-        Option::Some((cmd, param))
+        Option::Some(shell_util::parse_cmd(input))
     }
 }

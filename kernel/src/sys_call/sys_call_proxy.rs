@@ -3,6 +3,8 @@ use core::arch::asm;
 use core::fmt;
 use core::mem::size_of_val;
 
+use os_in_rust_common::MY_PANIC;
+
 use crate::common::cwd_dto::CwdDto;
 use crate::common::exec_dto::ExecParam;
 use crate::exec;
@@ -21,40 +23,11 @@ use super::sys_call::SystemCallNo;
 
 
 /**
- * 系统调用 print!
- */
-#[macro_export]
-macro_rules! print {
-    ($($arg:tt)*) => ($crate::sys_call::sys_print(format_args!($($arg)*)));
-}
-
-/**
- * 系统调用 println!
- */
-#[macro_export]
-macro_rules! println {
-    () => ($crate::print!("\n"));
-    ($($arg:tt)*) => ($crate::print!("{}\n", format_args!($($arg)*)));
-}
-
-/**
  * 获取当前任务的pid
  */
 #[inline(never)]
 pub fn get_pid() -> Pid {
     Pid::new(do_sys_call(SystemCallNo::GetPid, Option::None, Option::None, Option::None).try_into().unwrap())
-}
-
-
-/**
- * 给定Arguments，然后发起系统调用
- */
-#[no_mangle]
-pub fn sys_print(args: fmt::Arguments) {
-    // 取出参数的地址
-    let arg_addr = &args as *const _ as u32;
-    // 调用系统调用，把参数地址传过去
-    do_sys_call(SystemCallNo::Print, Option::Some(arg_addr), Option::None, Option::None);
 }
 
 /**
@@ -258,8 +231,8 @@ pub fn change_dir(path: &str) -> Option<()> {
 }
 
 #[inline(never)]
-pub fn pipe(size: usize) -> Result<(PipeReader, PipeWriter), PipeError> {
-    let mut res: Result<(PipeReader, PipeWriter), PipeError> = Result::Err(PipeError::PipeExhaust);
+pub fn pipe(size: usize) -> Result<FileDescriptor, PipeError> {
+    let mut res: Result<FileDescriptor, PipeError> = Result::Err(PipeError::PipeExhaust);
     self::do_sys_call(SystemCallNo::PipeCreate, Option::Some(size as u32), Option::Some(&mut res as *mut _ as u32), Option::None);
     res
 }
@@ -267,8 +240,20 @@ pub fn pipe(size: usize) -> Result<(PipeReader, PipeWriter), PipeError> {
 
 #[inline(never)]
 pub fn pipe_end(fd: FileDescriptor) {
-    self::do_sys_call(SystemCallNo::PipeEnd, Option::Some(fd.get_value() as u32), Option::None, Option::None);
+    self::do_sys_call(SystemCallNo::PipeEnd, Option::Some(&fd as *const _ as u32), Option::None, Option::None);
 }
+
+
+/**
+ * 重定向文件描述符。
+ * 把当前任务的文件描述符 从 source_fd 重定向到 redirect_to
+ *    也就是重定向后，原本对 source_fd 的操作就变为了对 redirect_to 的操作
+ */
+#[inline(never)]
+pub fn redirect_file_descriptor(source_fd: FileDescriptor, redirect_to: FileDescriptor) {
+    self::do_sys_call(SystemCallNo::FileDescriptorRedirect, Option::Some(&source_fd as *const _ as u32), Option::Some(&redirect_to as *const _ as u32), Option::None);
+}
+
 
 /**
  * 发起系统调用

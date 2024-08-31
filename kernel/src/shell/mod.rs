@@ -7,5 +7,7 @@ mod cmd_ls;
 mod cmd_ps;
 mod cmd_dir;
 mod cmd_custom;
+mod cmd_executor;
+mod cmd_dispatcher;
 
 pub use my_shell::shell_start;

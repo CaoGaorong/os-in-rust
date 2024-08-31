@@ -1,4 +1,6 @@
 pub mod test {
+    use std::hint::spin_loop;
+
     use kernel::memory::page_util;
     use os_in_rust_common::{constants, cstring_utils};
 
@@ -33,5 +35,19 @@ pub mod test {
         println!("{:?}", cstring_utils::read_from_bytes(&[109, 97, 105, 110, 0]));
         println!("{:?}", cstring_utils::read_from_bytes(&[105, 110, 105, 116, 0]));
         println!("{:?}", cstring_utils::read_from_bytes(&[105, 100, 108, 101, 0]));
+    }
+
+    #[test]
+    pub fn test_split() {
+        let split = "A | B| C |D".split("|");
+        for ele in split {
+            println!("{}", ele);
+        }
+    }
+    #[test]
+    pub fn test() {
+        let s = format_args!("x{}", 123).as_str();
+        println!("s:{}", s.unwrap());
+
     }
 }

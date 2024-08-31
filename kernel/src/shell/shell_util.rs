@@ -1,6 +1,8 @@
 
 use os_in_rust_common::{array_deque::ArrayDeque, cstring_utils};
 
+use super::cmd;
+
 #[derive(Debug)]
 #[derive(Clone, Copy)]
 pub enum PathError {
@@ -87,4 +89,20 @@ pub fn get_abs_path<'a>(cwd: &str, input_path: &str, buff: &'a mut [u8]) -> Resu
     return Result::Ok(abs_path.unwrap());
 }
 
+
+/**
+ * 根据输入，解析命令和参数
+ */
+#[inline(never)]
+pub fn parse_cmd(input: &str) -> (cmd::Cmd, Option<&str>) {
+    let input_split = input.split_once(" ");
+    if input_split.is_none() {
+        let cmd = cmd::Cmd::get_by_name(input);
+        return (cmd, Option::None);
+    }
+    let (cmd, argv) = input_split.unwrap();
+    let cmd = cmd::Cmd::get_by_name(cmd.trim());
+    let param = if argv.trim().is_empty() {Option::None} else {Option::Some(argv.trim())};
+    (cmd, param)
+}
 

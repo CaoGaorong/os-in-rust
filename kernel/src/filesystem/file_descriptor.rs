@@ -35,7 +35,7 @@ impl Display for FileDescriptor {
 }
 
 impl FileDescriptor {
-    pub fn new(value: usize) -> Self {
+    pub const fn new(value: usize) -> Self {
         Self {
             value,
         }
@@ -51,6 +51,7 @@ impl FileDescriptor {
 #[derive(Debug, PartialEq)]
 #[derive(Clone, Copy)]
 pub enum FileDescriptorType {
+    Console,
     File,
     Pipe
 }
@@ -90,11 +91,12 @@ impl TaskFileDescriptorTable {
     /**
      * 创建一个文件描述符表
      */
+    #[inline(never)]
     pub fn new() -> Self {
         let mut fd_table = [Option::None; constants::MAX_FILES_PER_PROC];
-        fd_table[StdFileDescriptor::StdInputNo as usize] = Option::Some(TaskFileDescriptor::new(StdFileDescriptor::StdInputNo as usize, FileDescriptorType::File));
-        fd_table[StdFileDescriptor::StdOutputNo as usize] = Option::Some(TaskFileDescriptor::new(StdFileDescriptor::StdOutputNo as usize, FileDescriptorType::File));
-        fd_table[StdFileDescriptor::StdErrorNo as usize] = Option::Some(TaskFileDescriptor::new(StdFileDescriptor::StdErrorNo as usize, FileDescriptorType::File));
+        fd_table[StdFileDescriptor::StdInputNo as usize] = Option::Some(TaskFileDescriptor::new(StdFileDescriptor::StdInputNo as usize, FileDescriptorType::Console));
+        fd_table[StdFileDescriptor::StdOutputNo as usize] = Option::Some(TaskFileDescriptor::new(StdFileDescriptor::StdOutputNo as usize, FileDescriptorType::Console));
+        fd_table[StdFileDescriptor::StdErrorNo as usize] = Option::Some(TaskFileDescriptor::new(StdFileDescriptor::StdErrorNo as usize, FileDescriptorType::Console));
         Self {
             data: fd_table,
             start_idx: fd_table.iter().map(|d| d.is_some()).count(),
@@ -104,6 +106,7 @@ impl TaskFileDescriptorTable {
     /**
      * 得到文件描述符（不包括标准输入、输出等内建的）
      */
+    #[inline(never)]
     pub fn get_file_descriptors(&self) -> &[Option<TaskFileDescriptor>] {
         &self.data[self.start_idx ..]
     }
@@ -111,6 +114,7 @@ impl TaskFileDescriptorTable {
     /**
      * 在文件描述符表中，找到空位
      */
+    #[inline(never)]
     fn get_free_slot(&self) -> Option<usize> {
         for (idx, fd) in self.data.iter().enumerate() {
             // 找到了空位，返回下标
@@ -140,8 +144,14 @@ impl TaskFileDescriptorTable {
     }
 
 
+    #[inline(never)]
     pub fn get_task_file_descriptor(&self, fd: FileDescriptor) -> Option<TaskFileDescriptor> {
         self.data[fd.value]
+    }
+
+    #[inline(never)]
+    pub fn set_task_file_descriptor(&mut self, fd: FileDescriptor, task_file_fd: Option<TaskFileDescriptor>) {
+        self.data[fd.value] = task_file_fd;
     }
 
     /**

@@ -97,6 +97,9 @@ pub fn init() {
     
     // 关闭管道
     sys_call::register_handler(SystemCallNo::PipeEnd, HandlerType::OneParam(pipe_end));
+    
+    // 重定向当前任务的某个文件描述符
+    sys_call::register_handler(SystemCallNo::FileDescriptorRedirect, HandlerType::TwoParams(redirect_file_descriptor));
 }
 
 /**
@@ -115,21 +118,25 @@ fn write(fd_addr: u32, addr: u32, len: u32) -> u32 {
     let fd  = unsafe { *(fd_addr as *const FileDescriptor) };
     let buf = unsafe { core::slice::from_raw_parts_mut(addr as *mut u8, len.try_into().unwrap()) };
 
-    if filesystem::StdFileDescriptor::StdOutputNo as usize == fd.get_value() {
-        let str_res = str::from_utf8(buf);
-        ASSERT!(str_res.is_ok());
-        let string = str_res.unwrap();
-        console_print!("{}", string);
-        return string.len() as u32;
-    }
-
-    
-    // 根据文件描述符找
+    // 根据文件描述符找到
     let task_file_descriptor = filesystem::get_task_file_descriptor(fd);
     if task_file_descriptor.is_none() {
         return 0;
     }
     let task_file_descriptor = task_file_descriptor.unwrap();
+
+    // 如果是控制台
+    if task_file_descriptor.get_fd_type() == FileDescriptorType::Console {
+        // 如果是标准输出，那么就打印到控制台
+        if filesystem::StdFileDescriptor::StdOutputNo as usize == task_file_descriptor.get_global_idx() {
+            let str_res = str::from_utf8(buf);
+            ASSERT!(str_res.is_ok());
+            let string = str_res.unwrap();
+            console_print!("{}", string);
+            return string.len() as u32;
+        }
+        return 0;
+    }
     
     // 如果是管道
     if task_file_descriptor.get_fd_type() == FileDescriptorType::Pipe {
@@ -141,6 +148,7 @@ fn write(fd_addr: u32, addr: u32, len: u32) -> u32 {
         pipe_container.write(buf);
         return 0;
     }
+
     // 普通文件
     if task_file_descriptor.get_fd_type() == FileDescriptorType::File {
         let file = filesystem::get_file_by_fd(fd).unwrap();
@@ -157,28 +165,31 @@ fn write(fd_addr: u32, addr: u32, len: u32) -> u32 {
 fn read(fd_addr: u32, buf: u32, len: u32) -> u32 {
     let fd  = unsafe { *(fd_addr as *const FileDescriptor) };
     let buf = unsafe { core::slice::from_raw_parts_mut(buf as *mut u8, len.try_into().unwrap()) };
-    // 如果是标准输入
-    if filesystem::StdFileDescriptor::StdInputNo as usize == fd.get_value() {
-        let key_buff = unsafe { core::slice::from_raw_parts_mut(buf.as_mut_ptr() as *mut KeyCode, buf.len() / size_of::<KeyCode>()) };
-        let mut idx = 0;
-        // 键盘队列
-        let keyboard_queue = keyboard::get_keycode_queue();
-        while idx < key_buff.len() {
-            // 逐个取出输入的键，直到满了
-            let key_res = keyboard_queue.take().unwrap();
-            if key_res.is_none() {
-                continue;
-            }
-            key_buff[idx] = key_res.unwrap();
-            idx += 1;
-        }
-        return idx.try_into().unwrap();
-    }
-
-
     let task_file_descriptor = filesystem::get_task_file_descriptor(fd);
     ASSERT!(task_file_descriptor.is_some());
     let task_file_descriptor = task_file_descriptor.unwrap();
+
+    // 如果是控制台操作
+    if task_file_descriptor.get_fd_type() == FileDescriptorType::Console {
+        // 如果是标准输入
+        if filesystem::StdFileDescriptor::StdInputNo as usize == fd.get_value() {
+            let key_buff = unsafe { core::slice::from_raw_parts_mut(buf.as_mut_ptr() as *mut KeyCode, buf.len() / size_of::<KeyCode>()) };
+            let mut idx = 0;
+            // 键盘队列
+            let keyboard_queue = keyboard::get_keycode_queue();
+            while idx < key_buff.len() {
+                // 逐个取出输入的键，直到满了
+                let key_res = keyboard_queue.take().unwrap();
+                if key_res.is_none() {
+                    continue;
+                }
+                key_buff[idx] = key_res.unwrap();
+                idx += 1;
+            }
+            return idx.try_into().unwrap();
+        }
+        return 0;
+    }
 
     // 如果是管道
     if task_file_descriptor.get_fd_type() == FileDescriptorType::Pipe {
@@ -418,18 +429,36 @@ fn change_dir(path_addr: u32, path_len: u32, res_addr: u32) -> u32 {
 
 #[inline(never)]
 fn pipe_create(size: u32, res_addr: u32) -> u32 {
-    let res = unsafe { &mut *(res_addr as *mut Result<(PipeReader, PipeWriter), PipeError>) };
+    let res = unsafe { &mut *(res_addr as *mut Result<FileDescriptor, PipeError>) };
     *res = pipe::pipe(size as usize);
     0
 }
 
 #[inline(never)]
-fn pipe_end(fd: u32) -> u32 {
-    let fd = FileDescriptor::new(fd.try_into().unwrap());
+fn pipe_end(fd_addr: u32) -> u32 {
+    let fd = unsafe { *(fd_addr as *const FileDescriptor) };
+    let task_fd = filesystem::get_task_file_descriptor(fd);
+    if task_fd.is_none() {
+        return 0;
+    }
+    // 如果不是管道，那么也不用
+    if task_fd.unwrap().get_fd_type() != FileDescriptorType::Pipe {
+        return 0;
+    }
+    // 找到管道，结束了
     let pipe = pipe::get_pipe_by_fd(fd);
     if pipe.is_none() {
         return 0;
     }
     pipe.unwrap().write_end();
+    0
+}
+
+#[inline(never)]
+fn redirect_file_descriptor(fd: u32, redirect_to: u32) -> u32 {
+    let target_fd = unsafe { *(fd as *const FileDescriptor) };
+    let redirect_to = unsafe { *(redirect_to as *const FileDescriptor) };
+    
+    filesystem::redirect_file_descriptor(target_fd, redirect_to);
     0
 }

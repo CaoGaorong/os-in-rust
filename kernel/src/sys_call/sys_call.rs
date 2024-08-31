@@ -1,9 +1,4 @@
-use core::ptr;
-
 use os_in_rust_common::{constants, racy_cell::RacyCell};
-
-use crate::{sys_call::sys_call_api, thread};
-
 /**
  * 关于系统调用的实现
  */
@@ -179,6 +174,11 @@ pub enum SystemCallNo {
      * pipe结束
      */
     PipeEnd,
+
+    /**
+     * 文件描述符重定向
+     */
+    FileDescriptorRedirect,
 }
 
 /**

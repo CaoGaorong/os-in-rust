@@ -54,3 +54,4 @@ pub use file_api::remove_file;
 pub use global_file_table::get_opened_file;
 pub use global_file_table::get_file_by_fd;
 pub use global_file_table::get_task_file_descriptor;
+pub use global_file_table::redirect_file_descriptor;

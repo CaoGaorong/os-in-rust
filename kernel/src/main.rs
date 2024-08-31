@@ -89,31 +89,31 @@ pub extern "C" fn _start(boot_info: &BootContext) {
     init::init_all(boot_info);
     // self::test_create_dir();
     // self::test_read_dir_entry();
-    // self::test_create_file();
 
     // 写入和读取文件
     // self::test_write_read_file();
 
 
     // 读取并且写入用户进程
-    // program_loader::sync_program(LbaAddr::new(300), 10 * constants::DISK_SECTOR_SIZE, "/userproc");
-    // program_loader::sync_program(LbaAddr::new(310), 100 * constants::DISK_SECTOR_SIZE, "/cat");
-    // program_loader::sync_program(LbaAddr::new(430), 1340, "/main.rs");
-    // program_loader::sync_program(LbaAddr::new(440), 10 * constants::DISK_SECTOR_SIZE, "/echo");
+    program_loader::sync_program(LbaAddr::new(300), 10 * constants::DISK_SECTOR_SIZE, "/userproc");
+    program_loader::sync_program(LbaAddr::new(310), 100 * constants::DISK_SECTOR_SIZE, "/cat");
+    program_loader::sync_program(LbaAddr::new(430), 1340, "/main.rs");
+    program_loader::sync_program(LbaAddr::new(440), 10 * constants::DISK_SECTOR_SIZE, "/echo");
 
+    println!("fuck world");
 
-    let pipe = pipe::pipe(100);
-    if pipe.is_err() {
-        printkln!("error:{:?}", pipe.unwrap_err());
-    } else if pipe.is_ok() {
-        let (mut reader, mut writer) = pipe.unwrap();
-        writer.write("hello, world".as_bytes());
-        writer.write_end();
+    // let pipe = pipe::pipe(100);
+    // if pipe.is_err() {
+    //     printkln!("error:{:?}", pipe.unwrap_err());
+    // } else if pipe.is_ok() {
+    //     let (mut reader, mut writer) = pipe.unwrap();
+    //     writer.write("hello, world".as_bytes());
+    //     writer.write_end();
         
-        let mut buff = [0u8; 20];
-        reader.read(&mut buff);
-        printkln!("{}", core::str::from_utf8(&buff).unwrap());
-    }
+    //     let mut buff = [0u8; 20];
+    //     reader.read(&mut buff);
+    //     printkln!("{}", core::str::from_utf8(&buff).unwrap());
+    // }
 
     loop {
         thread_management::thread_yield();

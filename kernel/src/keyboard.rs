@@ -25,6 +25,7 @@ impl ScanCodeCombinator {
      * scan_code: 收到的扫描码（8位）
      * callback: 收到扫描码后的回调函数
      */
+    #[inline(never)]
     pub fn do_combine(&mut self, scan_code: u8, callback: fn (Option<KeyCode>)) {
     
         // 扩展标记。已经收到了扩展码
@@ -69,6 +70,7 @@ pub fn get_keycode_queue() -> &'static mut ArrayBlockingQueue<'static, Option<Ke
 /**
  * 扫描码处理
  */
+#[inline(never)]
 pub fn scan_code_handler(scan_code: u8) {
 
     // 得到合并器

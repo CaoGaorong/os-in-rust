@@ -3,7 +3,7 @@ use os_in_rust_common::{racy_cell::RacyCell, MY_PANIC};
 
 use crate::{print, println, scancode::{Key, ScanCodeType}, sys_call::{self}};
 
-use super::{cmd::Cmd, cmd_cd::{self}, cmd_custom, cmd_dir, cmd_ls, cmd_ps, shell::Shell};
+use super::{cmd::Cmd, cmd_cd, cmd_dispatcher, shell::Shell};
 
 
 const PATH_LEN: usize = 100;
@@ -26,11 +26,20 @@ fn set_last_key(key: Key) {
     *unsafe { LAST_KEY.get_mut() } = key;
 }
 
+static CAPITAL: RacyCell<bool> = RacyCell::new(false);
+
+fn get_capital() -> bool {
+    *unsafe { CAPITAL.get_mut() }
+}
+
+fn set_capital(capital: bool) {
+    *unsafe { CAPITAL.get_mut() } = capital;
+}
+
 
 #[inline(never)]
-fn print_prompt()
+fn print_prompt(shell: &mut Shell<PATH_LEN, INPUT_LEN>)
 {
-    let shell = unsafe { SHELL.get_mut() };
     print!("[imcgr@localhost {}]$ ", shell.get_cwd());
 }
 
@@ -40,14 +49,22 @@ fn print_prompt()
 #[inline(never)]
 fn read_line(shell: &mut Shell<PATH_LEN, INPUT_LEN>) -> &str {
     shell.clear_input();
+    self::set_capital(false);
     loop {
         let keycode = sys_call::read_key();
-
         // 断码，忽略
         if keycode.code_type == ScanCodeType::BreakCode {
             set_last_key(Key::Null);
+            // 如果shift放下，那么就不再是大写了
+            if keycode.key == Key::LeftShift {
+                self::set_capital(false);
+            }
             // println!("break code ignored");
             continue;
+        }
+
+        if keycode.key == Key::LeftShift {
+            self::set_capital(true);
         }
 
         // 如果是回车键，直接本次命令输入结束
@@ -72,80 +89,66 @@ fn read_line(shell: &mut Shell<PATH_LEN, INPUT_LEN>) -> &str {
             }
             continue;
         }
-
         // 最后一个key
         self::set_last_key(keycode.key);
+
+        let key_char = if get_capital() {keycode.char_cap} else {keycode.char};
+
+        if key_char.is_none() {
+            continue;
+        }
+        let key_char = key_char.unwrap();
 
         // 如果是退格键，需要删除缓冲区里一个元素
         if keycode.key == Key::Backspace {
             shell.pop_last_input();
-            print!("{}", keycode.char);
+            print!("{}", key_char);
             continue;
         }
 
         // 非数字字母，不接收
-        if !keycode.char.is_ascii() {
+        if !key_char.is_ascii() {
             continue;
         }
-
         // 其他的键，放入命令队列中
-        shell.append_input(keycode.char);
+        shell.append_input(key_char);
         // 并且打印出来
-        print!("{}", keycode.char);
+        print!("{}", key_char);
     }
     shell.get_input()
 }
 
 #[inline(never)]
 fn exec_cmd(shell: &mut Shell<PATH_LEN, INPUT_LEN>, buf: &mut [u8]) {
-    unsafe { buf.as_mut_ptr().write_bytes(0, buf.len()) };
-    
     let cmd = shell.get_cmd();
-    if cmd.is_none() {
-        println!("command {} not found", shell.get_input());
-        return;
-    }
-    let (cmd, param) = cmd.unwrap();
-    match cmd { 
-        Cmd::Pwd => {
-            print!("{}", shell.get_cwd());
-        },
-        Cmd::Ps => cmd_ps::ps(),
-        Cmd::Ls => {
-            cmd_ls::ls(shell.get_cwd(), param, buf);
-        },
-        Cmd::Cd => {
-            let res = cmd_cd::cd(shell.get_cwd(), param, buf);
-            if res.is_some() {
-                shell.set_cwd(res.unwrap());
-            } else {
-                println!("cd error {} not exist", param.unwrap());
+    // 如果是更换目录
+    if cmd.is_some() {
+        let (cmd, param) = cmd.unwrap();
+        if cmd == Cmd::Cd {
+            let path = cmd_cd::cd(shell.get_cwd(), param, buf);
+            if path.is_none() {
+                println!("cd {} error, not exist", param.unwrap());
+                return;
             }
-        },
-        // 清屏
-        Cmd::Clear => {
-            sys_call::clear_screen();
-        },
-        // 创建目录
-        Cmd::Mkdir => cmd_dir::mkdir(shell.get_cwd(), param, buf),
-        // 删除目录
-        Cmd::Rmdir => cmd_dir::rmdir(shell.get_cwd(), param, buf),
-        Cmd::Custom(cmd) => {
-            cmd_custom::custom_cmd(shell.get_cwd(), cmd, param, buf);
-        },
-    };
+            shell.set_cwd(path.unwrap());
+            return;
+        }
+    }
+    cmd_dispatcher::dispatch_cmd(shell.get_cwd(), shell.get_input(), buf);
+
 }
 
 
 #[inline(never)]
 pub fn shell_start() {
+    // println!("shell start, shell:{}", "/");
     // 默认shell是根目录
     let shell = unsafe { SHELL.get_mut() };
     shell.set_cwd("/");
     let buf: &mut [u8; 100] = sys_call::malloc(100);
     loop {
         // 打印提示
-        self::print_prompt();
+        self::print_prompt(shell);
         let input = self::read_line(shell);
         println!();
         if input.trim().is_empty() {

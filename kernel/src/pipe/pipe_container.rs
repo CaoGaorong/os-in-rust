@@ -19,7 +19,7 @@ pub fn get_pipe_list() -> &'static mut [Option<PipeContainer<'static, u8>>] {
 }
 
 #[inline(never)]
-fn get_pipe(idx: usize) -> &'static mut  Option<PipeContainer<'static, u8>> {
+pub fn get_pipe(idx: usize) -> &'static mut  Option<PipeContainer<'static, u8>> {
     &mut self::get_pipe_list()[idx]
 }
 

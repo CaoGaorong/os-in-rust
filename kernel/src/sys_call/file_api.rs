@@ -2,7 +2,7 @@ use core::fmt::{Debug, Display};
 
 use os_in_rust_common::{cstr_write, cstring_utils, printkln, ASSERT};
 
-use crate::{filesystem, println};
+use crate::{filesystem::{self, FileDescriptor}, println};
 
 use super::{sys_call_proxy};
 
@@ -114,6 +114,10 @@ impl File {
     #[inline(never)]
     pub fn get_size(&self) -> Result<usize, filesystem::FileError> {
         sys_call_proxy::file_size(&self.file)
+    }
+
+    pub fn get_fd(&self) -> FileDescriptor {
+        self.file.get_file_descriptor()
     }
 }
 

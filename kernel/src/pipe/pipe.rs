@@ -1,4 +1,4 @@
-use crate::filesystem::FileDescriptorType;
+use crate::filesystem::{FileDescriptor, FileDescriptorType};
 use crate::blocking_queue::ArrayBlockingQueue;
 use crate::{memory, thread};
 
@@ -9,7 +9,7 @@ use super::pipe_container::{self, PipeContainer};
  * 创建管道
  */
 #[inline(never)]
-pub fn pipe(size: usize) -> Result<(PipeReader, PipeWriter), PipeError> {
+pub fn pipe(size: usize) -> Result<FileDescriptor, PipeError> {
     // 申请一个数组，底层的缓冲区结构
     let buff = unsafe { core::slice::from_raw_parts_mut(memory::sys_malloc(size * size_of::<u8>()) as *mut u8, size) };
     // 一个阻塞队列结构
@@ -30,6 +30,7 @@ pub fn pipe(size: usize) -> Result<(PipeReader, PipeWriter), PipeError> {
         return Result::Err(PipeError::FileDescriptorExhaust);
     }
     let fd = fd.unwrap();
+    Result::Ok(fd)
 
-    Result::Ok((PipeReader::new(fd), PipeWriter::new(fd)))
+    // Result::Ok((PipeReader::new(fd), PipeWriter::new(fd)))
 }

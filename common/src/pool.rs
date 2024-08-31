@@ -77,6 +77,7 @@ impl Display for MemPool {
     }
 }
 impl MemPool {
+    #[inline(never)]
     pub fn new(addr_start: usize, bitmap: BitMap) -> Self {
         Self {
             addr_start, bitmap, granularity: constants::PAGE_SIZE as usize,

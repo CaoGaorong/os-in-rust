@@ -186,7 +186,7 @@ pub const DISK_SECTOR_SIZE: usize = 512;
 /**
  * 任务名称的长度
  */
-pub const TASK_NAME_LEN: usize = 20;
+pub const TASK_NAME_LEN: usize = 50;
 
 /**
  * idle线程的名称

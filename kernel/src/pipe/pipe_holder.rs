@@ -24,6 +24,10 @@ impl PipeReader {
     pub fn read(&mut self, buff: &mut[u8]) -> usize {
         sys_call::read(self.fd, buff)
     }
+
+    pub fn get_fd(&self) -> FileDescriptor {
+        self.fd
+    }
 }
 
 #[derive(Debug)]
@@ -50,5 +54,9 @@ impl PipeWriter {
      */
     pub fn write_end(&mut self) {
         sys_call::pipe_end(self.fd)
+    }
+
+    pub fn get_fd(&self) -> FileDescriptor {
+        self.fd
     }
 }

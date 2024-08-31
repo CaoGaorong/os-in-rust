@@ -11,11 +11,11 @@ use crate::{print, println};
 #[inline(never)]
 pub fn ls(cwd: &str, param: Option<&str>, buff: &mut [u8]) {
     let dir = sys_call::read_dir(cwd);
-    ASSERT!(dir.is_ok());
+    assert!(dir.is_ok());
     let mut dir = dir.unwrap();
 
     // 如果ls没有任何参数，那么就是直接打印
-    if param.is_none() {
+    if param.is_none() || param.unwrap().trim().is_empty() {
         for dir_entry in dir.iter() {
             // 私有的目录项，不展示
             let entry_name = dir_entry.get_name();
@@ -24,13 +24,14 @@ pub fn ls(cwd: &str, param: Option<&str>, buff: &mut [u8]) {
             }
             print!("{} ", entry_name);
         }
+        println!();
         return;
     }
     // 如果有参数
     let param = param.unwrap().trim();
     // 只支持 -l参数
     if param != "-l" {
-        print!("invalid param: {} for ls", param);
+        println!("invalid param: {} for ls", param);
         return;
     }
 

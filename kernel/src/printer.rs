@@ -67,10 +67,13 @@ pub fn print_key_code(key_code_opt: Option<KeyCode>) {
     if key_code.code_type == ScanCodeType::BreakCode {
         return;
     }
+    if key_code.char.is_none() || key_code.char_cap.is_none() {
+        return;
+    }
 
-    let mut char_to_print: char = key_code.char;
+    let mut char_to_print: char = key_code.char.unwrap();
     if *unsafe { SHIFT_DOWN.get_mut() } || *unsafe { CAPS_LOCKED.get_mut() } {
-        char_to_print = key_code.char_cap;
+        char_to_print = key_code.char_cap.unwrap();
     }
 
     // ctrl + u，清除这一行

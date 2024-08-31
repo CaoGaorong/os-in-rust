@@ -3,6 +3,8 @@ mod sys_call_api;
 mod sys_call_proxy;
 mod dir_api;
 mod file_api;
+mod writer;
+
 
 pub use sys_call_api::init;
 pub use sys_call::HandlerType;
@@ -17,7 +19,7 @@ pub use sys_call_proxy::fork;
 pub use sys_call_proxy::ForkResult;
 pub use sys_call_proxy::thread_yield;
 pub use sys_call_proxy::clear_screen;
-pub use sys_call_proxy::sys_print;
+pub use writer::sys_print;
 pub use sys_call_proxy::exec;
 pub use sys_call_proxy::exit;
 pub use sys_call_proxy::wait;
@@ -26,6 +28,7 @@ pub use sys_call_proxy::change_dir;
 pub use sys_call_proxy::read;
 pub use sys_call_proxy::pipe;
 pub use sys_call_proxy::pipe_end;
+pub use sys_call_proxy::redirect_file_descriptor;
 pub use crate::println;
 pub use crate::print;
 

@@ -1,6 +1,11 @@
 use crate::sys_call;
 
-use super::shell_util;
+use super::{cmd_executor::Command, shell_util};
+
+pub struct CommandLs<'a> {
+    cmd: Command<'a>,
+}
+
 
 #[inline(never)]
 pub fn cd<'a>(cwd: &str, param: Option<&str>, buf: &'a mut [u8]) -> Option<&'a str> {

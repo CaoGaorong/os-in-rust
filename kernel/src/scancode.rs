@@ -12,112 +12,112 @@ use os_in_rust_common::{constants, ASSERT};
  * index: 通码（按下键产生的码）
  * value: 三元组(键，该键的字符，该键大写字符)
  */
-static MAKE_CODE_ASCII_MAPPING: [(Key, char, char); constants::KEYBOARD_KEY_COUNT] = [
+static MAKE_CODE_ASCII_MAPPING: [(Key, Option<char>, Option<char>); constants::KEYBOARD_KEY_COUNT] = [
     // 0x00
-    (Key::Null, '\0', '\0'),
-    (Key::Esc, 0x1b as char, 0x1b as char),
-    (Key::One, '1', '!'),
-    (Key::Two, '2', '@'),
-    (Key::Three, '3', '#'),
-    (Key::Four, '4', '$'),
-    (Key::Five, '5', '%'),
-    (Key::Six, '6', '^'),
-    (Key::Seven, '7', '&'),
-    (Key::Eight, '8', '*'),
-    (Key::Night, '9', '('),
-    (Key::Zero, '0', ')'),
-    (Key::Dash, '-', '_'),
-    (Key::Equals, '=', '+'),
+    (Key::Null, Option::None, Option::None),
+    (Key::Esc, Option::Some(0x1b as char), Option::Some(0x1b as char)),
+    (Key::One, Option::Some('1'), Option::Some('!')),
+    (Key::Two, Option::Some('2'), Option::Some('@')),
+    (Key::Three, Option::Some('3'), Option::Some('#')),
+    (Key::Four, Option::Some('4'), Option::Some('$')),
+    (Key::Five, Option::Some('5'), Option::Some('%')),
+    (Key::Six, Option::Some('6'), Option::Some('^')),
+    (Key::Seven, Option::Some('7'), Option::Some('&')),
+    (Key::Eight, Option::Some('8'), Option::Some('*')),
+    (Key::Night, Option::Some('9'), Option::Some('(')),
+    (Key::Zero, Option::Some('0'), Option::Some(')')),
+    (Key::Dash, Option::Some('-'), Option::Some('_')),
+    (Key::Equals, Option::Some('='), Option::Some('+')),
     // 0x0E
-    (Key::Backspace, 0x8 as char, 0x8 as char),
+    (Key::Backspace, Option::Some(0x8 as char), Option::Some(0x8 as char)),
     // 0x0F
-    (Key::Tab, 0x9 as char, 0x9 as char),
+    (Key::Tab, Option::Some(0x9 as char), Option::Some(0x9 as char)),
     // 0x10
-    (Key::Q, 'q', 'Q'),
+    (Key::Q, Option::Some('q'), Option::Some('Q')),
     // 0x11
-    (Key::W, 'w', 'W'),
+    (Key::W, Option::Some('w'), Option::Some('W')),
     // 0x12
-    (Key::E, 'e', 'E'),
+    (Key::E, Option::Some('e'), Option::Some('E')),
     // 0x13
-    (Key::R, 'r', 'R'),
+    (Key::R, Option::Some('r'), Option::Some('R')),
     // 0x14
-    (Key::T, 't', 'T'),
+    (Key::T, Option::Some('t'), Option::Some('T')),
     // 0x15
-    (Key::Y, 'y', 'Y'),
+    (Key::Y, Option::Some('y'), Option::Some('Y')),
     // 0x16
-    (Key::U, 'u', 'U'),
+    (Key::U, Option::Some('u'), Option::Some('U')),
     // 0x17
-    (Key::I, 'i', 'I'),
+    (Key::I, Option::Some('i'), Option::Some('I')),
     // 0x18
-    (Key::O, 'o', 'O'),
+    (Key::O, Option::Some('o'), Option::Some('O')),
     // 0x19
-    (Key::P, 'p', 'P'),
+    (Key::P, Option::Some('p'), Option::Some('P')),
     // 0x1A
-    (Key::LeftBracket, '[', '{'),
+    (Key::LeftBracket, Option::Some('['), Option::Some('{')),
     // 0x1B
-    (Key::RightBracket, ']', '}'),
+    (Key::RightBracket, Option::Some(']'), Option::Some('}')),
     // 0x1C
-    (Key::Enter, 0x0d as char, 0x0d as char),
+    (Key::Enter, Option::Some(0x0d as char), Option::Some(0x0d as char)),
     // 0x1D
-    (Key::LeftCtrl, '\0', '\0'),
+    (Key::LeftCtrl, Option::None, Option::Some(0x0d as char)),
     // 0x1E
-    (Key::A, 'a', 'A'),
+    (Key::A, Option::Some('a'), Option::Some('A')),
     // 0x1F
-    (Key::S, 's', 'S'),
+    (Key::S, Option::Some('s'), Option::Some('S')),
     // 0x20
-    (Key::D, 'd', 'D'),
+    (Key::D, Option::Some('d'), Option::Some('D')),
     // 0x21
-    (Key::F, 'f', 'F'),
+    (Key::F, Option::Some('f'), Option::Some('F')),
     // 0x22
-    (Key::G, 'g', 'G'),
+    (Key::G, Option::Some('g'), Option::Some('G')),
     // 0x23
-    (Key::H, 'h', 'H'),
+    (Key::H, Option::Some('h'), Option::Some('H')),
     // 0x24
-    (Key::J, 'j', 'J'),
+    (Key::J, Option::Some('j'), Option::Some('J')),
     // 0x25
-    (Key::K, 'k', 'K'),
+    (Key::K, Option::Some('k'), Option::Some('K')),
     // 0x26
-    (Key::L, 'l', 'L'),
+    (Key::L, Option::Some('l'), Option::Some('L')),
     // 0x27
-    (Key::Semicolon, ';', ':'),
+    (Key::Semicolon, Option::Some(';'), Option::Some(':')),
     // 0x28
-    (Key::Quote, '\'', '"'),
+    (Key::Quote, Option::Some('\''), Option::Some('"')),
     // 0x29
-    (Key::Tilde, '`', '~'),
+    (Key::Tilde, Option::Some('`'), Option::Some('~')),
     // 0x2A
-    (Key::LeftShift, '\0', '\0'),
+    (Key::LeftShift, Option::None, Option::None),
     // 0x2B
-    (Key::Pipe, '\\', '|'),
+    (Key::Pipe, Option::Some('\\'), Option::Some('|')),
     // 0x2C
-    (Key::Z, 'z', 'Z'),
+    (Key::Z, Option::Some('z'), Option::Some('Z')),
     // 0x2D
-    (Key::X, 'x', 'X'),
+    (Key::X, Option::Some('x'), Option::Some('X')),
     // 0x2E
-    (Key::C, 'c', 'C'),
+    (Key::C, Option::Some('c'), Option::Some('C')),
     // 0x2F
-    (Key::V, 'v', 'V'),
+    (Key::V, Option::Some('v'), Option::Some('V')),
     // 0x30
-    (Key::B, 'b', 'B'),
+    (Key::B, Option::Some('b'), Option::Some('B')),
     // 0x31
-    (Key::N, 'n', 'N'),
+    (Key::N, Option::Some('n'), Option::Some('N')),
     // 0x32
-    (Key::M, 'm', 'M'),
+    (Key::M, Option::Some('m'), Option::Some('M')),
     // 0x33
-    (Key::LessThan, ',', '<'),
+    (Key::LessThan, Option::Some(','), Option::Some('<')),
     // 0x34
-    (Key::GraterThan, '.', '>'),
+    (Key::GraterThan, Option::Some('.'), Option::Some('>')),
     // 0x35
-    (Key::Slash, '/', '?'),
+    (Key::Slash, Option::Some('/'), Option::Some('?')),
     // 0x36
-    (Key::RightShift, '\0', '\0'),
+    (Key::RightShift, Option::None, Option::None),
     // 0x37
-    (Key::Asterisk, '*', '*'),
+    (Key::Asterisk, Option::Some('*'), Option::Some('*')),
     // 0x38
-    (Key::LeftAlt, '\0', '\0'),
+    (Key::LeftAlt, Option::None, Option::None),
     // 0x39
-    (Key::Space, ' ', ' '),
+    (Key::Space, Option::Some(' '), Option::Some(' ')),
     // 0x3A
-    (Key::CapsLock, '\0', '\0'),
+    (Key::CapsLock, Option::None, Option::None),
 ];
 
 /**
@@ -208,11 +208,11 @@ pub struct KeyCode {
     /**
      * 该扫描码对应的字符（ascii）
      */
-    pub char: char,
+    pub char: Option<char>,
     /**
      * 该键大写字符
      */
-    pub char_cap: char,
+    pub char_cap: Option<char>,
 }
 
 /**
@@ -236,11 +236,11 @@ impl KeyCode {
             scan_code: 0,
             key: Key::Null,
             code_type: ScanCodeType::MakeCode,
-            char: '\0',
-            char_cap: '\0',
+            char: Option::None,
+            char_cap: Option::None,
         }
     }
-    fn new(scan_code: u16, key: Key, code_type: ScanCodeType, char: char, char_cap: char) -> Self {
+    fn new(scan_code: u16, key: Key, code_type: ScanCodeType, char: Option<char>, char_cap: Option<char>) -> Self {
         Self {
             scan_code,
             key,
@@ -253,6 +253,7 @@ impl KeyCode {
      * 根据扫描码，得到一个完整的键码信息
      * 注意这里的扫描码是加上了扩展码的，16个字节
      */
+    #[inline(never)]
     pub fn get_from_scan_code(scan_code: u16) -> Option<Self> {
         // 第8位不是0，说明是断码，否则是通码
         let code_type = if scan_code & 0x0080 != 0 {
@@ -276,8 +277,8 @@ impl KeyCode {
                     scan_code,
                     Key::RightAlt,
                     code_type,
-                    '\0',
-                    '\0',
+                    Option::None,
+                    Option::None,
                 ));
             // 特殊判断
             } else if make_code == Key::RightCtrl as u16 {
@@ -285,8 +286,8 @@ impl KeyCode {
                     scan_code,
                     Key::RightCtrl,
                     code_type,
-                    '\0',
-                    '\0',
+                    Option::None,
+                    Option::None,
                 ));
             }
         }
