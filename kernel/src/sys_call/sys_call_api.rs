@@ -1,8 +1,8 @@
 use core::{fmt, mem::{size_of, take}, str, task};
 
-use os_in_rust_common::{vga::{self}, ASSERT, MY_PANIC};
+use os_in_rust_common::{printkln, vga::{self}, ASSERT, MY_PANIC};
 
-use crate::{blocking_queue::BlockingQueue, common::{cwd_dto::CwdDto, exec_dto::ExecParam}, console, console_print, exec, filesystem::{self, DirError, FileDescriptor, FileDescriptorType}, fork, keyboard, memory, pid_allocator::Pid, pipe::{self, PipeError, PipeReader, PipeWriter}, scancode::KeyCode, thread, thread_management, userprog::{self, TaskExitStatus}};
+use crate::{ascii::AsciiKey, blocking_queue::BlockingQueue, common::{cwd_dto::CwdDto, exec_dto::ExecParam}, console, console_print, exec, filesystem::{self, DirError, FileDescriptor, FileDescriptorType}, fork, keyboard, memory, pid_allocator::Pid, pipe::{self, PipeError, PipeReader, PipeWriter}, scancode::KeyCode, thread, thread_management, userprog::{self, TaskExitStatus}};
 use super::sys_call::{self, HandlerType, SystemCallNo};
 
 /**
@@ -173,17 +173,23 @@ fn read(fd_addr: u32, buf: u32, len: u32) -> u32 {
     if task_file_descriptor.get_fd_type() == FileDescriptorType::Console {
         // 如果是标准输入
         if filesystem::StdFileDescriptor::StdInputNo as usize == fd.get_value() {
-            let key_buff = unsafe { core::slice::from_raw_parts_mut(buf.as_mut_ptr() as *mut KeyCode, buf.len() / size_of::<KeyCode>()) };
+            let key_buff = unsafe { core::slice::from_raw_parts_mut(buf.as_mut_ptr() as *mut AsciiKey, buf.len() / size_of::<AsciiKey>()) };
             let mut idx = 0;
             // 键盘队列
             let keyboard_queue = keyboard::get_keycode_queue();
             while idx < key_buff.len() {
                 // 逐个取出输入的键，直到满了
-                let key_res = keyboard_queue.take().unwrap();
-                if key_res.is_none() {
+                let ascii_key = keyboard_queue.take();
+                // 如果队列里空了
+                if ascii_key.is_none() {
+                    break;
+                }
+                let ascii_key = ascii_key.unwrap();
+                // 无效的键，忽略
+                if ascii_key == AsciiKey::NUL {
                     continue;
                 }
-                key_buff[idx] = key_res.unwrap();
+                key_buff[idx] = ascii_key;
                 idx += 1;
             }
             return idx.try_into().unwrap();
@@ -455,8 +461,8 @@ fn pipe_end(fd_addr: u32) -> u32 {
 }
 
 #[inline(never)]
-fn redirect_file_descriptor(fd: u32, redirect_to: u32) -> u32 {
-    let target_fd = unsafe { *(fd as *const FileDescriptor) };
+fn redirect_file_descriptor(fd_addr: u32, redirect_to: u32) -> u32 {
+    let target_fd = unsafe { *(fd_addr as *const FileDescriptor) };
     let redirect_to = unsafe { *(redirect_to as *const FileDescriptor) };
     
     filesystem::redirect_file_descriptor(target_fd, redirect_to);

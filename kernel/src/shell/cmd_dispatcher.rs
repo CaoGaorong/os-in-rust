@@ -41,12 +41,8 @@ pub fn dispatch_cmd(cwd: &str, input: &str, buf: &mut [u8]) {
         }
         return;
     }
-    
-    // 保存管道结果
-    let pipe_res_size: usize = size_of::<Result<FileDescriptor, PipeError>>() * pipe_cnt;
-    // 管道结果数组
-    let pipe_result_list = unsafe { core::slice::from_raw_parts_mut(sys_call::malloc(pipe_res_size) as *mut _ as *mut Result<FileDescriptor, PipeError>, pipe_cnt) };
-    self::batch_create_pipe(pipe_result_list);
+    // 批量创建管道
+    let pipe_result_list = self::batch_create_pipe(pipe_cnt);
 
     let cmd_split = input.split("|");
     let cmd_iterator = cmd_split
@@ -68,23 +64,28 @@ pub fn dispatch_cmd(cwd: &str, input: &str, buf: &mut [u8]) {
             // 如果是子进程，那么就执行命令
 
             // 如果是第一个循环，那么输出的文件描述符重定向
-            // if idx == 0 {
-            //     // 标准输出 重定向到管道的写入
-            //     sys_call::redirect_file_descriptor(FileDescriptor::new(StdFileDescriptor::StdOutputNo as usize), *cur_fd);
-            // // 如果是最后一个循环
-            // } else if idx == pipe_cnt {
-            //     let last_fd = pipe_result_list[idx - 1].as_ref().unwrap();
-            //     // 标准输入，改为从管道输入
-            //     sys_call::redirect_file_descriptor(FileDescriptor::new(StdFileDescriptor::StdInputNo as usize), *last_fd);
-            // } else {
-            //     let last_fd = pipe_result_list[idx - 1].as_ref().unwrap();
-            //     // 标准输出 重定向到管道的写入
-            //     sys_call::redirect_file_descriptor(FileDescriptor::new(StdFileDescriptor::StdOutputNo as usize), *cur_fd);
-            //     // 标准输入，改为从管道输入
-            //     sys_call::redirect_file_descriptor(FileDescriptor::new(StdFileDescriptor::StdInputNo as usize), *last_fd);
-            // }
+            if idx == 0 {
+                let cur_pipe = pipe_result_list[idx].unwrap();
+                // println!("curpipe:{}", cur_pipe.get_value());
+                // 标准输出 重定向到管道的写入
+                sys_call::redirect_file_descriptor(FileDescriptor::new(StdFileDescriptor::StdOutputNo as usize), cur_pipe);
+            // 如果是最后一个循环
+            } else if idx == cmd_cnt - 1 {
+                let last_pipe = pipe_result_list[idx - 1].unwrap();
+                // 标准输入，改为从管道输入
+                sys_call::redirect_file_descriptor(FileDescriptor::new(StdFileDescriptor::StdInputNo as usize), last_pipe);
+            } else {
+                // let cur_fd = pipe_result_list[idx].unwrap();
+                // let last_fd = pipe_result_list[idx - 1].unwrap();
+                // // 标准输出 重定向到管道的写入
+                // sys_call::redirect_file_descriptor(FileDescriptor::new(StdFileDescriptor::StdOutputNo as usize), cur_fd);
+                // // 标准输入，改为从管道输入
+                // sys_call::redirect_file_descriptor(FileDescriptor::new(StdFileDescriptor::StdInputNo as usize), last_fd);
+            }
             // 开始执行命令
-            cmd_executor::execute_cmd(cwd, cmd, param, buf)
+            cmd_executor::execute_cmd(cwd, cmd, param, buf);
+            // 执行完命令，系统调用退出
+            sys_call::exit(0);
     };
 
     // 父进程在这里统一循环等待
@@ -92,12 +93,16 @@ pub fn dispatch_cmd(cwd: &str, input: &str, buf: &mut [u8]) {
         sys_call::wait();
     }
 
+    sys_call::free(pipe_result_list.as_ptr());
+
 }
 
-fn batch_create_pipe(pipe_result_list: &mut [Result<FileDescriptor, PipeError>]) {
-    for pipe in pipe_result_list {
-        // 把结果放进去
-        *pipe = sys_call::pipe(200);
-        assert!(pipe.is_ok());
+#[inline(never)]
+fn batch_create_pipe(pipe_cnt: usize) -> &'static mut [Result<FileDescriptor, PipeError>] {
+    let pipe_res_size: usize = size_of::<Result<FileDescriptor, PipeError>>() * pipe_cnt;
+    let pipe_result_list = unsafe { core::slice::from_raw_parts_mut(sys_call::malloc(pipe_res_size) as *mut _ as *mut Result<FileDescriptor, PipeError>, pipe_cnt) };
+    for idx in 0 .. pipe_result_list.len() {
+        pipe_result_list[idx] = sys_call::pipe(200);
     }
+    pipe_result_list
 }

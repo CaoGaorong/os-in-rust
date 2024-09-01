@@ -2,7 +2,7 @@ use crate::filesystem::{FileDescriptor, FileDescriptorType};
 use crate::blocking_queue::ArrayBlockingQueue;
 use crate::{memory, thread};
 
-use super::pipe_holder::{PipeError, PipeReader, PipeWriter};
+use super::pipe_holder::PipeError;
 use super::pipe_container::{self, PipeContainer};
 
 /**
@@ -11,12 +11,11 @@ use super::pipe_container::{self, PipeContainer};
 #[inline(never)]
 pub fn pipe(size: usize) -> Result<FileDescriptor, PipeError> {
     // 申请一个数组，底层的缓冲区结构
-    let buff = unsafe { core::slice::from_raw_parts_mut(memory::sys_malloc(size * size_of::<u8>()) as *mut u8, size) };
-    // 一个阻塞队列结构
-    let blocking_queue = ArrayBlockingQueue::new(buff);
+    let buff_addr = memory::malloc_system(size * size_of::<u8>());
+    let buff = unsafe { core::slice::from_raw_parts_mut(buff_addr as *mut u8, size) };
     
-    // 把管道，安装。得到下标
-    let idx = pipe_container::install_pipe(PipeContainer::<u8>::new(blocking_queue));
+    // 把缓冲区安装到管道，得到管道数组的下标
+    let idx = pipe_container::install_pipe(PipeContainer::<u8>::new(ArrayBlockingQueue::new(buff)));
     if idx.is_none() {
         // 管道耗尽了
         return Result::Err(PipeError::PipeExhaust);

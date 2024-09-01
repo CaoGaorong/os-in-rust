@@ -9,7 +9,7 @@ mod test {
     #[test]
     pub fn write_text_file() {
         let mut disk_file = OpenOptions::new().write(true).open(DISK_FILE_PATH).expect("failed to open disk file");
-        disk_file.seek(std::io::SeekFrom::Start(constants::DISK_SECTOR_SIZE as u64 * 430)).expect("failed to seek disk file");
+        disk_file.seek(std::io::SeekFrom::Start(constants::DISK_SECTOR_SIZE as u64 * 410)).expect("failed to seek disk file");
 
         let mut text_file = File::open("/Users/jackson/MyProjects/rust/os-in-rust/cat/src/main.rs").expect("failed to open disk file");
         let mut text = String::new();

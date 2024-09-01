@@ -1,6 +1,6 @@
-use os_in_rust_common::{constants, paging::PageTable, pool::MemPool};
+use os_in_rust_common::{constants, paging::PageTable, pool::MemPool, printk};
 
-use crate::{filesystem::FileDescriptorType, memory, pid_allocator::Pid, pipe, scheduler, thread::{self, TaskStatus, TaskStruct}};
+use crate::{filesystem::{FileDescriptor, FileDescriptorType, StdFileDescriptor}, memory, pid_allocator::Pid, pipe, scheduler, thread::{self, TaskStatus, TaskStruct}};
 
 pub type TaskExitStatus = u8;
 
@@ -11,9 +11,16 @@ pub type TaskExitStatus = u8;
 #[inline(never)]
 pub fn exit(status: TaskExitStatus) {
     let cur_task = &mut thread::current_thread().task_struct;
+    // 如果已经退出过了，那么不再处理
+    if cur_task.task_status == TaskStatus::TaskHanging {
+        return;
+    }
     cur_task.exit_status = Option::Some(status);
     
     cur_task.check_stack_magic("failed to exit");
+
+    // 把管道关掉
+    self::close_pipe(cur_task);
 
     // 自己要退出了，把子进程过继给init
     self::trans_children_to_init(cur_task);
@@ -34,8 +41,6 @@ pub fn exit(status: TaskExitStatus) {
     // 把当前任务的父任务，给唤醒（如果在等待的话）
     self::wake_up_parent(cur_task);
 
-    // 把管道关掉
-    self::close_pipe(cur_task);
 
     // 当前进程退出了，设置为挂着状态
     scheduler::block_thread(cur_task, TaskStatus::TaskHanging);
@@ -104,24 +109,9 @@ fn wake_up_parent(cur_task: &TaskStruct) {
  */
 #[inline(never)]
 fn close_pipe(cur_task: &TaskStruct) {
-    let file_descriptors = cur_task.fd_table.get_file_descriptors();
-    if file_descriptors.is_empty() {
-        return;
-    }
-    for descriptor in file_descriptors {
-        if descriptor.is_none() {
-            continue;
-        }
-        let descriptor = descriptor.unwrap();
-        if descriptor.get_fd_type() != FileDescriptorType::Pipe {
-            continue;
-        }
-        let idx = descriptor.get_global_idx();
-        let pipe = pipe::get_pipe(idx).as_mut();
-        if pipe.is_none() {
-            continue;
-        }
-        let pipe = pipe.unwrap();
-        pipe.write_end();
+    let output_pipe = pipe::get_pipe_by_fd(FileDescriptor::new(StdFileDescriptor::StdOutputNo as usize));
+    if output_pipe.is_some() {
+        // 把输出的pipe关掉
+        output_pipe.unwrap().write_end();
     }
 }

@@ -27,6 +27,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "grep"
+version = "0.1.0"
+dependencies = [
+ "kernel",
+ "os_in_rust_common",
+ "rrt",
+]
+
+[[package]]
 name = "kernel"
 version = "0.1.0"
 dependencies = [

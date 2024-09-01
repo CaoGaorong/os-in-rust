@@ -8,14 +8,13 @@
 
 
 use core::{arch::asm, panic::PanicInfo};
-use device::{Disk, Partition};
-use filesystem::{File, FileType, OpenOptions};
+use filesystem::File;
 use kernel::filesystem::SeekFrom;
-use kernel::{console_println, device, filesystem, init, memory, pipe, println, process, program_loader, shell, sys_call, thread, thread_management};
+use kernel::{filesystem, init, memory, pipe, program_loader, sys_call, thread_management};
 use os_in_rust_common::domain::LbaAddr;
-use os_in_rust_common::{constants, cstring_utils, disk, instruction, utils, vga, MY_PANIC};
-use os_in_rust_common::{ASSERT, context::BootContext, printk, printkln};
-
+use os_in_rust_common::constants;
+use os_in_rust_common::{ASSERT, context::BootContext, printkln};
+use kernel::println;
 
 static text: &'static str = "012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789";
 
@@ -95,23 +94,24 @@ pub extern "C" fn _start(boot_info: &BootContext) {
 
 
     // 读取并且写入用户进程
-    program_loader::sync_program(LbaAddr::new(300), 10 * constants::DISK_SECTOR_SIZE, "/userproc");
-    program_loader::sync_program(LbaAddr::new(310), 100 * constants::DISK_SECTOR_SIZE, "/cat");
-    program_loader::sync_program(LbaAddr::new(430), 1340, "/main.rs");
-    program_loader::sync_program(LbaAddr::new(440), 10 * constants::DISK_SECTOR_SIZE, "/echo");
+    program_loader::sync_program(LbaAddr::new(250), 100 * constants::DISK_SECTOR_SIZE, "/cat");
+    program_loader::sync_program(LbaAddr::new(350), 50 * constants::DISK_SECTOR_SIZE, "/grep");
+    program_loader::sync_program(LbaAddr::new(400), 10 * constants::DISK_SECTOR_SIZE, "/echo");
+    program_loader::sync_program(LbaAddr::new(410), 20, "/main.rs");
 
-    println!("fuck world");
-
+    // println!("Hello, world");
+    // println!("fuck world");
+    // println!("fuck world");
     // let pipe = pipe::pipe(100);
     // if pipe.is_err() {
     //     printkln!("error:{:?}", pipe.unwrap_err());
     // } else if pipe.is_ok() {
-    //     let (mut reader, mut writer) = pipe.unwrap();
-    //     writer.write("hello, world".as_bytes());
-    //     writer.write_end();
+    //     let fd = pipe.unwrap();
+    //     sys_call::write(fd, "hello, world".as_bytes());
+    //     sys_call::pipe_end(fd);
         
     //     let mut buff = [0u8; 20];
-    //     reader.read(&mut buff);
+    //     sys_call::read(fd, &mut buff);
     //     printkln!("{}", core::str::from_utf8(&buff).unwrap());
     // }
 

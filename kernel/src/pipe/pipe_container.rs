@@ -1,7 +1,7 @@
-use core::{ptr::addr_of, task};
 
 use os_in_rust_common::racy_cell::RacyCell;
 use crate::{blocking_queue::{ArrayBlockingQueue, BlockingQueue}, filesystem::{FileDescriptor, FileDescriptorType}, memory, thread};
+use crate::println;
 
 
 const PILE_LIST_SIZE: usize = 10;
@@ -105,7 +105,7 @@ impl <'a, T: Copy + Sized> PipeContainer<'a, T> {
  */
 impl <'a, T: Copy + Sized> Drop for PipeContainer<'a, T> {
     fn drop(&mut self) {
-        memory::sys_free(addr_of!(self.queue) as usize);
+        // println!("pipe drop");
         memory::sys_free(self.queue.get_data().as_ptr() as usize);
     }
 }

@@ -27,7 +27,8 @@ pub fn sync_program(file_lba: LbaAddr, file_size: usize, file_path_to_sync: &str
     let disk = disk.unwrap();
 
     // 创建一个缓冲区
-    let buff = unsafe { core::slice::from_raw_parts_mut(memory::sys_malloc(sec_cnt * constants::DISK_SECTOR_SIZE) as *mut u8, sec_cnt * constants::DISK_SECTOR_SIZE) };
+    let addr = memory::sys_malloc(sec_cnt * constants::DISK_SECTOR_SIZE);
+    let buff = unsafe { core::slice::from_raw_parts_mut(addr as *mut u8, sec_cnt * constants::DISK_SECTOR_SIZE) };
     
     // 把这个文件从缓冲区读取出来
     disk.read_sectors(file_lba, sec_cnt, buff);
@@ -46,5 +47,5 @@ pub fn sync_program(file_lba: LbaAddr, file_size: usize, file_path_to_sync: &str
     ASSERT!(res.is_ok());
 
     // 释放缓冲区
-    memory::sys_free(buff.as_ptr() as usize);
+    memory::sys_free(addr);
 }

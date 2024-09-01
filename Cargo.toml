@@ -7,7 +7,7 @@ edition = "2021"
 
 
 [workspace]
-members = ["mbr", "loader", "common", "tests", "loader2", "kernel", "user", "rrt", "cat", "echo"]
+members = ["mbr", "loader", "common", "tests", "loader2", "kernel", "user", "rrt", "cat", "echo", "grep"]
 
 
 [workspace.package]
@@ -21,4 +21,5 @@ user = { version = "0.1.0", path = "user"}
 echo = { version = "0.1.0", path = "echo"}
 rrt = { version = "0.1.0", path = "rrt"}
 cat = { version = "0.1.0", path = "cat"}
+grep = { version = "0.1.0", path = "grep"}
 volatile = "0.2.6"

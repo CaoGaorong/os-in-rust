@@ -1,5 +1,6 @@
 use crate::{filesystem::FileDescriptor, sys_call};
 
+#[derive(Clone, Copy)]
 #[derive(Debug)]
 pub enum PipeError {
     PipeExhaust,

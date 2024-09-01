@@ -15,6 +15,7 @@ pub mod mutex;
 pub mod console;
 pub mod keyboard;
 pub mod scancode;
+pub mod ascii;
 pub mod printer;
 pub mod blocking_queue;
 pub mod tss;

@@ -1,33 +1,8 @@
 use super::{cmd_custom, cmd_dir};
-use super::{cmd::Cmd, cmd_cd, cmd_ls, cmd_ps, shell, shell_util};
+use super::{cmd::Cmd, cmd_cd, cmd_ls, cmd_ps};
 
-use crate::filesystem::{FileDescriptor, StdFileDescriptor};
 use crate::{print, println};
 use crate::sys_call;
-
-/** 
- * 一个命令的结构
-*/
-pub struct Command<'a> {
-    /**
-     * 命令执行时，当前工作目录
-     */
-    cwd: &'a str,
-    /**
-     * 命令
-     */
-    cmd: Cmd<'a>,
-    /**
-     * 命令所需要的参数
-     */
-    param: Option<&'a str>
-}
-/**
- * 命令执行器
- */
-pub trait CommandExecutor {
-    fn execute(cwd: &str, cmd: &str);
-}
 
 #[inline(never)]
 pub fn execute_cmd(cwd: &str, cmd: Cmd, param: Option<&str>, buf: &mut [u8]) {

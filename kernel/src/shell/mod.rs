@@ -11,3 +11,4 @@ mod cmd_executor;
 mod cmd_dispatcher;
 
 pub use my_shell::shell_start;
+pub use shell::Shell;

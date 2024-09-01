@@ -1,5 +1,5 @@
 mod tests {
-    use kernel::shell::shell_util;
+    use kernel::{ascii::AsciiKey, shell::shell_util};
 
 
     #[test]
@@ -34,6 +34,13 @@ mod tests {
         let mut s = "/home/jackson".split("-");
         let s: Vec<&str> = s.collect();
         println!("{:?}", s);
+    }
+
+    #[test]
+    pub fn test_size() {
+        let key = AsciiKey::NUL;
+        let s = size_of_val(&key);
+        println!("s:{}", s);
     }
 }
 

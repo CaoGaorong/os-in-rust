@@ -91,6 +91,7 @@ impl FileSystem {
     /**
      * 创建文件系统。系统首次加载，基于分区
      */
+    #[inline(never)]
     pub fn new(part: &'static Partition, super_block: &'static SuperBlock, inode_bits: &mut [u8], block_bits: &mut [u8]) -> Self {
         Self {
             base_part: part,

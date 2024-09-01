@@ -2,6 +2,8 @@ use core::ptr::null;
 
 use os_in_rust_common::{constants, ASSERT};
 
+use crate::ascii::AsciiKey;
+
 /**
  * 本文件，专门对扫描码进行处理
  * 把纯数字的扫描码，转换成更加有结构性的键码信息，方便业务处理
@@ -12,112 +14,112 @@ use os_in_rust_common::{constants, ASSERT};
  * index: 通码（按下键产生的码）
  * value: 三元组(键，该键的字符，该键大写字符)
  */
-static MAKE_CODE_ASCII_MAPPING: [(Key, Option<char>, Option<char>); constants::KEYBOARD_KEY_COUNT] = [
+static MAKE_CODE_ASCII_MAPPING: [(Key, AsciiKey, AsciiKey); constants::KEYBOARD_KEY_COUNT] = [
     // 0x00
-    (Key::Null, Option::None, Option::None),
-    (Key::Esc, Option::Some(0x1b as char), Option::Some(0x1b as char)),
-    (Key::One, Option::Some('1'), Option::Some('!')),
-    (Key::Two, Option::Some('2'), Option::Some('@')),
-    (Key::Three, Option::Some('3'), Option::Some('#')),
-    (Key::Four, Option::Some('4'), Option::Some('$')),
-    (Key::Five, Option::Some('5'), Option::Some('%')),
-    (Key::Six, Option::Some('6'), Option::Some('^')),
-    (Key::Seven, Option::Some('7'), Option::Some('&')),
-    (Key::Eight, Option::Some('8'), Option::Some('*')),
-    (Key::Night, Option::Some('9'), Option::Some('(')),
-    (Key::Zero, Option::Some('0'), Option::Some(')')),
-    (Key::Dash, Option::Some('-'), Option::Some('_')),
-    (Key::Equals, Option::Some('='), Option::Some('+')),
+    (Key::Null, AsciiKey::NUL, AsciiKey::NUL),
+    (Key::Esc, AsciiKey::ESC, AsciiKey::ESC),
+    (Key::One, AsciiKey::ONE, AsciiKey::EXCLAMATION),
+    (Key::Two, AsciiKey::TWO, AsciiKey::AT),
+    (Key::Three, AsciiKey::THREE, AsciiKey::HASH),
+    (Key::Four, AsciiKey::FOUR, AsciiKey::DOLLAR),
+    (Key::Five, AsciiKey::FIVE, AsciiKey::PERCENT),
+    (Key::Six, AsciiKey::SIX, AsciiKey::CARET),
+    (Key::Seven, AsciiKey::SEVEN, AsciiKey::AMPERSAND),
+    (Key::Eight, AsciiKey::EIGHT, AsciiKey::ASTERISK),
+    (Key::Night, AsciiKey::NINE, AsciiKey::LPAREN),
+    (Key::Zero, AsciiKey::ZERO, AsciiKey::RPAREN),
+    (Key::Dash, AsciiKey::MINUS, AsciiKey::UNDERSCORE),
+    (Key::Equals, AsciiKey::EQUALS, AsciiKey::PLUS),
     // 0x0E
-    (Key::Backspace, Option::Some(0x8 as char), Option::Some(0x8 as char)),
+    (Key::Backspace, AsciiKey::BS, AsciiKey::BS),
     // 0x0F
-    (Key::Tab, Option::Some(0x9 as char), Option::Some(0x9 as char)),
+    (Key::Tab, AsciiKey::TAB, AsciiKey::TAB),
     // 0x10
-    (Key::Q, Option::Some('q'), Option::Some('Q')),
+    (Key::Q, AsciiKey::q, AsciiKey::Q),
     // 0x11
-    (Key::W, Option::Some('w'), Option::Some('W')),
+    (Key::W, AsciiKey::w, AsciiKey::W),
     // 0x12
-    (Key::E, Option::Some('e'), Option::Some('E')),
+    (Key::E, AsciiKey::e, AsciiKey::W),
     // 0x13
-    (Key::R, Option::Some('r'), Option::Some('R')),
+    (Key::R, AsciiKey::r, AsciiKey::R),
     // 0x14
-    (Key::T, Option::Some('t'), Option::Some('T')),
+    (Key::T, AsciiKey::t, AsciiKey::T),
     // 0x15
-    (Key::Y, Option::Some('y'), Option::Some('Y')),
+    (Key::Y, AsciiKey::y, AsciiKey::Y),
     // 0x16
-    (Key::U, Option::Some('u'), Option::Some('U')),
+    (Key::U, AsciiKey::u, AsciiKey::U),
     // 0x17
-    (Key::I, Option::Some('i'), Option::Some('I')),
+    (Key::I, AsciiKey::i, AsciiKey::I),
     // 0x18
-    (Key::O, Option::Some('o'), Option::Some('O')),
+    (Key::O, AsciiKey::o, AsciiKey::O),
     // 0x19
-    (Key::P, Option::Some('p'), Option::Some('P')),
+    (Key::P, AsciiKey::p, AsciiKey::P),
     // 0x1A
-    (Key::LeftBracket, Option::Some('['), Option::Some('{')),
+    (Key::LeftBracket, AsciiKey::LBRACKET, AsciiKey::LBRACE),
     // 0x1B
-    (Key::RightBracket, Option::Some(']'), Option::Some('}')),
+    (Key::RightBracket, AsciiKey::RBRACKET, AsciiKey::RBRACE),
     // 0x1C
-    (Key::Enter, Option::Some(0x0d as char), Option::Some(0x0d as char)),
+    (Key::Enter, AsciiKey::CR, AsciiKey::CR),
     // 0x1D
-    (Key::LeftCtrl, Option::None, Option::Some(0x0d as char)),
+    (Key::LeftCtrl, AsciiKey::DC1, AsciiKey::DC1),
     // 0x1E
-    (Key::A, Option::Some('a'), Option::Some('A')),
+    (Key::A, AsciiKey::a, AsciiKey::A),
     // 0x1F
-    (Key::S, Option::Some('s'), Option::Some('S')),
+    (Key::S, AsciiKey::s, AsciiKey::S),
     // 0x20
-    (Key::D, Option::Some('d'), Option::Some('D')),
+    (Key::D, AsciiKey::d, AsciiKey::D),
     // 0x21
-    (Key::F, Option::Some('f'), Option::Some('F')),
+    (Key::F, AsciiKey::f, AsciiKey::F),
     // 0x22
-    (Key::G, Option::Some('g'), Option::Some('G')),
+    (Key::G, AsciiKey::g, AsciiKey::G),
     // 0x23
-    (Key::H, Option::Some('h'), Option::Some('H')),
+    (Key::H, AsciiKey::h, AsciiKey::H),
     // 0x24
-    (Key::J, Option::Some('j'), Option::Some('J')),
+    (Key::J, AsciiKey::j, AsciiKey::J),
     // 0x25
-    (Key::K, Option::Some('k'), Option::Some('K')),
+    (Key::K, AsciiKey::k, AsciiKey::K),
     // 0x26
-    (Key::L, Option::Some('l'), Option::Some('L')),
+    (Key::L, AsciiKey::l, AsciiKey::L),
     // 0x27
-    (Key::Semicolon, Option::Some(';'), Option::Some(':')),
+    (Key::Semicolon, AsciiKey::SEMICOLON, AsciiKey::COLON),
     // 0x28
-    (Key::Quote, Option::Some('\''), Option::Some('"')),
+    (Key::Quote, AsciiKey::APOSTROPHE, AsciiKey::QUOTE),
     // 0x29
-    (Key::Tilde, Option::Some('`'), Option::Some('~')),
+    (Key::Tilde, AsciiKey::GRAVE, AsciiKey::TILDE),
     // 0x2A
-    (Key::LeftShift, Option::None, Option::None),
+    (Key::LeftShift, AsciiKey::SI, AsciiKey::SI),
     // 0x2B
-    (Key::Pipe, Option::Some('\\'), Option::Some('|')),
+    (Key::Pipe, AsciiKey::BACKSLASH, AsciiKey::PIPE),
     // 0x2C
-    (Key::Z, Option::Some('z'), Option::Some('Z')),
+    (Key::Z, AsciiKey::z, AsciiKey::Z),
     // 0x2D
-    (Key::X, Option::Some('x'), Option::Some('X')),
+    (Key::X, AsciiKey::x, AsciiKey::X),
     // 0x2E
-    (Key::C, Option::Some('c'), Option::Some('C')),
+    (Key::C, AsciiKey::c, AsciiKey::C),
     // 0x2F
-    (Key::V, Option::Some('v'), Option::Some('V')),
+    (Key::V, AsciiKey::v, AsciiKey::V),
     // 0x30
-    (Key::B, Option::Some('b'), Option::Some('B')),
+    (Key::B, AsciiKey::b, AsciiKey::B),
     // 0x31
-    (Key::N, Option::Some('n'), Option::Some('N')),
+    (Key::N, AsciiKey::n, AsciiKey::N),
     // 0x32
-    (Key::M, Option::Some('m'), Option::Some('M')),
+    (Key::M, AsciiKey::m, AsciiKey::M),
     // 0x33
-    (Key::LessThan, Option::Some(','), Option::Some('<')),
+    (Key::LessThan, AsciiKey::COMMA, AsciiKey::LESS),
     // 0x34
-    (Key::GraterThan, Option::Some('.'), Option::Some('>')),
+    (Key::GraterThan, AsciiKey::PERIOD, AsciiKey::GREATER),
     // 0x35
-    (Key::Slash, Option::Some('/'), Option::Some('?')),
+    (Key::Slash, AsciiKey::SLASH, AsciiKey::QUESTION),
     // 0x36
-    (Key::RightShift, Option::None, Option::None),
+    (Key::RightShift, AsciiKey::SO, AsciiKey::SO),
     // 0x37
-    (Key::Asterisk, Option::Some('*'), Option::Some('*')),
+    (Key::Asterisk, AsciiKey::ASTERISK, AsciiKey::ASTERISK),
     // 0x38
-    (Key::LeftAlt, Option::None, Option::None),
+    (Key::LeftAlt, AsciiKey::DC2, AsciiKey::DC2),
     // 0x39
-    (Key::Space, Option::Some(' '), Option::Some(' ')),
+    (Key::Space, AsciiKey::SPACE, AsciiKey::SPACE),
     // 0x3A
-    (Key::CapsLock, Option::None, Option::None),
+    (Key::CapsLock, AsciiKey::DC4, AsciiKey::DC4),
 ];
 
 /**
@@ -208,11 +210,11 @@ pub struct KeyCode {
     /**
      * 该扫描码对应的字符（ascii）
      */
-    pub char: Option<char>,
+    pub char: AsciiKey,
     /**
      * 该键大写字符
      */
-    pub char_cap: Option<char>,
+    pub char_cap: AsciiKey,
 }
 
 /**
@@ -231,16 +233,18 @@ pub enum ScanCodeType {
 }
 
 impl KeyCode {
+    #[inline(never)]
     pub const fn empty() -> Self {
         Self {
             scan_code: 0,
             key: Key::Null,
             code_type: ScanCodeType::MakeCode,
-            char: Option::None,
-            char_cap: Option::None,
+            char: AsciiKey::NUL,
+            char_cap: AsciiKey::NUL,
         }
     }
-    fn new(scan_code: u16, key: Key, code_type: ScanCodeType, char: Option<char>, char_cap: Option<char>) -> Self {
+    #[inline(never)]
+    fn new(scan_code: u16, key: Key, code_type: ScanCodeType, char: AsciiKey, char_cap: AsciiKey) -> Self {
         Self {
             scan_code,
             key,
@@ -277,8 +281,8 @@ impl KeyCode {
                     scan_code,
                     Key::RightAlt,
                     code_type,
-                    Option::None,
-                    Option::None,
+                    AsciiKey::DC2,
+                    AsciiKey::DC2,
                 ));
             // 特殊判断
             } else if make_code == Key::RightCtrl as u16 {
@@ -286,8 +290,8 @@ impl KeyCode {
                     scan_code,
                     Key::RightCtrl,
                     code_type,
-                    Option::None,
-                    Option::None,
+                    AsciiKey::DC1,
+                    AsciiKey::DC1,
                 ));
             }
         }

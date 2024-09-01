@@ -5,13 +5,14 @@ use core::mem::size_of_val;
 
 use os_in_rust_common::MY_PANIC;
 
+use crate::ascii::AsciiKey;
 use crate::common::cwd_dto::CwdDto;
 use crate::common::exec_dto::ExecParam;
 use crate::exec;
 use crate::filesystem::{self, FileDescriptor, SeekFrom, StdFileDescriptor};
 use crate::pid_allocator::Pid;
 use crate::pipe::{PipeError, PipeReader, PipeWriter};
-use crate::scancode::KeyCode;
+use crate::scancode::{Key, KeyCode};
 use crate::userprog::TaskExitStatus;
 
 use super::sys_call::SystemCallNo;
@@ -86,8 +87,8 @@ pub fn clear_screen() {
 
 
 #[inline(never)]
-pub fn read_key() -> KeyCode {
-    let mut key = KeyCode::empty();
+pub fn read_key() -> AsciiKey {
+    let mut key = AsciiKey::NUL;
     let buf = unsafe { core::slice::from_raw_parts_mut(&mut key as *mut _ as *mut u8, size_of_val(&key)) };
     self::read(FileDescriptor::new(StdFileDescriptor::StdInputNo as usize), buf);
     key

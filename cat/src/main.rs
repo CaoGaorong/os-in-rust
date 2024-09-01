@@ -19,7 +19,7 @@ pub extern "C" fn main() {
     let buff: &mut [u8; 20] = sys_call::malloc(20);
     let cwd = sys_call::get_cwd(buff);
 
-    let buff: &mut [u8; 20] = sys_call::malloc(20);
+    let buff: &mut [u8; 20] = sys_call::malloc(100);
     let abs_path = shell_util::get_abs_path(cwd, input_path, buff).unwrap();
 
     let file = sys_call::File::open(abs_path);
@@ -43,6 +43,7 @@ pub extern "C" fn main() {
         }
         sys_call::write(FileDescriptor::new(StdFileDescriptor::StdOutputNo as usize), buff);
     }
+    sys_call::exit(10);
 }
 
 #[panic_handler]

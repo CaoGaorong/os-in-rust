@@ -1,7 +1,7 @@
 
 use os_in_rust_common::{racy_cell::RacyCell, MY_PANIC};
 
-use crate::{print, println, scancode::{Key, ScanCodeType}, sys_call::{self}};
+use crate::{ascii::AsciiKey, print, println, scancode::{Key, ScanCodeType}, sys_call::{self}};
 
 use super::{cmd::Cmd, cmd_cd, cmd_dispatcher, shell::Shell};
 
@@ -17,12 +17,12 @@ static SHELL: RacyCell<Shell<PATH_LEN, INPUT_LEN>> = RacyCell::new(Shell::new([0
 /**
  * 按住的上一个键
  */
-static LAST_KEY: RacyCell<Key> = RacyCell::new(Key::Null);
+static LAST_KEY: RacyCell<AsciiKey> = RacyCell::new(AsciiKey::NUL);
 
-fn get_last_key() -> Key {
+fn get_last_key() -> AsciiKey {
     *unsafe { LAST_KEY.get_mut() }
 }
-fn set_last_key(key: Key) {
+fn set_last_key(key: AsciiKey) {
     *unsafe { LAST_KEY.get_mut() } = key;
 }
 
@@ -51,36 +51,22 @@ fn read_line(shell: &mut Shell<PATH_LEN, INPUT_LEN>) -> &str {
     shell.clear_input();
     self::set_capital(false);
     loop {
-        let keycode = sys_call::read_key();
-        // 断码，忽略
-        if keycode.code_type == ScanCodeType::BreakCode {
-            set_last_key(Key::Null);
-            // 如果shift放下，那么就不再是大写了
-            if keycode.key == Key::LeftShift {
-                self::set_capital(false);
-            }
-            // println!("break code ignored");
-            continue;
-        }
-
-        if keycode.key == Key::LeftShift {
-            self::set_capital(true);
-        }
+        let ascii_key = sys_call::read_key();
 
         // 如果是回车键，直接本次命令输入结束
-        if keycode.key == Key::Enter {
+        if ascii_key == AsciiKey::CR {
             break;
         }
 
         // ctrl + l，清屏
-        if self::get_last_key() == Key::LeftCtrl && keycode.key == Key::L {
+        if self::get_last_key() == AsciiKey::DC1 && ascii_key == AsciiKey::l {
             sys_call::clear_screen();
             shell.clear_input();
             break;
         }
 
         // ctrl + u，清除当前行
-        if self::get_last_key() == Key::LeftCtrl && keycode.key == Key::U {
+        if self::get_last_key() == AsciiKey::DC1 && ascii_key == AsciiKey::u {
             // 清空缓冲区
             let cmd = shell.get_input();
             for _ in  0..cmd.len() {
@@ -90,24 +76,19 @@ fn read_line(shell: &mut Shell<PATH_LEN, INPUT_LEN>) -> &str {
             continue;
         }
         // 最后一个key
-        self::set_last_key(keycode.key);
+        self::set_last_key(ascii_key);
 
-        let key_char = if get_capital() {keycode.char_cap} else {keycode.char};
-
-        if key_char.is_none() {
-            continue;
-        }
-        let key_char = key_char.unwrap();
+        let key_char = ascii_key as u8 as char;
 
         // 如果是退格键，需要删除缓冲区里一个元素
-        if keycode.key == Key::Backspace {
+        if ascii_key == AsciiKey::BS {
             shell.pop_last_input();
             print!("{}", key_char);
             continue;
         }
 
-        // 非数字字母，不接收
-        if !key_char.is_ascii() {
+        // 控制字符，不接收
+        if key_char.is_ascii_control() {
             continue;
         }
         // 其他的键，放入命令队列中

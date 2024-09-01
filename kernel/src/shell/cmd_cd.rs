@@ -1,10 +1,6 @@
 use crate::sys_call;
 
-use super::{cmd_executor::Command, shell_util};
-
-pub struct CommandLs<'a> {
-    cmd: Command<'a>,
-}
+use super::shell_util;
 
 
 #[inline(never)]

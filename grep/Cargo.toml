@@ -1,0 +1,10 @@
+[package]
+name = "grep"
+version.workspace = true
+edition.workspace = true
+
+
+[dependencies]
+kernel = { workspace = true }
+os_in_rust_common = { workspace = true }
+rrt = { workspace = true }

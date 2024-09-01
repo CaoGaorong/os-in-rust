@@ -1,4 +1,3 @@
-use crate::ASSERT;
 
 #[derive(Copy, Clone)]
 pub struct ArrayDeque<T: Copy, const N: usize> {
@@ -22,7 +21,7 @@ impl<T: Copy, const N: usize> ArrayDeque<T, N> {
     #[inline(never)]
     pub fn append(&mut self, data: T) {
         let len = self.len;
-        ASSERT!(len < self.cap());
+        assert!(len < self.cap());
         let arr = &mut self.data;
         arr[len] = data;
         self.len += 1;
@@ -31,7 +30,7 @@ impl<T: Copy, const N: usize> ArrayDeque<T, N> {
     #[inline(never)]
     pub fn push(&mut self, data: T) {
         let len = self.len;
-        ASSERT!(len < self.cap());
+        assert!(len < self.cap());
         let arr = &mut self.data;
         arr.copy_within(0..len, 1);
         arr[0] = data;

@@ -5,4 +5,4 @@ user.bin:
 
 compile: user.bin
 	cd ../ && \
-	dd if=build/echo.bin of=build/hd60M.img bs=512 count=100 seek=440 conv=notrunc
+	dd if=build/echo.bin of=build/hd60M.img bs=512 count=100 seek=400 conv=notrunc
