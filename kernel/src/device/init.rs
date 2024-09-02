@@ -165,7 +165,7 @@ pub fn main_part_init(disk: &mut Disk) {
 #[inline(never)]
 pub fn extended_part_init(disk: &mut Disk, main_ext_lba: LbaAddr) {
 
-    let mut stack = ArrayDeque::new([(LbaAddr::empty(), 0); 20]);
+    let mut stack = ArrayDeque::new([(LbaAddr::empty(), 0); 10]);
     stack.append((main_ext_lba, 4));
 
     // 申请内存。为了防止栈溢出，因此不使用局部变量

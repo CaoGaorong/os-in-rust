@@ -21,7 +21,9 @@ impl<T: Copy, const N: usize> ArrayDeque<T, N> {
     #[inline(never)]
     pub fn append(&mut self, data: T) {
         let len = self.len;
-        assert!(len < self.cap());
+        if len >= self.cap() {
+            panic!("exceed deque capacity");
+        }
         let arr = &mut self.data;
         arr[len] = data;
         self.len += 1;

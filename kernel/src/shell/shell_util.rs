@@ -74,15 +74,18 @@ pub fn get_abs_path<'a>(cwd: &str, input_path: &str, buff: &'a mut [u8]) -> Resu
     
     // 遍历所有的entry，构建绝对路径
     let mut idx = 1;
-    for &entry in deque.get_array() {
+    let len = deque.get_array().len();
+    for (i, &entry) in deque.get_array().iter().enumerate() {
         if entry.is_none() {
             continue;
         }
         let entry = entry.unwrap();
         buff[idx..idx + entry.len()].copy_from_slice(entry.as_bytes());
         idx += entry.len();
-        buff[idx..idx + 1].copy_from_slice("/".as_bytes());
-        idx += 1;
+        if i < len - 1 {
+            buff[idx..idx + 1].copy_from_slice("/".as_bytes());
+            idx += 1;
+        }
     };
     let abs_path = cstring_utils::read_from_bytes(buff);
 

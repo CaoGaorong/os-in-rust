@@ -9,6 +9,7 @@ pub mod page_util;
 // 申请内存
 pub use memory_management::malloc;
 pub use memory_management::malloc_system;
+pub use memory_management::free_system;
 pub use memory_management::sys_malloc;
 pub use memory_management::malloc_kernel_page;
 pub use memory_management::free_kernel_page;

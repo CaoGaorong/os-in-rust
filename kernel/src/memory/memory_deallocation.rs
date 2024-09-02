@@ -78,7 +78,9 @@ pub fn free_bytes(addr_pool: &mut MemPool, mem_pool: &mut MemPool, vaddr_to_free
 #[inline(never)]
 pub fn free_page(addr_pool: &mut MemPool, mem_pool: &mut MemPool, vaddr_start: usize, page_cnt: usize, phy_free: bool) {
     // 确保这个释放的地址，在当前的虚拟地址池中
-    ASSERT!(addr_pool.in_pool(vaddr_start));
+    if !addr_pool.in_pool(vaddr_start) {
+        MY_PANIC!("vaddr not in pool. vaddr:0x{:x}", vaddr_start);
+    }
     ASSERT!(addr_pool.in_pool(vaddr_start + constants::PAGE_SIZE as usize * page_cnt));
     ASSERT!(page_cnt >= 1 && vaddr_start % constants::PAGE_SIZE as usize == 0);
 

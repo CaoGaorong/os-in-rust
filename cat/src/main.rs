@@ -30,20 +30,23 @@ pub extern "C" fn main() {
     }
     let file = file.unwrap();
     loop {
+        // 清空缓冲区
+        unsafe { buff.as_mut_ptr().write_bytes(0, buff.len()) };
+
         // read file data from file and to buffer
         let read_bytes = file.read(buff);
         if read_bytes == 0 {
             break;
         }
         // convert byte buff to string
-        let s = core::str::from_utf8(buff);
+        let s = core::str::from_utf8(&buff[..read_bytes]);
         if s.is_err() {
             println!("error:{:?}", s.unwrap_err());
             break;
         }
-        sys_call::write(FileDescriptor::new(StdFileDescriptor::StdOutputNo as usize), buff);
+        // sys_call::write(FileDescriptor::new(StdFileDescriptor::StdOutputNo as usize), buff);
+        print!("{}", s.unwrap())
     }
-    sys_call::exit(10);
 }
 
 #[panic_handler]

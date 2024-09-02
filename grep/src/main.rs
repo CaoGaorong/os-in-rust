@@ -59,6 +59,7 @@ pub extern "C" fn main() {
         assert!(input_shell.get_input().len() < 1000);
         input_shell.append_input(key_char);
     }
+    println!();
 }
 
 #[panic_handler]

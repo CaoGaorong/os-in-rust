@@ -5,6 +5,7 @@ use crate::{filesystem::FileDescriptor, sys_call};
 pub enum PipeError {
     PipeExhaust,
     FileDescriptorExhaust,
+    PipeNotExist
 }
 
 
@@ -48,13 +49,6 @@ impl PipeWriter {
      */
     pub fn write(&mut self, buff: &[u8]) {
         sys_call::write(self.fd, buff)
-    }
-
-    /**
-     * 这个管道结束
-     */
-    pub fn write_end(&mut self) {
-        sys_call::pipe_end(self.fd)
     }
 
     pub fn get_fd(&self) -> FileDescriptor {

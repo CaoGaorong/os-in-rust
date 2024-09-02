@@ -176,9 +176,14 @@ pub enum SystemCallNo {
     PipeEnd,
 
     /**
-     * 文件描述符重定向
+     * 设置管道的生产者
      */
-    FileDescriptorRedirect,
+    SetProducer,
+
+    /**
+     * 设置管道的消费者
+     */
+    SetConsumer,
 }
 
 /**

@@ -9,6 +9,7 @@ mod cmd_dir;
 mod cmd_custom;
 mod cmd_executor;
 mod cmd_dispatcher;
+mod cmd_file;
 
 pub use my_shell::shell_start;
 pub use shell::Shell;

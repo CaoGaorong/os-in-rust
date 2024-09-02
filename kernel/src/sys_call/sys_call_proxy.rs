@@ -1,18 +1,16 @@
 use core::arch::asm;
 
-use core::fmt;
 use core::mem::size_of_val;
 
-use os_in_rust_common::MY_PANIC;
 
 use crate::ascii::AsciiKey;
 use crate::common::cwd_dto::CwdDto;
 use crate::common::exec_dto::ExecParam;
+use crate::common::open_file_dto::OpenFileDto;
 use crate::exec;
 use crate::filesystem::{self, FileDescriptor, SeekFrom, StdFileDescriptor};
 use crate::pid_allocator::Pid;
-use crate::pipe::{PipeError, PipeReader, PipeWriter};
-use crate::scancode::{Key, KeyCode};
+use crate::pipe::PipeError;
 use crate::userprog::TaskExitStatus;
 
 use super::sys_call::SystemCallNo;
@@ -155,9 +153,9 @@ pub fn create_file(path: &str) -> Result<filesystem::File, filesystem::FileError
 }
 
 #[inline(never)]
-pub fn open_file(path: &str) -> Result<filesystem::File, filesystem::FileError> {
+pub fn open_file(req: &OpenFileDto) -> Result<filesystem::File, filesystem::FileError> {
     let mut res: Result<filesystem::File, filesystem::FileError> = Result::Err(filesystem::FileError::NotFound);
-    self::do_sys_call(SystemCallNo::OpenFile, Option::Some(path.as_ptr() as u32), Option::Some(path.len() as u32), Option::Some(&mut res as *mut _ as u32));
+    self::do_sys_call(SystemCallNo::OpenFile, Option::Some(req as *const _ as u32), Option::Some(&mut res as *mut _ as u32), Option::None);
     res
 }
 
@@ -240,21 +238,21 @@ pub fn pipe(size: usize) -> Result<FileDescriptor, PipeError> {
 
 
 #[inline(never)]
-pub fn pipe_end(fd: FileDescriptor) {
+pub fn release_pipe(fd: FileDescriptor) {
     self::do_sys_call(SystemCallNo::PipeEnd, Option::Some(&fd as *const _ as u32), Option::None, Option::None);
 }
 
 
-/**
- * 重定向文件描述符。
- * 把当前任务的文件描述符 从 source_fd 重定向到 redirect_to
- *    也就是重定向后，原本对 source_fd 的操作就变为了对 redirect_to 的操作
- */
 #[inline(never)]
-pub fn redirect_file_descriptor(source_fd: FileDescriptor, redirect_to: FileDescriptor) {
-    self::do_sys_call(SystemCallNo::FileDescriptorRedirect, Option::Some(&source_fd as *const _ as u32), Option::Some(&redirect_to as *const _ as u32), Option::None);
+pub fn set_consumer(pipe_fd: FileDescriptor) {
+    self::do_sys_call(SystemCallNo::SetConsumer, Option::Some(&pipe_fd as *const _ as u32), Option::None, Option::None);
 }
 
+
+#[inline(never)]
+pub fn set_producer(pipe_fd: FileDescriptor) {
+    self::do_sys_call(SystemCallNo::SetProducer, Option::Some(&pipe_fd as *const _ as u32), Option::None, Option::None);
+}
 
 /**
  * 发起系统调用

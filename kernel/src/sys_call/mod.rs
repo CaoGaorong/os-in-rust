@@ -27,8 +27,9 @@ pub use sys_call_proxy::get_cwd;
 pub use sys_call_proxy::change_dir;
 pub use sys_call_proxy::read;
 pub use sys_call_proxy::pipe;
-pub use sys_call_proxy::pipe_end;
-pub use sys_call_proxy::redirect_file_descriptor;
+pub use sys_call_proxy::release_pipe;
+pub use sys_call_proxy::set_consumer;
+pub use sys_call_proxy::set_producer;
 pub use crate::println;
 pub use crate::print;
 
@@ -40,3 +41,5 @@ pub use dir_api::remove_dir;
 
 
 pub use file_api::File;
+pub use file_api::OpenOptions;
+pub use file_api::remove_file;

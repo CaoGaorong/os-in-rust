@@ -649,6 +649,9 @@ impl InterruptStack {
             let args = args.unwrap();
             self.ebx = args.as_ptr() as u32;
             self.ecx = args.len().try_into().unwrap();
+        } else {
+            self.ebx = 0;
+            self.ecx = 0;
         }
         self.eip = entry;
         self.esp = 0xC0000000;

@@ -1,4 +1,4 @@
-use super::{cmd_custom, cmd_dir};
+use super::{cmd_custom, cmd_dir, cmd_file};
 use super::{cmd::Cmd, cmd_cd, cmd_ls, cmd_ps};
 
 use crate::{print, println};
@@ -37,6 +37,13 @@ pub fn execute_cmd(cwd: &str, cmd: Cmd, param: Option<&str>, buf: &mut [u8]) {
         // 删除目录
         Cmd::Rmdir => {
             cmd_dir::rmdir(cwd, param, buf);
+        },
+        // 创建普通文件
+        Cmd::Touch => {
+            cmd_file::create_file(cwd, param, buf);
+        },
+        Cmd::Rm => {
+            cmd_file::remove_file(cwd, param, buf);
         },
         Cmd::Custom(cmd) => {
             cmd_custom::custom_cmd(cwd, cmd, param, buf);

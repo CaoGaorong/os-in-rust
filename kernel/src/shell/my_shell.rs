@@ -131,7 +131,6 @@ pub fn shell_start() {
         // 打印提示
         self::print_prompt(shell);
         let input = self::read_line(shell);
-        println!();
         if input.trim().is_empty() {
             continue;
         }

@@ -1,13 +1,10 @@
-use core::fmt::{Debug, Display};
-
-use os_in_rust_common::{cstr_write, cstring_utils, printkln, ASSERT};
-
-use crate::{filesystem::{self, FileDescriptor}, println};
-
-use super::{sys_call_proxy};
 
 
-#[derive(Clone, Copy)]
+use crate::{common::open_file_dto::OpenFileDto, filesystem::{self, FileDescriptor}, println};
+
+use super::sys_call_proxy;
+
+
 pub struct OpenOptions {
     write: bool, 
     append: bool,
@@ -25,26 +22,26 @@ impl OpenOptions {
     }
 
     #[inline(never)]
-    pub fn append(&mut self, append: bool) -> Self {
+    pub fn append(&mut self, append: bool) -> &mut Self {
         self.append = append;
-        *self
+        self
     }
 
     #[inline(never)]
-    pub fn write(&mut self, write: bool) -> Self {
+    pub fn write(&mut self, write: bool) -> &mut Self {
         self.write = write;
-        *self
+        self
     }
     #[inline(never)]
-    pub fn read(&mut self, read: bool) -> Self {
+    pub fn read(&mut self, read: bool) -> &mut Self {
         self.read = read;
-        *self
+        self
     }
 
     #[inline(never)]
     pub fn open(&self, path: &str) -> Result<File, filesystem::FileError> {
-        // TODO： 这里append未处理
-        File::open(path)
+        let req = OpenFileDto::new(path, self.append);
+        Result::Ok(File::new(sys_call_proxy::open_file(&req)?))
     }
 
 }
@@ -71,7 +68,8 @@ impl File {
      */
     #[inline(never)]
     pub fn open(path: &str) -> Result<Self, filesystem::FileError> {
-        Result::Ok(Self::new(sys_call_proxy::open_file(path)?))
+        let req = OpenFileDto::new(path, false);
+        Result::Ok(Self::new(sys_call_proxy::open_file(&req)?))
     }
 
     /**
@@ -119,15 +117,20 @@ impl File {
     pub fn get_fd(&self) -> FileDescriptor {
         self.file.get_file_descriptor()
     }
+
+    #[inline(never)]
+    pub fn close(&mut self) {
+        let res = sys_call_proxy::close_file(&mut self.file);
+        if res.is_err() {
+            println!("drop file error. {:?}", res.unwrap_err());
+        }
+    }
 }
 
 impl Drop for File {
     #[inline(never)]
     fn drop(&mut self) {
-        let res = sys_call_proxy::close_file(&mut self.file);
-        if res.is_err() {
-            println!("drop file error. {:?}", res.unwrap_err());
-        }
+        self.close();
     }
 }
 

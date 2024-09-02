@@ -6,44 +6,54 @@ use crate::{filesystem::{constant, file, fs}, thread};
 
 use super::{dir_entry::{self, DirEntrySearchReq}, file::{FileError, OpenedFile}, file_descriptor::FileDescriptor, file_util, global_file_table, inode};
 
-#[derive(Clone, Copy)]
 pub struct OpenOptions {
     write: bool, 
     append: bool,
     read: bool,
+    ignore_drop: bool,
 }
 
 impl OpenOptions {
+    
     #[inline(never)]
     pub fn new() -> Self {
         Self {
             write: false,
             append: false,
             read: false,
+            ignore_drop: false,
         }
     }
 
     #[inline(never)]
-    pub fn append(&mut self, append: bool) -> Self {
+    pub fn append(&mut self, append: bool) -> &mut Self {
         self.append = append;
-        *self
+        self
     }
 
     #[inline(never)]
-    pub fn write(&mut self, write: bool) -> Self {
+    pub fn write(&mut self, write: bool) -> &mut Self {
         self.write = write;
-        *self
+        self
     }
     #[inline(never)]
-    pub fn read(&mut self, read: bool) -> Self {
+    pub fn read(&mut self, read: bool) -> &mut Self {
         self.read = read;
-        *self
+        self
+    }
+
+    #[inline(never)]
+    pub fn ignore_drop(&mut self, ignore: bool) -> &mut Self {
+        self.ignore_drop = ignore;
+        self
     }
 
     #[inline(never)]
     pub fn open(&self, path: &str) -> Result<File, FileError> {
         let fd = file::open_file(path, self.append)?;
-        let file = File::new(fd, path, self.write, self.read);
+        let mut file = File::new(fd, path, self.write, self.read);
+        file.ignore_drop = self.ignore_drop;
+
         return Result::Ok(file);
     }
 

@@ -2,7 +2,7 @@ use core::{fmt, mem::{size_of, take}, str, task};
 
 use os_in_rust_common::{printkln, vga::{self}, ASSERT, MY_PANIC};
 
-use crate::{ascii::AsciiKey, blocking_queue::BlockingQueue, common::{cwd_dto::CwdDto, exec_dto::ExecParam}, console, console_print, exec, filesystem::{self, DirError, FileDescriptor, FileDescriptorType}, fork, keyboard, memory, pid_allocator::Pid, pipe::{self, PipeError, PipeReader, PipeWriter}, scancode::KeyCode, thread, thread_management, userprog::{self, TaskExitStatus}};
+use crate::{ascii::AsciiKey, blocking_queue::BlockingQueue, common::{cwd_dto::CwdDto, exec_dto::ExecParam, open_file_dto::OpenFileDto}, console, console_print, exec, filesystem::{self, DirError, FileDescriptor, FileDescriptorType, StdFileDescriptor}, fork, keyboard, memory, pid_allocator::Pid, pipe::{self, PipeError, PipeReader, PipeWriter}, scancode::KeyCode, thread, thread_management, userprog::{self, TaskExitStatus}};
 use super::sys_call::{self, HandlerType, SystemCallNo};
 
 /**
@@ -23,9 +23,6 @@ pub fn init() {
     // Read
     sys_call::register_handler(SystemCallNo::Read, HandlerType::ThreeParams(read));
 
-    // println
-    sys_call::register_handler(SystemCallNo::Print, HandlerType::OneParam(print_format));
-    
     // malloc
     sys_call::register_handler(SystemCallNo::Malloc, HandlerType::OneParam(malloc));
     
@@ -66,7 +63,7 @@ pub fn init() {
     sys_call::register_handler(SystemCallNo::CreateFile, HandlerType::ThreeParams(create_file));
 
     // 打开文件
-    sys_call::register_handler(SystemCallNo::OpenFile, HandlerType::ThreeParams(open_file));
+    sys_call::register_handler(SystemCallNo::OpenFile, HandlerType::TwoParams(open_file));
     
     // 获取文件大小
     sys_call::register_handler(SystemCallNo::FileSize, HandlerType::TwoParams(file_size));
@@ -98,13 +95,17 @@ pub fn init() {
     // 关闭管道
     sys_call::register_handler(SystemCallNo::PipeEnd, HandlerType::OneParam(pipe_end));
     
-    // 重定向当前任务的某个文件描述符
-    sys_call::register_handler(SystemCallNo::FileDescriptorRedirect, HandlerType::TwoParams(redirect_file_descriptor));
+    // 设置生产者
+    sys_call::register_handler(SystemCallNo::SetProducer, HandlerType::OneParam(set_producer));
+    
+    // 设置消费者
+    sys_call::register_handler(SystemCallNo::SetConsumer, HandlerType::OneParam(set_consumer));
 }
 
 /**
  * 获取当前任务的pid
  */
+#[inline(never)]
 fn get_pid() -> u32 {
     let cur_task = &thread::current_thread().task_struct;
     cur_task.pid.get_data().try_into().unwrap()
@@ -219,22 +220,11 @@ fn read(fd_addr: u32, buf: u32, len: u32) -> u32 {
     return 0;
 }
 
-/**
- * 打印系统调用
- */
-#[inline(never)]
-fn print_format(argument_addr: u32) -> u32 {
-    // 把参数地址，转成对象
-    let arg = unsafe { *(argument_addr as *const fmt::Arguments) };
-    
-    // 使用console_print函数，打印
-    console::console_print(arg);
-    0
-}
 
 /**
  * 申请bytes大小的内存空间
  */
+#[inline(never)]
 fn malloc(bytes: u32) -> u32 {
     memory::sys_malloc(bytes as usize) as u32
 }
@@ -242,6 +232,7 @@ fn malloc(bytes: u32) -> u32 {
 /**
  * 释放某个地址的内存空间
  */
+#[inline(never)]
 fn free(addr_to_free: u32) -> u32 {
     memory::sys_free(addr_to_free.try_into().unwrap());
     0
@@ -251,10 +242,12 @@ fn free(addr_to_free: u32) -> u32 {
 /**
  * fork
  */
+#[inline(never)]
 fn fork() -> u32 {
     fork::fork().get_data().try_into().unwrap()
 }
 
+#[inline(never)]
 fn thread_yield() -> u32 {
     thread_management::thread_yield();
     0
@@ -263,6 +256,7 @@ fn thread_yield() -> u32 {
 /**
  * 清除屏幕
  */
+#[inline(never)]
 fn clear_screen() -> u32 {
     vga::clear_all();
     0
@@ -336,6 +330,7 @@ fn dir_iter_drop(iter_addr: u32) -> u32 {
 }
 
 
+#[inline(never)]
 fn create_file(addr: u32, len: u32, res_addr: u32) -> u32 {
     let res = unsafe {&mut *(res_addr as *mut Result<filesystem::File, filesystem::FileError>)};
     let dir_path = unsafe { core::str::from_utf8(core::slice::from_raw_parts(addr as *const u8, len.try_into().unwrap())) };
@@ -345,13 +340,10 @@ fn create_file(addr: u32, len: u32, res_addr: u32) -> u32 {
 }
 
 #[inline(never)]
-fn open_file(addr: u32, len: u32, res_addr: u32) -> u32 {
+fn open_file(req_addr: u32, res_addr: u32) -> u32 {
     let res = unsafe {&mut *(res_addr as *mut Result<filesystem::File, filesystem::FileError>)};
-    let dir_path = unsafe { core::str::from_utf8(core::slice::from_raw_parts(addr as *const u8, len.try_into().unwrap())) };
-    if dir_path.is_err() {
-        MY_PANIC!("file error: {:?}", dir_path.unwrap_err());
-    }
-    *res = filesystem::File::open_ignore_drop(dir_path.unwrap());
+    let req = unsafe { &*(req_addr as *const OpenFileDto) };
+    *res = filesystem::OpenOptions::new().read(true).write(true).append(req.append).ignore_drop(true).open(req.file_path);
     0
 }
 
@@ -443,28 +435,21 @@ fn pipe_create(size: u32, res_addr: u32) -> u32 {
 #[inline(never)]
 fn pipe_end(fd_addr: u32) -> u32 {
     let fd = unsafe { *(fd_addr as *const FileDescriptor) };
-    let task_fd = filesystem::get_task_file_descriptor(fd);
-    if task_fd.is_none() {
-        return 0;
-    }
-    // 如果不是管道，那么也不用
-    if task_fd.unwrap().get_fd_type() != FileDescriptorType::Pipe {
-        return 0;
-    }
-    // 找到管道，结束了
-    let pipe = pipe::get_pipe_by_fd(fd);
-    if pipe.is_none() {
-        return 0;
-    }
-    pipe.unwrap().write_end();
+    pipe::release_pipe(fd);
     0
 }
 
 #[inline(never)]
-fn redirect_file_descriptor(fd_addr: u32, redirect_to: u32) -> u32 {
-    let target_fd = unsafe { *(fd_addr as *const FileDescriptor) };
-    let redirect_to = unsafe { *(redirect_to as *const FileDescriptor) };
-    
-    filesystem::redirect_file_descriptor(target_fd, redirect_to);
+fn set_producer(pipe_fd_addr: u32) -> u32 {
+    let pipe_fd = unsafe { *(pipe_fd_addr as *const FileDescriptor) };
+    let _ = pipe::set_producer(pipe_fd);
     0
 }
+
+#[inline(never)]
+fn set_consumer(pipe_fd_addr: u32) -> u32 {
+    let pipe_fd = unsafe { *(pipe_fd_addr as *const FileDescriptor) };
+    let _ = pipe::set_consumer(pipe_fd);
+    0
+}
+

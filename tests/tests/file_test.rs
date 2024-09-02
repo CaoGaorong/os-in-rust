@@ -24,7 +24,7 @@ mod test {
     #[test]
     pub fn read_file_test() {
         // 读取/a.txt文件
-        let file_data = file_system::read_file("/a.txt");
+        let file_data = file_system::read_file("/test");
         if file_data.is_none() {
             println!("no data found");
             return;

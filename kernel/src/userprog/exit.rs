@@ -1,3 +1,5 @@
+use core::ops::DerefMut;
+
 use os_in_rust_common::{constants, paging::PageTable, pool::MemPool, printk};
 
 use crate::{filesystem::{FileDescriptor, FileDescriptorType, StdFileDescriptor}, memory, pid_allocator::Pid, pipe, scheduler, thread::{self, TaskStatus, TaskStruct}};
@@ -109,9 +111,21 @@ fn wake_up_parent(cur_task: &TaskStruct) {
  */
 #[inline(never)]
 fn close_pipe(cur_task: &TaskStruct) {
-    let output_pipe = pipe::get_pipe_by_fd(FileDescriptor::new(StdFileDescriptor::StdOutputNo as usize));
-    if output_pipe.is_some() {
-        // 把输出的pipe关掉
-        output_pipe.unwrap().write_end();
+    let pipe_list = pipe::get_pipe_list();
+    for pipe_container in pipe_list {
+        if pipe_container.is_none() {
+            continue;
+        }
+        let pipe = pipe_container.as_mut().unwrap();
+        
+        // 生产者退出，那么往管道里写入结束
+        if pipe.get_producer() as *const _ ==  cur_task as *const _ {
+            pipe.write_end();
+        }
+
+        // 消费者退出，那么管道销毁
+        if pipe.get_consumer() as *const _ == cur_task as *const _ {
+            *pipe_container = Option::None;
+        }
     }
 }

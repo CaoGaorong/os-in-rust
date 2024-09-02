@@ -8,6 +8,8 @@ pub enum Cmd<'a> {
     Clear,
     Mkdir,
     Rmdir,
+    Touch,
+    Rm,
     Custom(&'a str)
 }
 impl <'a> Cmd<'a> {
@@ -28,6 +30,8 @@ impl <'a> Cmd<'a> {
             "clear" => Self::Clear,
             "mkdir" => Self::Mkdir,
             "rmdir" => Self::Rmdir,
+            "touch" => Self::Touch,
+            "rm" => Self::Rm,
             _ => Cmd::Custom(name),
         }
     }

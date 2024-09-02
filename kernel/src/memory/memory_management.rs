@@ -32,6 +32,15 @@ pub fn malloc_system<T>(bytes: usize) -> &'static mut T {
     t
 }
 
+#[inline(never)]
+pub fn free_system<T>(vaddr: *const T) {
+    let cur_task = &mut thread::current_thread().task_struct;
+    let pgdir_bak = cur_task.pgdir;
+    cur_task.pgdir = ptr::null_mut();
+    self::sys_free(vaddr as usize);
+    cur_task.pgdir = pgdir_bak;
+}
+
 /**
  * 申请内存
  */
@@ -100,19 +109,29 @@ pub fn malloc_kernel_page(page_cnt: usize) -> usize {
     // thread::check_task_stack("failed to malloc kernel page memory");
     unsafe { KERNEL_ADDR_POOL_LOCK.get_mut().lock() };
     unsafe { KERNEL_MEM_POOL_LOCK.get_mut().lock() };
-    let bytes = memory_allocation::malloc_page(memory_poll::get_kernel_addr_pool(), memory_poll::get_kernel_mem_pool(), page_cnt);
+    let vaddr = memory_allocation::malloc_page(memory_poll::get_kernel_addr_pool(), memory_poll::get_kernel_mem_pool(), page_cnt);
+    
+    // 清空申请到的内存空间
+    let page_data = unsafe { core::slice::from_raw_parts_mut(vaddr as *mut u8, page_cnt * constants::PAGE_SIZE as usize) };
+    unsafe { page_data.as_mut_ptr().write_bytes(0, page_data.len()) };
+
     unsafe { KERNEL_ADDR_POOL_LOCK.get_mut().unlock() };
     unsafe { KERNEL_MEM_POOL_LOCK.get_mut().unlock() };
-    bytes
+    vaddr
 }
 
 #[inline(never)]
 pub fn malloc_user_page(task: &mut TaskStruct, page_cnt: usize) -> usize {
     thread::check_task_stack("failed to malloc user page memory");
     unsafe { USER_MEM_POOL_LOCK.get_mut().lock() };
-    let bytes = memory_allocation::malloc_page(&mut task.vaddr_pool, memory_poll::get_user_mem_pool(), page_cnt);
+    let vaddr = memory_allocation::malloc_page(&mut task.vaddr_pool, memory_poll::get_user_mem_pool(), page_cnt);
+    
+    // 清空申请到的内存空间
+    let page_data = unsafe { core::slice::from_raw_parts_mut(vaddr as *mut u8, page_cnt * constants::PAGE_SIZE as usize) };
+    unsafe { page_data.as_mut_ptr().write_bytes(0, page_data.len()) };
+    
     unsafe { USER_MEM_POOL_LOCK.get_mut().unlock() };
-    bytes
+    vaddr
 }
 
 #[inline(never)]

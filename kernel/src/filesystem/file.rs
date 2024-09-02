@@ -352,6 +352,9 @@ pub fn read_file(fs: &mut FileSystem, file: &mut OpenedFile, buff: &mut [u8]) ->
     let mut succeed_bytes = 0usize;
     // 剩余要读取的字节数量
     let mut left_bytes = file.inode.i_size as i32 - file.file_off as i32;
+    if left_bytes <= 0 {
+        return 0;
+    }
 
     // 遍历所有的数据块扇区
     for block_idx in start_data_block_idx..=end_data_block_idx {
